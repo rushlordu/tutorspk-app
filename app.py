@@ -3,6 +3,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
+from dotenv import load_dotenv
 
 from flask import (
     Flask,
@@ -12,7 +13,11 @@ from flask import (
     request,
     send_from_directory,
     url_for,
+    session,
 )
+
+load_dotenv()
+
 from flask_login import (
     LoginManager,
     UserMixin,
@@ -24,19 +29,23 @@ from flask_login import (
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
-from flask_login import current_user
+from authlib.integrations.flask_client import OAuth
 
 BASE_DIR = Path(__file__).resolve().parent
 INSTANCE_DIR = BASE_DIR / "instance"
-INSTANCE_DIR.mkdir(exist_ok=True)
+INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR = BASE_DIR / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+LOCAL_DB_PATH = (INSTANCE_DIR / "tutorpk.db").resolve().as_posix()
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-change-me")
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-    "DATABASE_URL", f"sqlite:///{INSTANCE_DIR / 'tutorpk.db'}"
+    "DATABASE_URL", f"sqlite:///{LOCAL_DB_PATH}"
 )
+print("Using DB:", app.config["SQLALCHEMY_DATABASE_URI"])
+
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_DIR)
@@ -61,6 +70,18 @@ app.config["WHATSAPP_SUPPORT"] = os.getenv("WHATSAPP_SUPPORT", "+923558500230")
 app.config["CREDIT_RATE"] = int(os.getenv("CREDIT_RATE", "10"))
 app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID", "")
 app.config["GOOGLE_CLIENT_SECRET"] = os.getenv("GOOGLE_CLIENT_SECRET", "")
+
+oauth = OAuth(app)
+
+google = oauth.register(
+    name='google',
+    client_id=app.config["GOOGLE_CLIENT_ID"],
+    client_secret=app.config["GOOGLE_CLIENT_SECRET"],
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={
+        'scope': 'openid email profile'
+    }
+)
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
@@ -433,12 +454,43 @@ def register():
 
 @app.route("/google-login")
 def google_login():
-    flash(
-        "Google login scaffolding is included. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env to enable it fully.",
-        "info",
-    )
-    return redirect(url_for("login"))
+    if not app.config["GOOGLE_CLIENT_ID"]:
+        flash("Google login not configured.", "danger")
+        return redirect(url_for("login"))
 
+    redirect_uri = url_for("google_callback", _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+@app.route("/login/google/callback")
+def google_callback():
+    token = google.authorize_access_token()
+    user_info = token.get('userinfo')
+
+    email = user_info['email'].lower()
+    name = user_info.get('name', email.split('@')[0])
+
+    user = User.query.filter_by(email=email).first()
+
+    if not user:
+        user = User(
+            email=email,
+            role="student",
+            full_name=name,
+            public_name=name,
+            qualification="",
+            bio="Signed up via Google"
+        )
+        user.set_password(uuid4().hex)
+        db.session.add(user)
+        db.session.commit()
+
+    login_user(user)
+    flash("Logged in with Google.", "success")
+
+    if user.role == "admin":
+        return redirect(url_for("admin_dashboard"))
+
+    return redirect(url_for("dashboard"))
 
 @app.route("/login", methods=["GET", "POST"])
 def login():

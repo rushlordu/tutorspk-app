@@ -20,5 +20,10 @@
     <label><input type="checkbox" name="audio_only"> Audio-first teaching preference</label>
     <button class="btn" type="submit">Create account</button>
   </form>
+  <div class="divider"></div>
+
+  <a class="btn btn-light" href="{{ url_for('google_login') }}">
+    Sign up with Google
+  </a>
 </div>
 {% endblock %}
