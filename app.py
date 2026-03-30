@@ -1,7 +1,6 @@
 import os
 import re
-from datetime import datetime, timedelta
-from decimal import Decimal
+from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -25,19 +24,25 @@ from flask_login import (
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
+from flask_login import current_user
 
 BASE_DIR = Path(__file__).resolve().parent
+INSTANCE_DIR = BASE_DIR / "instance"
+INSTANCE_DIR.mkdir(exist_ok=True)
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-change-me")
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-    "DATABASE_URL", f"sqlite:///{BASE_DIR / 'instance' / 'tutorpk.db'}"
+    "DATABASE_URL", f"sqlite:///{INSTANCE_DIR / 'tutorpk.db'}"
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_DIR)
+
+# Temporary site status flag
+UNDER_CONSTRUCTION = True
 
 # Configurable placeholders for later setup
 app.config["MAIL_SERVER"] = os.getenv("MAIL_SERVER", "")
@@ -46,7 +51,9 @@ app.config["MAIL_USE_TLS"] = os.getenv("MAIL_USE_TLS", "true").lower() == "true"
 app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME", "")
 app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD", "")
 app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER", "")
-app.config["ADMIN_NOTIFICATION_EMAIL"] = os.getenv("ADMIN_NOTIFICATION_EMAIL", "jojopk44@gmail.com")
+app.config["ADMIN_NOTIFICATION_EMAIL"] = os.getenv(
+    "ADMIN_NOTIFICATION_EMAIL", "jojopk44@gmail.com"
+)
 app.config["BANK_ACCOUNT_TITLE"] = os.getenv("BANK_ACCOUNT_TITLE", "TutorPK")
 app.config["BANK_IBAN"] = os.getenv("BANK_IBAN", "PK47ASCM0000111000196711")
 app.config["BANK_NAME"] = os.getenv("BANK_NAME", "Askari Bank")
@@ -55,7 +62,6 @@ app.config["CREDIT_RATE"] = int(os.getenv("CREDIT_RATE", "10"))
 app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID", "")
 app.config["GOOGLE_CLIENT_SECRET"] = os.getenv("GOOGLE_CLIENT_SECRET", "")
 
-
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
@@ -63,7 +69,10 @@ login_manager.login_view = "login"
 PHONE_OR_EMAIL_PATTERNS = [
     re.compile(r"\b\+?\d[\d\s\-]{7,}\b"),
     re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
-    re.compile(r"\b(whatsapp|telegram|gmail|phone|call me|dm me|contact me|instagram)\b", re.I),
+    re.compile(
+        r"\b(whatsapp|telegram|gmail|phone|call me|dm me|contact me|instagram)\b",
+        re.I,
+    ),
 ]
 
 
@@ -101,10 +110,16 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     bookings_as_student = db.relationship(
-        "Booking", backref="student", lazy=True, foreign_keys="Booking.student_id"
+        "Booking",
+        backref="student",
+        lazy=True,
+        foreign_keys="Booking.student_id",
     )
     bookings_as_tutor = db.relationship(
-        "Booking", backref="tutor", lazy=True, foreign_keys="Booking.tutor_id"
+        "Booking",
+        backref="tutor",
+        lazy=True,
+        foreign_keys="Booking.tutor_id",
     )
 
     def set_password(self, password: str):
@@ -240,21 +255,64 @@ def inject_globals():
         "bank_title": app.config["BANK_ACCOUNT_TITLE"],
         "bank_name": app.config["BANK_NAME"],
         "support_whatsapp": app.config["WHATSAPP_SUPPORT"],
-        "google_configured": bool(app.config["GOOGLE_CLIENT_ID"] and app.config["GOOGLE_CLIENT_SECRET"]),
+        "google_configured": bool(
+            app.config["GOOGLE_CLIENT_ID"] and app.config["GOOGLE_CLIENT_SECRET"]
+        ),
+        "under_construction": UNDER_CONSTRUCTION,
     }
+
+
+@app.before_request
+def construction_gate():
+    if not UNDER_CONSTRUCTION:
+        return
+
+    path = request.path
+
+    # Allow essential routes
+    if (
+        path.startswith("/login")
+        or path.startswith("/logout")
+        or path.startswith("/admin")
+        or path.startswith("/google-login")
+        or path.startswith("/static/")
+        or path.startswith("/uploads/")
+        or path.startswith("/seed")
+    ):
+        return
+
+    # Allow logged-in admins
+    if current_user.is_authenticated and getattr(current_user, "role", None) == "admin":
+        return
+
+    # Redirect everyone else to under construction page
+    if path != "/":
+        return redirect(url_for("index"))
 
 
 def send_notification_email(subject: str, body: str):
     outbox = BASE_DIR / "email_outbox.log"
     stamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-    message = f"\n[{stamp}] TO: {app.config['ADMIN_NOTIFICATION_EMAIL']}\nSUBJECT: {subject}\n{body}\n"
-    outbox.write_text((outbox.read_text() if outbox.exists() else "") + message, encoding="utf-8")
+    existing = outbox.read_text(encoding="utf-8") if outbox.exists() else ""
+    message = (
+        f"\n[{stamp}] TO: {app.config['ADMIN_NOTIFICATION_EMAIL']}\n"
+        f"SUBJECT: {subject}\n{body}\n"
+    )
+    outbox.write_text(existing + message, encoding="utf-8")
     return not bool(app.config["MAIL_SERVER"])
 
 
 def add_credits(user: User, credits: int, tx_type: str, note: str = "", rupees: int = 0):
     user.credits_balance += credits
-    db.session.add(CreditTransaction(user_id=user.id, credits_change=credits, rupee_amount=rupees, tx_type=tx_type, note=note))
+    db.session.add(
+        CreditTransaction(
+            user_id=user.id,
+            credits_change=credits,
+            rupee_amount=rupees,
+            tx_type=tx_type,
+            note=note,
+        )
+    )
 
 
 def apply_bonus_if_eligible(tutor: User):
@@ -267,8 +325,20 @@ def apply_bonus_if_eligible(tutor: User):
     for amount, bonus_type, credits in milestones:
         if tutor.total_earnings_pkr >= amount and bonus_type not in existing_types:
             tutor.bonus_credits += credits
-            add_credits(tutor, credits, "bonus", f"Bonus awarded for crossing PKR {amount}")
-            db.session.add(TutorBonus(tutor_id=tutor.id, bonus_type=bonus_type, credits_awarded=credits, note=f"Milestone bonus at PKR {amount}"))
+            add_credits(
+                tutor,
+                credits,
+                "bonus",
+                f"Bonus awarded for crossing PKR {amount}",
+            )
+            db.session.add(
+                TutorBonus(
+                    tutor_id=tutor.id,
+                    bonus_type=bonus_type,
+                    credits_awarded=credits,
+                    note=f"Milestone bonus at PKR {amount}",
+                )
+            )
 
 
 def classify_teacher(subjects: str, levels: str) -> str:
@@ -286,7 +356,17 @@ def classify_teacher(subjects: str, levels: str) -> str:
 
 @app.route("/")
 def index():
-    featured_tutors = User.query.filter_by(role="tutor", is_verified_tutor=True).order_by(User.rating_avg.desc(), User.sessions_completed.desc()).limit(6).all()
+    if UNDER_CONSTRUCTION and not (
+        current_user.is_authenticated and getattr(current_user, "role", None) == "admin"
+    ):
+        return render_template("under_construction.html")
+
+    featured_tutors = (
+        User.query.filter_by(role="tutor", is_verified_tutor=True)
+        .order_by(User.rating_avg.desc(), User.sessions_completed.desc())
+        .limit(6)
+        .all()
+    )
     demo_topics = [
         "Fractions for Grade 6",
         "Linear Equations for O Level",
@@ -295,7 +375,11 @@ def index():
         "Essay Writing Skills",
         "Chemistry Stoichiometry Primer",
     ]
-    return render_template("index.html", featured_tutors=featured_tutors, demo_topics=demo_topics)
+    return render_template(
+        "index.html",
+        featured_tutors=featured_tutors,
+        demo_topics=demo_topics,
+    )
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -305,12 +389,15 @@ def register():
         if User.query.filter_by(email=email).first():
             flash("Email already registered.", "danger")
             return redirect(url_for("register"))
+
         role = request.form["role"]
         user = User(
             email=email,
             role=role,
             full_name=request.form["full_name"].strip(),
-            public_name=request.form.get("public_name", request.form["full_name"]).strip(),
+            public_name=request.form.get(
+                "public_name", request.form["full_name"]
+            ).strip(),
             qualification=request.form.get("qualification", "").strip(),
             subjects=request.form.get("subjects", "").strip(),
             class_levels=request.form.get("class_levels", "").strip(),
@@ -321,22 +408,35 @@ def register():
         )
         user.tutor_category = classify_teacher(user.subjects, user.class_levels)
         user.set_password(request.form["password"])
+
         if role == "tutor":
             user.is_verified_tutor = False
+
         db.session.add(user)
         db.session.commit()
+
         send_notification_email(
             "New TutorPK Registration",
-            f"New {role} registered\nName: {user.full_name}\nEmail: {user.email}\nPublic Name: {user.public_name}",
+            f"New {role} registered\n"
+            f"Name: {user.full_name}\n"
+            f"Email: {user.email}\n"
+            f"Public Name: {user.public_name}",
         )
-        flash("Registration completed. Tutors remain under review until admin verification.", "success")
+        flash(
+            "Registration completed. Tutors remain under review until admin verification.",
+            "success",
+        )
         return redirect(url_for("login"))
+
     return render_template("register.html")
 
 
 @app.route("/google-login")
 def google_login():
-    flash("Google login scaffolding is included. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env to enable it fully.", "info")
+    flash(
+        "Google login scaffolding is included. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env to enable it fully.",
+        "info",
+    )
     return redirect(url_for("login"))
 
 
@@ -348,6 +448,8 @@ def login():
         if user and user.check_password(request.form["password"]):
             login_user(user)
             flash("Logged in successfully.", "success")
+            if user.role == "admin":
+                return redirect(url_for("admin_dashboard"))
             return redirect(url_for("dashboard"))
         flash("Invalid credentials.", "danger")
     return render_template("login.html")
@@ -366,39 +468,56 @@ def logout():
 def dashboard():
     if current_user.role == "admin":
         return redirect(url_for("admin_dashboard"))
-    upcoming = Booking.query.filter(
-        ((Booking.student_id == current_user.id) | (Booking.tutor_id == current_user.id))
-    ).order_by(Booking.scheduled_at.desc()).limit(10).all()
+
+    upcoming = (
+        Booking.query.filter(
+            ((Booking.student_id == current_user.id) | (Booking.tutor_id == current_user.id))
+        )
+        .order_by(Booking.scheduled_at.desc())
+        .limit(10)
+        .all()
+    )
     return render_template("dashboard.html", bookings=upcoming)
 
 
 @app.route("/tutors")
 def tutors():
+    if UNDER_CONSTRUCTION:
+        return redirect(url_for("index"))
+
     level = request.args.get("level", "")
     subject = request.args.get("subject", "")
     query = User.query.filter_by(role="tutor", is_verified_tutor=True)
+
     if level:
         query = query.filter(User.class_levels.ilike(f"%{level}%"))
     if subject:
         query = query.filter(User.subjects.ilike(f"%{subject}%"))
+
     return render_template("tutors.html", tutors=query.all(), level=level, subject=subject)
 
 
 @app.route("/tutors/<int:tutor_id>", methods=["GET", "POST"])
 def tutor_profile(tutor_id):
+    if UNDER_CONSTRUCTION:
+        return redirect(url_for("index"))
+
     tutor = User.query.get_or_404(tutor_id)
     if tutor.role != "tutor":
         flash("Tutor not found.", "danger")
         return redirect(url_for("tutors"))
+
     if request.method == "POST":
         if not current_user.is_authenticated or current_user.role != "student":
             flash("Only students can leave feedback.", "danger")
             return redirect(url_for("login"))
+
         booking_id = int(request.form["booking_id"])
         booking = Booking.query.get_or_404(booking_id)
         if booking.student_id != current_user.id or booking.tutor_id != tutor.id:
             flash("Invalid booking.", "danger")
             return redirect(url_for("tutor_profile", tutor_id=tutor.id))
+
         feedback = Feedback(
             booking_id=booking.id,
             tutor_id=tutor.id,
@@ -411,34 +530,68 @@ def tutor_profile(tutor_id):
         )
         db.session.add(feedback)
         db.session.flush()
+
         tutor.rating_count += 1
-        tutor.rating_avg = round(((tutor.rating_avg * (tutor.rating_count - 1)) + feedback.rating) / tutor.rating_count, 2)
-        if tutor.rating_avg >= 4.7 and not any(b.bonus_type == "rating_bonus_4_7" for b in tutor.bonus_entries):
+        tutor.rating_avg = round(
+            ((tutor.rating_avg * (tutor.rating_count - 1)) + feedback.rating)
+            / tutor.rating_count,
+            2,
+        )
+
+        if tutor.rating_avg >= 4.7 and not any(
+            b.bonus_type == "rating_bonus_4_7" for b in tutor.bonus_entries
+        ):
             tutor.bonus_credits += 100
             add_credits(tutor, 100, "bonus", "Rating bonus for maintaining 4.7+")
-            db.session.add(TutorBonus(tutor_id=tutor.id, bonus_type="rating_bonus_4_7", credits_awarded=100, note="Rating bonus"))
+            db.session.add(
+                TutorBonus(
+                    tutor_id=tutor.id,
+                    bonus_type="rating_bonus_4_7",
+                    credits_awarded=100,
+                    note="Rating bonus",
+                )
+            )
+
         db.session.commit()
         flash("Feedback submitted.", "success")
         return redirect(url_for("tutor_profile", tutor_id=tutor.id))
+
     completed_bookings = []
     if current_user.is_authenticated and current_user.role == "student":
-        completed_bookings = Booking.query.filter_by(student_id=current_user.id, tutor_id=tutor.id, status="completed").all()
-    return render_template("tutor_profile.html", tutor=tutor, completed_bookings=completed_bookings)
+        completed_bookings = Booking.query.filter_by(
+            student_id=current_user.id,
+            tutor_id=tutor.id,
+            status="completed",
+        ).all()
+
+    return render_template(
+        "tutor_profile.html",
+        tutor=tutor,
+        completed_bookings=completed_bookings,
+    )
 
 
 @app.route("/book/<int:tutor_id>", methods=["GET", "POST"])
 @login_required
 def book_tutor(tutor_id):
+    if UNDER_CONSTRUCTION:
+        return redirect(url_for("index"))
+
     if current_user.role != "student":
         flash("Only students can book tutors.", "danger")
         return redirect(url_for("dashboard"))
+
     tutor = User.query.get_or_404(tutor_id)
+
     if request.method == "POST":
         credits_cost = int(request.form.get("credits_cost", 100))
         if current_user.credits_balance < credits_cost:
             flash("Insufficient credits. Please top up first.", "danger")
             return redirect(url_for("buy_credits"))
-        scheduled_at = datetime.strptime(request.form["scheduled_at"], "%Y-%m-%dT%H:%M")
+
+        scheduled_at = datetime.strptime(
+            request.form["scheduled_at"], "%Y-%m-%dT%H:%M"
+        )
         booking = Booking(
             student_id=current_user.id,
             tutor_id=tutor.id,
@@ -449,11 +602,17 @@ def book_tutor(tutor_id):
             credits_cost=credits_cost,
             status="scheduled",
         )
-        add_credits(current_user, -credits_cost, "session_deduction", f"Booking with {tutor.public_name}")
+        add_credits(
+            current_user,
+            -credits_cost,
+            "session_deduction",
+            f"Booking with {tutor.public_name}",
+        )
         db.session.add(booking)
         db.session.commit()
         flash("Session booked.", "success")
         return redirect(url_for("dashboard"))
+
     return render_template("book_tutor.html", tutor=tutor)
 
 
@@ -463,14 +622,17 @@ def buy_credits():
     if current_user.role != "student":
         flash("Only students can buy credits.", "danger")
         return redirect(url_for("dashboard"))
+
     if request.method == "POST":
         amount = int(request.form["amount_sent_pkr"])
         credits = amount // app.config["CREDIT_RATE"]
         screenshot = request.files.get("screenshot")
         filename = ""
+
         if screenshot and screenshot.filename:
             filename = f"{uuid4().hex}_{secure_filename(screenshot.filename)}"
             screenshot.save(Path(app.config["UPLOAD_FOLDER"]) / filename)
+
         notice = PaymentNotice(
             student_id=current_user.id,
             amount_sent_pkr=amount,
@@ -483,15 +645,24 @@ def buy_credits():
         )
         db.session.add(notice)
         db.session.commit()
+
         fallback = send_notification_email(
             "TutorPK Payment Notice",
-            f"Student: {current_user.full_name} ({current_user.email})\nAmount: PKR {amount}\nClaimed credits: {credits}\nSender account: {notice.sender_account}\nMethod: {notice.transfer_method}",
+            f"Student: {current_user.full_name} ({current_user.email})\n"
+            f"Amount: PKR {amount}\n"
+            f"Claimed credits: {credits}\n"
+            f"Sender account: {notice.sender_account}\n"
+            f"Method: {notice.transfer_method}",
         )
         if fallback:
-            flash("Notice saved. SMTP not configured; email logged to email_outbox.log", "warning")
+            flash(
+                "Notice saved. SMTP not configured; email logged to email_outbox.log",
+                "warning",
+            )
         else:
             flash("Payment notice submitted and admin notified.", "success")
         return redirect(url_for("student_wallet"))
+
     return render_template("buy_credits.html")
 
 
@@ -499,10 +670,23 @@ def buy_credits():
 @login_required
 def student_wallet():
     if current_user.role == "student":
-        txs = CreditTransaction.query.filter_by(user_id=current_user.id).order_by(CreditTransaction.created_at.desc()).all()
-        notices = PaymentNotice.query.filter_by(student_id=current_user.id).order_by(PaymentNotice.created_at.desc()).all()
+        txs = (
+            CreditTransaction.query.filter_by(user_id=current_user.id)
+            .order_by(CreditTransaction.created_at.desc())
+            .all()
+        )
+        notices = (
+            PaymentNotice.query.filter_by(student_id=current_user.id)
+            .order_by(PaymentNotice.created_at.desc())
+            .all()
+        )
         return render_template("student_wallet.html", txs=txs, notices=notices)
-    txs = CreditTransaction.query.filter_by(user_id=current_user.id).order_by(CreditTransaction.created_at.desc()).all()
+
+    txs = (
+        CreditTransaction.query.filter_by(user_id=current_user.id)
+        .order_by(CreditTransaction.created_at.desc())
+        .all()
+    )
     return render_template("tutor_wallet.html", txs=txs)
 
 
@@ -510,13 +694,18 @@ def student_wallet():
 @login_required
 def live_session(booking_id):
     booking = Booking.query.get_or_404(booking_id)
-    if current_user.role not in ["admin"] and current_user.id not in [booking.student_id, booking.tutor_id]:
+    if current_user.role not in ["admin"] and current_user.id not in [
+        booking.student_id,
+        booking.tutor_id,
+    ]:
         flash("Unauthorized.", "danger")
         return redirect(url_for("dashboard"))
+
     log = LiveSessionLog.query.filter_by(booking_id=booking.id).first()
     if not log:
         log = LiveSessionLog(booking_id=booking.id, room_code=booking.room_code)
         db.session.add(log)
+
     if current_user.role == "student":
         log.student_joined = True
     elif current_user.role == "tutor":
@@ -524,6 +713,7 @@ def live_session(booking_id):
     elif current_user.role == "admin":
         log.admin_joined = True
         log.last_activity_note = "Admin observer joined transparently"
+
     db.session.commit()
 
     if request.method == "POST":
@@ -533,12 +723,24 @@ def live_session(booking_id):
             if pattern.search(message):
                 reason = "Possible off-platform contact sharing"
                 break
+
         if reason:
-            db.session.add(ChatFlag(booking_id=booking.id, sender_id=current_user.id, message=message, reason=reason))
+            db.session.add(
+                ChatFlag(
+                    booking_id=booking.id,
+                    sender_id=current_user.id,
+                    message=message,
+                    reason=reason,
+                )
+            )
             db.session.commit()
-            flash("Message blocked. Contact sharing is not allowed on TutorPK.", "danger")
+            flash(
+                "Message blocked. Contact sharing is not allowed on TutorPK.",
+                "danger",
+            )
         else:
             flash("Message accepted in this MVP room shell.", "success")
+
     return render_template("live_session.html", booking=booking, log=log)
 
 
@@ -549,8 +751,10 @@ def complete_student(booking_id):
     if booking.student_id != current_user.id:
         flash("Unauthorized.", "danger")
         return redirect(url_for("dashboard"))
+
     booking.student_marked_complete = True
     booking.status = "completed"
+
     if not booking.payout_released:
         tutor = booking.tutor
         tutor_share_pkr = int(booking.credits_cost * app.config["CREDIT_RATE"] * 0.8)
@@ -559,14 +763,35 @@ def complete_student(booking_id):
         tutor.monthly_earnings_pkr += tutor_share_pkr
         tutor.sessions_completed += 1
         booking.payout_released = True
+
         apply_bonus_if_eligible(tutor)
-        if tutor.sessions_completed in [10, 25, 50] and not any(b.bonus_type == f"activity_{tutor.sessions_completed}" for b in tutor.bonus_entries):
+
+        if tutor.sessions_completed in [10, 25, 50] and not any(
+            b.bonus_type == f"activity_{tutor.sessions_completed}"
+            for b in tutor.bonus_entries
+        ):
             credits = {10: 50, 25: 100, 50: 200}[tutor.sessions_completed]
             tutor.bonus_credits += credits
-            add_credits(tutor, credits, "bonus", f"Activity bonus for {tutor.sessions_completed} completed sessions")
-            db.session.add(TutorBonus(tutor_id=tutor.id, bonus_type=f"activity_{tutor.sessions_completed}", credits_awarded=credits, note="Activity bonus"))
+            add_credits(
+                tutor,
+                credits,
+                "bonus",
+                f"Activity bonus for {tutor.sessions_completed} completed sessions",
+            )
+            db.session.add(
+                TutorBonus(
+                    tutor_id=tutor.id,
+                    bonus_type=f"activity_{tutor.sessions_completed}",
+                    credits_awarded=credits,
+                    note="Activity bonus",
+                )
+            )
+
     db.session.commit()
-    flash("Session completed and tutor earnings released to pending payout.", "success")
+    flash(
+        "Session completed and tutor earnings released to pending payout.",
+        "success",
+    )
     return redirect(url_for("dashboard"))
 
 
@@ -576,23 +801,32 @@ def withdraw():
     if current_user.role != "tutor":
         flash("Only tutors can request withdrawals.", "danger")
         return redirect(url_for("dashboard"))
+
     amount = int(request.form["amount_pkr"])
     if amount > current_user.pending_payout_pkr:
         flash("Insufficient pending payout.", "danger")
         return redirect(url_for("student_wallet"))
+
     wr = WithdrawalRequest(
         tutor_id=current_user.id,
         amount_pkr=amount,
         payout_method=request.form.get("payout_method", current_user.payout_method),
-        payout_account_title=request.form.get("payout_account_title", current_user.payout_account_title),
-        payout_account_number=request.form.get("payout_account_number", current_user.payout_account_number),
+        payout_account_title=request.form.get(
+            "payout_account_title", current_user.payout_account_title
+        ),
+        payout_account_number=request.form.get(
+            "payout_account_number", current_user.payout_account_number
+        ),
         payout_iban=request.form.get("payout_iban", current_user.payout_iban),
     )
     current_user.pending_payout_pkr -= amount
     db.session.add(wr)
+
     send_notification_email(
         "TutorPK Withdrawal Request",
-        f"Tutor: {current_user.full_name} ({current_user.email})\nAmount: PKR {amount}\nMethod: {wr.payout_method}",
+        f"Tutor: {current_user.full_name} ({current_user.email})\n"
+        f"Amount: PKR {amount}\n"
+        f"Method: {wr.payout_method}",
     )
     db.session.commit()
     flash("Withdrawal request submitted.", "success")
@@ -605,17 +839,30 @@ def admin_dashboard():
     if current_user.role != "admin":
         flash("Unauthorized.", "danger")
         return redirect(url_for("dashboard"))
+
     stats = {
         "users": User.query.count(),
         "tutors": User.query.filter_by(role="tutor").count(),
         "students": User.query.filter_by(role="student").count(),
         "pending_notices": PaymentNotice.query.filter_by(status="pending").count(),
-        "live_sessions": LiveSessionLog.query.filter(LiveSessionLog.ended_at.is_(None)).count(),
+        "live_sessions": LiveSessionLog.query.filter(
+            LiveSessionLog.ended_at.is_(None)
+        ).count(),
         "withdrawals": WithdrawalRequest.query.filter_by(status="requested").count(),
     }
-    recent_notices = PaymentNotice.query.order_by(PaymentNotice.created_at.desc()).limit(10).all()
-    live_sessions = LiveSessionLog.query.order_by(LiveSessionLog.started_at.desc()).limit(10).all()
-    return render_template("admin_dashboard.html", stats=stats, recent_notices=recent_notices, live_sessions=live_sessions)
+    recent_notices = (
+        PaymentNotice.query.order_by(PaymentNotice.created_at.desc()).limit(10).all()
+    )
+    live_sessions = (
+        LiveSessionLog.query.order_by(LiveSessionLog.started_at.desc()).limit(10).all()
+    )
+
+    return render_template(
+        "admin_dashboard.html",
+        stats=stats,
+        recent_notices=recent_notices,
+        live_sessions=live_sessions,
+    )
 
 
 @app.route("/admin/users")
@@ -623,6 +870,7 @@ def admin_dashboard():
 def admin_users():
     if current_user.role != "admin":
         return redirect(url_for("dashboard"))
+
     users = User.query.order_by(User.created_at.desc()).all()
     return render_template("admin_users.html", users=users)
 
@@ -632,6 +880,7 @@ def admin_users():
 def admin_toggle_user(user_id):
     if current_user.role != "admin":
         return redirect(url_for("dashboard"))
+
     user = User.query.get_or_404(user_id)
     user.is_active_user = not user.is_active_user
     db.session.commit()
@@ -644,11 +893,13 @@ def admin_toggle_user(user_id):
 def admin_verify_tutor(user_id):
     if current_user.role != "admin":
         return redirect(url_for("dashboard"))
+
     user = User.query.get_or_404(user_id)
     if user.role == "tutor":
         user.is_verified_tutor = True
         db.session.commit()
         flash("Tutor verified.", "success")
+
     return redirect(url_for("admin_users"))
 
 
@@ -657,6 +908,7 @@ def admin_verify_tutor(user_id):
 def admin_payment_notices():
     if current_user.role != "admin":
         return redirect(url_for("dashboard"))
+
     notices = PaymentNotice.query.order_by(PaymentNotice.created_at.desc()).all()
     return render_template("admin_payment_notices.html", notices=notices)
 
@@ -666,14 +918,22 @@ def admin_payment_notices():
 def admin_approve_notice(notice_id):
     if current_user.role != "admin":
         return redirect(url_for("dashboard"))
+
     notice = PaymentNotice.query.get_or_404(notice_id)
     if notice.status != "pending":
         flash("Notice already reviewed.", "warning")
         return redirect(url_for("admin_payment_notices"))
+
     notice.status = "approved"
     notice.admin_note = request.form.get("admin_note", "")
     notice.reviewed_at = datetime.utcnow()
-    add_credits(notice.student, notice.claimed_credits, "topup", f"Approved payment notice #{notice.id}", notice.amount_sent_pkr)
+    add_credits(
+        notice.student,
+        notice.claimed_credits,
+        "topup",
+        f"Approved payment notice #{notice.id}",
+        notice.amount_sent_pkr,
+    )
     db.session.commit()
     flash("Payment approved and credits added.", "success")
     return redirect(url_for("admin_payment_notices"))
@@ -684,6 +944,7 @@ def admin_approve_notice(notice_id):
 def admin_reject_notice(notice_id):
     if current_user.role != "admin":
         return redirect(url_for("dashboard"))
+
     notice = PaymentNotice.query.get_or_404(notice_id)
     notice.status = "rejected"
     notice.admin_note = request.form.get("admin_note", "")
@@ -698,7 +959,10 @@ def admin_reject_notice(notice_id):
 def admin_withdrawals():
     if current_user.role != "admin":
         return redirect(url_for("dashboard"))
-    withdrawals = WithdrawalRequest.query.order_by(WithdrawalRequest.created_at.desc()).all()
+
+    withdrawals = WithdrawalRequest.query.order_by(
+        WithdrawalRequest.created_at.desc()
+    ).all()
     return render_template("admin_withdrawals.html", withdrawals=withdrawals)
 
 
@@ -707,6 +971,7 @@ def admin_withdrawals():
 def admin_mark_withdrawal_paid(withdrawal_id):
     if current_user.role != "admin":
         return redirect(url_for("dashboard"))
+
     wr = WithdrawalRequest.query.get_or_404(withdrawal_id)
     wr.status = "paid"
     wr.admin_note = request.form.get("admin_note", "")
@@ -720,6 +985,7 @@ def admin_mark_withdrawal_paid(withdrawal_id):
 def admin_bonuses():
     if current_user.role != "admin":
         return redirect(url_for("dashboard"))
+
     bonuses = TutorBonus.query.order_by(TutorBonus.created_at.desc()).all()
     return render_template("admin_bonuses.html", bonuses=bonuses)
 
@@ -729,7 +995,10 @@ def admin_bonuses():
 def admin_live_sessions():
     if current_user.role != "admin":
         return redirect(url_for("dashboard"))
-    live_sessions = LiveSessionLog.query.order_by(LiveSessionLog.started_at.desc()).all()
+
+    live_sessions = LiveSessionLog.query.order_by(
+        LiveSessionLog.started_at.desc()
+    ).all()
     return render_template("admin_live_sessions.html", live_sessions=live_sessions)
 
 
@@ -741,6 +1010,7 @@ def uploaded_file(filename):
 @app.route("/seed")
 def seed():
     db.create_all()
+
     if User.query.count() > 0:
         flash("Database already seeded.", "info")
         return redirect(url_for("index"))
@@ -770,20 +1040,85 @@ def seed():
     db.session.add(student)
 
     tutor_data = [
-        ("ayesha@example.com", "Ayesha Noor", "Ayesha N.", "MSc Mathematics", "Mathematics", "Grade 5-8, Matric", 7, "Patient maths tutor for school learners.", "Grade 5–8 Tutor"),
-        ("bilal@example.com", "Bilal Khan", "Sir Bilal", "MPhil Physics", "Physics", "Matric, Intermediate", 6, "Concept-first physics lessons for board students.", "Intermediate Specialist"),
-        ("sana@example.com", "Sana Fatima", "Miss Sana", "MA English", "English", "Grade 5-8, O Level", 8, "Essay writing and grammar specialist.", "O Level Specialist"),
-        ("umar@example.com", "Umar Rashid", "Umar R.", "MSc Chemistry", "Chemistry", "Matric, Intermediate", 5, "Strong at numerical chemistry and revision plans.", "Intermediate Specialist"),
-        ("mariam@example.com", "Mariam Iqbal", "Mariam I.", "BS Computer Science", "Computer Science", "O Level, A Level", 4, "Programming and CS theory tutor.", "A Level Specialist"),
-        ("hira@example.com", "Hira Javed", "Hira J.", "MSc Biology", "Biology", "Matric, Intermediate", 5, "Clear and visual biology instruction.", "Intermediate Specialist"),
-        ("saad@example.com", "Saad Ahmed", "Saad A.", "MA Urdu", "Urdu, Pakistan Studies", "Grade 5-8, Matric", 9, "Language support and exam prep.", "Matric Specialist"),
-        ("zainab@example.com", "Zainab Ali", "Zainab A.", "MSc Mathematics", "Additional Mathematics", "O Level, A Level", 6, "Advanced problem solving for Cambridge learners.", "A Level Specialist"),
-        ("talha@example.com", "Talha Siddiq", "Talha S.", "MSc Economics", "Economics", "O Level, A Level", 5, "Focused on exam strategy and graphs.", "A Level Specialist"),
-        ("rabia@example.com", "Rabia Karim", "Rabia K.", "MA English", "English Literature, English Language", "O Level, A Level", 7, "Literature interpretation and structured writing.", "A Level Specialist"),
+        (
+            "ayesha@example.com",
+            "Ayesha Noor",
+            "Ayesha N.",
+            "MSc Mathematics",
+            "Mathematics",
+            "Grade 5-8, Matric",
+            7,
+            "Patient maths tutor for school learners.",
+            "Grade 5–8 Tutor",
+        ),
+        (
+            "bilal@example.com",
+            "Bilal Khan",
+            "Sir Bilal",
+            "MPhil Physics",
+            "Physics",
+            "Matric, Intermediate",
+            6,
+            "Concept-first physics lessons for board students.",
+            "Intermediate Specialist",
+        ),
+        (
+            "sana@example.com",
+            "Sana Fatima",
+            "Miss Sana",
+            "MA English",
+            "English",
+            "Grade 5-8, O Level",
+            8,
+            "Essay writing and grammar specialist.",
+            "O Level Specialist",
+        ),
+        (
+            "umar@example.com",
+            "Umar Rashid",
+            "Umar R.",
+            "MSc Chemistry",
+            "Chemistry",
+            "Matric, Intermediate",
+            5,
+            "Clear and practical chemistry teaching.",
+            "Intermediate Specialist",
+        ),
+        (
+            "hina@example.com",
+            "Hina Javed",
+            "Hina J.",
+            "BS Computer Science",
+            "Computer Science, Mathematics",
+            "Grade 5-8, O Level",
+            4,
+            "Friendly tutor for coding and maths foundations.",
+            "O Level Specialist",
+        ),
+        (
+            "faraz@example.com",
+            "Faraz Ahmed",
+            "Sir Faraz",
+            "MA Urdu",
+            "Urdu, Pakistan Studies",
+            "Matric, Intermediate",
+            9,
+            "Strong board exam preparation support.",
+            "Intermediate Specialist",
+        ),
     ]
 
-    for idx, row in enumerate(tutor_data, start=1):
-        email, full_name, public_name, qualification, subjects, levels, exp, bio, category = row
+    for (
+        email,
+        full_name,
+        public_name,
+        qualification,
+        subjects,
+        class_levels,
+        experience_years,
+        bio,
+        tutor_category,
+    ) in tutor_data:
         tutor = User(
             email=email,
             role="tutor",
@@ -791,45 +1126,24 @@ def seed():
             public_name=public_name,
             qualification=qualification,
             subjects=subjects,
-            class_levels=levels,
-            experience_years=exp,
+            class_levels=class_levels,
+            experience_years=experience_years,
             bio=bio,
-            tutor_category=category,
+            tutor_category=tutor_category,
             is_verified_tutor=True,
-            rating_avg=4.5 + (idx % 5) * 0.1,
-            rating_count=10 + idx,
-            sessions_completed=8 * idx,
-            profile_image=f"https://picsum.photos/seed/tutor{idx}/300/300",
-            demo_video_url="https://example.com/demo-video",
-            modest_profile=(idx % 3 == 0),
-            audio_only=(idx % 4 == 0),
+            rating_avg=4.8,
+            rating_count=12,
+            sessions_completed=20,
         )
         tutor.set_password("password123")
-        tutor.total_earnings_pkr = 10000 * idx
-        tutor.monthly_earnings_pkr = 4000 * idx
         db.session.add(tutor)
 
     db.session.commit()
-
-    first_tutor = User.query.filter_by(role="tutor").first()
-    booking = Booking(
-        student_id=student.id,
-        tutor_id=first_tutor.id,
-        subject="Mathematics",
-        class_level="Matric",
-        scheduled_at=datetime.utcnow() + timedelta(days=1),
-        duration_minutes=60,
-        credits_cost=120,
-        status="scheduled",
-    )
-    db.session.add(booking)
-    db.session.commit()
-
-    flash("Seed completed. Admin: jojopk44@gmail.com / admin123, Student: hamza@example.com / password123, Tutors use password123", "success")
+    flash("Database seeded successfully.", "success")
     return redirect(url_for("index"))
 
 
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
