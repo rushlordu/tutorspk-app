@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="grid cards">
+  <div class="card"><h2>Total users</h2><p>{{ stats.users }}</p></div>
+  <div class="card"><h2>Tutors</h2><p>{{ stats.tutors }}</p></div>
+  <div class="card"><h2>Students</h2><p>{{ stats.students }}</p></div>
+  <div class="card"><h2>Pending notices</h2><p>{{ stats.pending_notices }}</p></div>
+  <div class="card"><h2>Live sessions</h2><p>{{ stats.live_sessions }}</p></div>
+  <div class="card"><h2>Withdrawal requests</h2><p>{{ stats.withdrawals }}</p></div>
+</section>
+<section class="grid two">
+  <div class="card">
+    <h2>Admin actions</h2>
+    <ul class="clean-list">
+      <li><a href="{{ url_for('admin_users') }}">Manage users</a></li>
+      <li><a href="{{ url_for('admin_payment_notices') }}">Review payment notices</a></li>
+      <li><a href="{{ url_for('admin_withdrawals') }}">Review withdrawals</a></li>
+      <li><a href="{{ url_for('admin_bonuses') }}">Tutor bonuses</a></li>
+      <li><a href="{{ url_for('admin_live_sessions') }}">Live session monitor</a></li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2>Recent payment notices</h2>
+    <ul class="clean-list">
+      {% for notice in recent_notices %}
+      <li>#{{ notice.id }} · {{ notice.student.public_name }} · PKR {{ notice.amount_sent_pkr }} · {{ notice.status }}</li>
+      {% else %}
+      <li>No notices yet.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+{% endblock %}

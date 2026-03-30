@@ -2,34 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}TutorPK Live{% endblock %}</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TutorPK</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
 <body>
   <header class="topbar">
-    <div class="wrap topbar-inner">
-      <a href="{{ url_for('home') }}" class="brand">TutorPK Live</a>
+    <div class="container nav">
+      <a href="{{ url_for('index') }}" class="brand">TutorPK</a>
       <nav>
         <a href="{{ url_for('tutors') }}">Tutors</a>
-        {% if current_user and current_user.role == 'student' %}
-          <a href="{{ url_for('buy_credits') }}">Buy credits</a>
-        {% endif %}
-        {% if current_user %}
-          <a href="{{ url_for('dashboard') }}">{% if current_user.role == 'admin' %}Admin panel{% else %}Dashboard{% endif %}</a>
+        {% if current_user.is_authenticated %}
+          <a href="{{ url_for('dashboard') }}">Dashboard</a>
+          <a href="{{ url_for('student_wallet') }}">Wallet</a>
+          {% if current_user.role == 'admin' %}<a href="{{ url_for('admin_dashboard') }}">Admin</a>{% endif %}
           <a href="{{ url_for('logout') }}">Logout</a>
         {% else %}
           <a href="{{ url_for('login') }}">Login</a>
-          <a href="{{ url_for('register') }}" class="btn small">Join</a>
+          <a href="{{ url_for('register') }}" class="btn btn-sm">Register</a>
         {% endif %}
       </nav>
     </div>
   </header>
 
-  <main class="wrap page">
+  <main class="container main">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        <div class="flash-stack">
+        <div class="flash-wrap">
           {% for category, message in messages %}
             <div class="flash {{ category }}">{{ message }}</div>
           {% endfor %}

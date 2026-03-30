@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+  <h1>All Users</h1>
+  <table class="table">
+    <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Verified</th><th>Actions</th></tr>
+    {% for user in users %}
+    <tr>
+      <td>{{ user.public_name }}</td>
+      <td>{{ user.email }}</td>
+      <td>{{ user.role }}</td>
+      <td>{{ 'Active' if user.is_active_user else 'Suspended' }}</td>
+      <td>{{ 'Yes' if user.is_verified_tutor else '-' }}</td>
+      <td>
+        <form method="post" action="{{ url_for('admin_toggle_user', user_id=user.id) }}" style="display:inline"><button class="btn btn-sm">Toggle</button></form>
+        {% if user.role == 'tutor' and not user.is_verified_tutor %}
+        <form method="post" action="{{ url_for('admin_verify_tutor', user_id=user.id) }}" style="display:inline"><button class="btn btn-sm btn-light">Verify tutor</button></form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}

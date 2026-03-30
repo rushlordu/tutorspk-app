@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+  <h1>Withdrawal Requests</h1>
+  <table class="table">
+    <tr><th>Tutor</th><th>Amount</th><th>Method</th><th>Account</th><th>Status</th><th>Action</th></tr>
+    {% for item in withdrawals %}
+    <tr>
+      <td>{{ item.tutor.public_name }}</td>
+      <td>PKR {{ item.amount_pkr }}</td>
+      <td>{{ item.payout_method }}</td>
+      <td>{{ item.payout_account_number or item.payout_iban }}</td>
+      <td>{{ item.status }}</td>
+      <td>{% if item.status == 'requested' %}<form method="post" action="{{ url_for('admin_mark_withdrawal_paid', withdrawal_id=item.id) }}"><button class="btn btn-sm">Mark paid</button></form>{% else %}Done{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}

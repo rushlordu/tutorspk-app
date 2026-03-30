@@ -1,59 +1,51 @@
-# TutorPK Live Admin MVP
+# TutorPK Full Redesign Build
 
-A Flask + SQLite tutoring marketplace for Pakistan with:
-- in-platform live classes
-- transparent admin observer mode
-- manual credit top-ups through bank transfer
-- chat scanning for phone numbers, emails, WhatsApp, and off-platform contact attempts
-- admin review for payment notices and tutor withdrawals
+This build implements the features that can be shipped now without external credentials, and scaffolds the ones that need later configuration.
 
-## Core mechanics implemented
+## Included now
+- redesigned homepage
+- featured tutors and 10 rich demo tutor profiles
+- student / tutor / admin accounts
+- manual bank-transfer credit purchase flow
+- visible bank details and WhatsApp proof instruction
+- admin payment notice review panel
+- student credits wallet and ledger
+- tutor earnings, pending payout, withdrawal requests
+- 20% commission logic with tutor-side bonus engine
+- milestone, activity, and rating bonuses
+- tutor feedback system
+- alias/public names, qualification-only display, no institution, no current role
+- admin dashboard, user management, tutor verification, live session monitor
+- transparent admin observer banner in live sessions
+- protected chat shell with phone/email/WhatsApp scanning
+- Google login scaffolding
+- SMTP / email notification scaffolding with log fallback
 
-### Credits and payments
-- `bank_details.txt` stores the bank title, IBAN, admin email, WhatsApp number, and PKR-to-credit rate
-- students buy credits at **PKR 10 = 1 credit**
-- payment screen shows the bank title + IBAN + admin WhatsApp
-- student submits a payment notice after transfer
-- admin receives an email notification if SMTP is configured; otherwise the email is logged to `email_outbox.log`
-- admin manually approves the payment notice and credits the student account
-- bookings hold credits in escrow until the student marks the session complete
-- once the student marks complete, credits move to the tutor earnings balance
-- tutor withdrawal requests are reviewed and marked paid manually by admin
-
-### Admin controls
-- admin account can see all users, payment notices, withdrawals, moderation flags, bookings, and live rooms
-- admin can manually adjust user credits
-- admin can join any live room as an observer
-- when admin joins a room, a visible observer notice appears to all participants
-
-### Moderation and platform protection
-- chat blocks emails, phone numbers, WhatsApp mentions, and similar contact-sharing attempts
-- blocked messages are logged in admin moderation flags
-- room UI clearly states that admin observation is transparent
-
-## Quick start
-
+## Run
 ```bash
 python -m venv .venv
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
+# Windows
+.venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
 ```
 
-Open `http://127.0.0.1:5000`
+Then open the local URL shown by Flask.
 
-## Demo data
-
+## Seed demo data
 Visit `/seed`
 
-- Admin: `jojopk44@gmail.com` / `admin123`
-- Student: `hamza@example.com` / `password123`
-- Tutor: `ayesha@example.com` / `password123`
+Demo logins:
+- admin: `jojopk44@gmail.com` / `admin123`
+- student: `hamza@example.com` / `password123`
+- demo tutors: any demo tutor email / `password123`
 
-## Important notes
+## What still needs external configuration later
+- real SMTP delivery: set MAIL_* variables
+- real Google login: set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
+- production-grade video backend / TURN / recording
+- real automated JazzCash / EasyPaisa / bank verification
+- real payout automation
 
-- Database file is `tutorpk_live_admin.db`
-- If you used an older TutorPK version, this new DB name avoids schema conflicts
-- For Gmail SMTP, you should configure environment variables such as `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and optionally `SMTP_SENDER`
-- This demo uses STUN only. For reliable calls in Pakistan, add a TURN server such as coturn
+## Notes
+This build uses a monitored live-session shell rather than a production media stack. It is meant as a strong product MVP and admin-control base.

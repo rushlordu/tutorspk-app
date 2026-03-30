@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="hero card hero-grid">
+  <div>
+    <p class="eyebrow">Monitored online tutoring for Pakistan</p>
+    <h1>Book trusted tutors for Grade 5–8, Matric, Intermediate, O Levels and A Levels.</h1>
+    <p>Platform-only classes, transparent admin observer mode, credits-based payments, featured tutors and demo lessons.</p>
+    <div class="hero-actions">
+      <a class="btn" href="{{ url_for('tutors') }}">Explore tutors</a>
+      <a class="btn btn-light" href="{{ url_for('register') }}">Join TutorPK</a>
+    </div>
+  </div>
+  <div class="hero-panel">
+    <div class="metric"><strong>10+</strong><span>Demo tutors</span></div>
+    <div class="metric"><strong>20%</strong><span>Platform commission with tutor bonus program</span></div>
+    <div class="metric"><strong>1 credit</strong><span>= Rs {{ credit_rate }}</span></div>
+  </div>
+</section>
+
+<section class="grid three">
+  <div class="card"><h3>Featured tutors</h3><p>Public aliases, qualifications, demo lectures and ratings.</p></div>
+  <div class="card"><h3>Quality assurance</h3><p>Admin can join sessions as visible observer. Contact-sharing is scanned in chat.</p></div>
+  <div class="card"><h3>Manual payments now</h3><p>Students top up by bank transfer, admin verifies and adds credits.</p></div>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>Featured tutors</h2>
+    <a href="{{ url_for('tutors') }}">View all</a>
+  </div>
+  <div class="grid cards">
+    {% for tutor in featured_tutors %}
+      <article class="card tutor-card">
+        <img src="{{ tutor.profile_image or 'https://picsum.photos/seed/default/300/300' }}" alt="{{ tutor.public_name }}">
+        <h3>{{ tutor.public_name }}</h3>
+        <p class="muted">{{ tutor.qualification }}</p>
+        <p>{{ tutor.subjects }}</p>
+        <span class="badge">{{ tutor.tutor_category }}</span>
+        <p>⭐ {{ '%.1f'|format(tutor.rating_avg) }} · {{ tutor.sessions_completed }} sessions</p>
+        <a class="btn btn-sm" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">View profile</a>
+      </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="grid two">
+  <div class="card">
+    <h2>Popular learning tracks</h2>
+    <ul class="clean-list">
+      <li>Grade 5–8 foundation strengthening</li>
+      <li>Matric board preparation</li>
+      <li>Intermediate pre-engineering / pre-medical</li>
+      <li>O Level concept sessions</li>
+      <li>A Level exam prep and revision clinics</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2>Demo lecture ideas</h2>
+    <ul class="clean-list">
+      {% for topic in demo_topics %}
+      <li>{{ topic }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+{% endblock %}

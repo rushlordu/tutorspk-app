@@ -1,29 +1,24 @@
 {% extends 'base.html' %}
-{% block title %}Register · TutorPK Live{% endblock %}
 {% block content %}
-<div class="card form-card narrow">
-  <h1>Create account</h1>
-  <form method="post" class="form-grid">
-    <label>Full name<input name="full_name" required></label>
-    <label>Email<input type="email" name="email" required></label>
-    <label>Password<input type="password" name="password" required></label>
-    <label>Role
-      <select name="role" required>
-        <option value="student">Student</option>
-        <option value="tutor">Tutor</option>
-      </select>
-    </label>
-    <label>City
-      <select name="city" required>
-        {% for city in cities %}<option value="{{ city }}">{{ city }}</option>{% endfor %}
-      </select>
-    </label>
-    <label>Phone<input name="phone"></label>
-    <label>Subject(s)<input name="subject" placeholder="A Level Maths"></label>
-    <label>Rate PKR (tutor only)<input name="rate_pkr" type="number"></label>
-    <label>Parent email (student optional)<input name="parent_email" type="email"></label>
-    <label class="full">Bio<textarea name="bio" rows="4"></textarea></label>
-    <button class="btn">Create account</button>
+<div class="card">
+  <h1>Register</h1>
+  <form method="post" class="form-grid two-col">
+    <input name="full_name" placeholder="Full name" required>
+    <input name="public_name" placeholder="Public alias / display name" required>
+    <input name="email" type="email" placeholder="Email" required>
+    <input name="password" type="password" placeholder="Password" required>
+    <select name="role" required>
+      <option value="student">Student</option>
+      <option value="tutor">Tutor</option>
+    </select>
+    <input name="qualification" placeholder="Qualification (e.g. MSc Mathematics)">
+    <input name="subjects" placeholder="Subjects">
+    <input name="class_levels" placeholder="Class levels (e.g. Grade 5-8, O Level)">
+    <input name="experience_years" type="number" min="0" placeholder="Experience years">
+    <textarea name="bio" placeholder="Short profile"></textarea>
+    <label><input type="checkbox" name="modest_profile"> Modest / veiled profile preference</label>
+    <label><input type="checkbox" name="audio_only"> Audio-first teaching preference</label>
+    <button class="btn" type="submit">Create account</button>
   </form>
 </div>
 {% endblock %}

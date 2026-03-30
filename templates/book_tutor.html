@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card narrow">
+  <h1>Book {{ tutor.public_name }}</h1>
+  <form method="post" class="form-grid">
+    <input name="subject" value="{{ tutor.subjects.split(',')[0] if tutor.subjects else '' }}" placeholder="Subject" required>
+    <input name="class_level" value="{{ tutor.class_levels.split(',')[0] if tutor.class_levels else '' }}" placeholder="Class level" required>
+    <input name="scheduled_at" type="datetime-local" required>
+    <input name="duration_minutes" type="number" min="30" value="60" required>
+    <input name="credits_cost" type="number" min="1" value="100" required>
+    <button class="btn" type="submit">Confirm booking</button>
+  </form>
+</div>
+{% endblock %}

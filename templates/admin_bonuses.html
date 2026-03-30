@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+  <h1>Tutor Bonuses</h1>
+  <table class="table">
+    <tr><th>Tutor</th><th>Bonus type</th><th>Credits</th><th>Note</th><th>Date</th></tr>
+    {% for item in bonuses %}
+    <tr><td>{{ item.tutor.public_name }}</td><td>{{ item.bonus_type }}</td><td>{{ item.credits_awarded }}</td><td>{{ item.note }}</td><td>{{ item.created_at.strftime('%Y-%m-%d') }}</td></tr>
+    {% else %}
+    <tr><td colspan="5">No bonuses yet.</td></tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="grid two">
+  <div class="card">
+    <h2>Welcome, {{ current_user.public_name }}</h2>
+    <p><strong>Role:</strong> {{ current_user.role|title }}</p>
+    <p><strong>Credits:</strong> {{ current_user.credits_balance }}</p>
+    {% if current_user.role == 'tutor' %}
+    <p><strong>Pending payout:</strong> PKR {{ current_user.pending_payout_pkr }}</p>
+    <p><strong>Total earnings:</strong> PKR {{ current_user.total_earnings_pkr }}</p>
+    <p><strong>Bonus credits:</strong> {{ current_user.bonus_credits }}</p>
+    <div class="progress-box">
+      <div>Next bonus target: PKR 50,000 / 100,000 / 200,000 milestones</div>
+      <progress max="200000" value="{{ current_user.total_earnings_pkr }}"></progress>
+    </div>
+    {% endif %}
+    {% if current_user.role == 'student' %}
+      <a class="btn" href="{{ url_for('buy_credits') }}">Buy credits</a>
+      <a class="btn btn-light" href="{{ url_for('tutors') }}">Find tutors</a>
+    {% endif %}
+  </div>
+  <div class="card">
+    <h2>Policy reminders</h2>
+    <ul class="clean-list">
+      <li>All tutoring must remain on TutorPK.</li>
+      <li>Phone numbers, email addresses and off-platform contact prompts are blocked in chat.</li>
+      <li>Admin may join a session visibly for quality assurance.</li>
+      <li>Tutors are rewarded through milestone and performance bonuses.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Recent bookings</h2>
+  <table class="table">
+    <tr><th>Subject</th><th>When</th><th>Status</th><th>Room</th></tr>
+    {% for booking in bookings %}
+    <tr>
+      <td>{{ booking.subject }}</td>
+      <td>{{ booking.scheduled_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td>{{ booking.status }}</td>
+      <td><a href="{{ url_for('live_session', booking_id=booking.id) }}">Open session</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">No bookings yet.</td></tr>
+    {% endfor %}
+  </table>
+</section>
+
+{% if current_user.role == 'tutor' %}
+<section class="card">
+  <h2>Request withdrawal</h2>
+  <form method="post" action="{{ url_for('withdraw') }}" class="form-grid two-col">
+    <input type="number" name="amount_pkr" min="1" placeholder="Amount PKR" required>
+    <select name="payout_method"><option value="bank">Bank</option><option value="easypaisa">EasyPaisa</option></select>
+    <input name="payout_account_title" placeholder="Account title">
+    <input name="payout_account_number" placeholder="Account number / mobile wallet no">
+    <input name="payout_iban" placeholder="IBAN (optional)">
+    <button class="btn" type="submit">Submit withdrawal request</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

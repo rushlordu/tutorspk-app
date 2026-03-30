@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="grid three">
+  <div class="card"><h2>Pending payout</h2><p>PKR {{ current_user.pending_payout_pkr }}</p></div>
+  <div class="card"><h2>Total earnings</h2><p>PKR {{ current_user.total_earnings_pkr }}</p></div>
+  <div class="card"><h2>Bonus credits</h2><p>{{ current_user.bonus_credits }}</p></div>
+</section>
+<section class="card">
+  <h2>Transactions</h2>
+  <table class="table">
+    <tr><th>Type</th><th>Credits</th><th>Note</th><th>Date</th></tr>
+    {% for tx in txs %}
+    <tr><td>{{ tx.tx_type }}</td><td>{{ tx.credits_change }}</td><td>{{ tx.note }}</td><td>{{ tx.created_at.strftime('%Y-%m-%d %H:%M') }}</td></tr>
+    {% else %}
+    <tr><td colspan="4">No entries yet.</td></tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}

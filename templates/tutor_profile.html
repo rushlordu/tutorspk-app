@@ -1,35 +1,65 @@
 {% extends 'base.html' %}
-{% block title %}{{ tutor.full_name }} · TutorPK Live{% endblock %}
 {% block content %}
-<div class="card">
-  <h1>{{ tutor.full_name }}</h1>
-  <p>{{ tutor.subject }}</p>
-  <p class="muted">{{ tutor.city }} · PKR {{ tutor.rate_pkr or 0 }}/hr</p>
-  <p>{{ tutor.bio }}</p>
-</div>
-
-<div class="card">
-  <h2>Available slots</h2>
-  {% for slot in available_slots %}
-    <div class="booking-row">
-      <div>
-        <strong>{{ slot.title }}</strong>
-        <p>{{ slot.subject }} · {{ slot.start_time|dt }} · {{ slot.duration_minutes }} min</p>
-      </div>
-      <div class="text-right">
-        <p>PKR {{ slot.fee_pkr }} · <strong>{{ slot|credits_for_slot }} credits</strong></p>
-        {% if current_user and current_user.role == 'student' %}
-        <form method="post" action="{{ url_for('book_slot', slot_id=slot.id) }}" class="inline-form">
-          <input name="note" placeholder="Any learning goals?">
-          <button class="btn small">Book with credits</button>
-        </form>
-        {% else %}
-          <small>Login as student to book</small>
-        {% endif %}
-      </div>
+<section class="grid two profile-layout">
+  <div class="card">
+    <img class="profile-pic" src="{{ tutor.profile_image or 'https://picsum.photos/seed/default/300/300' }}" alt="{{ tutor.public_name }}">
+    <h1>{{ tutor.public_name }}</h1>
+    <p class="muted">{{ tutor.qualification }}</p>
+    <p>{{ tutor.bio }}</p>
+    <div class="badges">
+      <span class="badge">{{ tutor.tutor_category }}</span>
+      {% if tutor.audio_only %}<span class="badge alt">Audio-first</span>{% endif %}
+      {% if tutor.modest_profile %}<span class="badge alt">Veiled / modest preference</span>{% endif %}
     </div>
-  {% else %}
-    <p>No active slots.</p>
-  {% endfor %}
-</div>
+    <p><strong>Subjects:</strong> {{ tutor.subjects }}</p>
+    <p><strong>Levels:</strong> {{ tutor.class_levels }}</p>
+    <p><strong>Experience:</strong> {{ tutor.experience_years }} years</p>
+    <p><strong>Rating:</strong> ⭐ {{ '%.1f'|format(tutor.rating_avg) }} ({{ tutor.rating_count }} reviews)</p>
+    {% if tutor.demo_video_url %}<p><strong>Demo video:</strong> <a href="{{ tutor.demo_video_url }}" target="_blank">Open link</a></p>{% endif %}
+    {% if current_user.is_authenticated and current_user.role == 'student' %}
+      <a class="btn" href="{{ url_for('book_tutor', tutor_id=tutor.id) }}">Book this tutor</a>
+    {% endif %}
+  </div>
+  <div>
+    <section class="card">
+      <h2>Public profile rules</h2>
+      <ul class="clean-list">
+        <li>Institution names are hidden.</li>
+        <li>Current job roles are not displayed.</li>
+        <li>Real names may remain hidden behind platform aliases.</li>
+        <li>All sessions and reviews rely on TutorPK records only.</li>
+      </ul>
+    </section>
+    <section class="card">
+      <h2>Feedback</h2>
+      {% for item in tutor.feedback_received[:5] %}
+        <div class="review">
+          <strong>{{ item.student.public_name }}</strong> · ⭐ {{ item.rating }}
+          <p>{{ item.comment }}</p>
+        </div>
+      {% else %}
+        <p>No public reviews yet.</p>
+      {% endfor %}
+    </section>
+  </div>
+</section>
+
+{% if current_user.is_authenticated and current_user.role == 'student' and completed_bookings %}
+<section class="card">
+  <h2>Leave feedback</h2>
+  <form method="post" class="form-grid two-col">
+    <select name="booking_id" required>
+      {% for booking in completed_bookings %}
+      <option value="{{ booking.id }}">Booking #{{ booking.id }} - {{ booking.subject }}</option>
+      {% endfor %}
+    </select>
+    <input name="rating" type="number" min="1" max="5" placeholder="Overall rating" required>
+    <input name="punctuality" type="number" min="1" max="5" placeholder="Punctuality" required>
+    <input name="explanation" type="number" min="1" max="5" placeholder="Explanation clarity" required>
+    <input name="professionalism" type="number" min="1" max="5" placeholder="Professionalism" required>
+    <textarea name="comment" placeholder="Comment"></textarea>
+    <button class="btn" type="submit">Submit feedback</button>
+  </form>
+</section>
+{% endif %}
 {% endblock %}

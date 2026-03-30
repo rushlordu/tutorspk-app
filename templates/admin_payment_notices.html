@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+  <h1>Payment Notices</h1>
+  <table class="table">
+    <tr><th>ID</th><th>Student</th><th>Amount</th><th>Credits</th><th>Status</th><th>Proof</th><th>Actions</th></tr>
+    {% for notice in notices %}
+    <tr>
+      <td>{{ notice.id }}</td>
+      <td>{{ notice.student.public_name }}</td>
+      <td>PKR {{ notice.amount_sent_pkr }}</td>
+      <td>{{ notice.claimed_credits }}</td>
+      <td>{{ notice.status }}</td>
+      <td>{% if notice.screenshot_filename %}<a href="{{ url_for('uploaded_file', filename=notice.screenshot_filename) }}" target="_blank">Open</a>{% else %}-{% endif %}</td>
+      <td>
+        {% if notice.status == 'pending' %}
+        <form method="post" action="{{ url_for('admin_approve_notice', notice_id=notice.id) }}" style="display:inline"><button class="btn btn-sm">Approve</button></form>
+        <form method="post" action="{{ url_for('admin_reject_notice', notice_id=notice.id) }}" style="display:inline"><button class="btn btn-sm btn-light">Reject</button></form>
+        {% else %}Reviewed{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}

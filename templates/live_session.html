@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+  <h1>Live Session Room #{{ booking.room_code }}</h1>
+  {% if log.admin_joined %}
+  <div class="observer-banner">Admin observer is in this session for quality assurance.</div>
+  {% endif %}
+  <p><strong>Booking:</strong> {{ booking.subject }} · {{ booking.class_level }}</p>
+  <p><strong>Status:</strong> {{ booking.status }}</p>
+  <p><strong>Participants:</strong> student {% if log.student_joined %}joined{% else %}pending{% endif %}, tutor {% if log.tutor_joined %}joined{% else %}pending{% endif %}, admin {% if log.admin_joined %}observing{% else %}not present{% endif %}</p>
+  <div class="video-shell">
+    <div class="video-box">Student view</div>
+    <div class="video-box">Tutor view</div>
+    {% if current_user.role == 'admin' %}<div class="video-box observer">Admin observer</div>{% endif %}
+  </div>
+  <p class="muted">This build includes the monitored session shell, audit logging and transparent observer notice. External OAuth, TURN/media scaling and production-grade video backend can be configured later.</p>
+</section>
+<section class="card">
+  <h2>Protected chat box</h2>
+  <form method="post" class="form-grid two-col compact">
+    <input name="message" placeholder="Type a message. Phone/email/contact-sharing is blocked.">
+    <button class="btn">Send</button>
+  </form>
+</section>
+{% if current_user.role == 'student' and not booking.student_marked_complete %}
+<form method="post" action="{{ url_for('complete_student', booking_id=booking.id) }}">
+  <button class="btn" type="submit">Mark session complete</button>
+</form>
+{% endif %}
+{% endblock %}

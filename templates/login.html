@@ -1,13 +1,13 @@
 {% extends 'base.html' %}
-{% block title %}Login · TutorPK Live{% endblock %}
 {% block content %}
-<div class="card form-card narrow">
+<div class="form-card card narrow">
   <h1>Login</h1>
   <form method="post" class="form-grid">
-    <label>Email<input type="email" name="email" required></label>
-    <label>Password<input type="password" name="password" required></label>
-    <button class="btn">Log in</button>
+    <input name="email" type="email" placeholder="Email" required>
+    <input name="password" type="password" placeholder="Password" required>
+    <button class="btn" type="submit">Login</button>
   </form>
-  <p class="muted">Demo: hamza@example.com / password123 and ayesha@example.com / password123</p>
+  <div class="divider"></div>
+  <a class="btn btn-light" href="{{ url_for('google_login') }}">Continue with Google{% if not google_configured %} (configure later){% endif %}</a>
 </div>
 {% endblock %}

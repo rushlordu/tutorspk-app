@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+  <h1>Live Session Monitor</h1>
+  <table class="table">
+    <tr><th>Booking</th><th>Room</th><th>Student</th><th>Tutor</th><th>Admin</th><th>Open</th></tr>
+    {% for item in live_sessions %}
+    <tr>
+      <td>#{{ item.booking_id }}</td>
+      <td>{{ item.room_code }}</td>
+      <td>{{ 'Yes' if item.student_joined else 'No' }}</td>
+      <td>{{ 'Yes' if item.tutor_joined else 'No' }}</td>
+      <td>{{ 'Observing' if item.admin_joined else 'No' }}</td>
+      <td><a href="{{ url_for('live_session', booking_id=item.booking_id) }}">Join visibly</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6">No live sessions logged.</td></tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}
