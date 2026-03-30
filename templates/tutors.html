@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Tutors · TutorPK Live{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Find tutors</h1>
+  <form class="toolbar" method="get">
+    <input name="q" placeholder="Search tutor or subject" value="{{ request.args.get('q','') }}">
+    <select name="subject">
+      <option value="">All subjects</option>
+      {% for subject in subjects %}<option value="{{ subject }}" {% if request.args.get('subject')==subject %}selected{% endif %}>{{ subject }}</option>{% endfor %}
+    </select>
+    <select name="city">
+      <option value="">All cities</option>
+      {% for city in cities %}<option value="{{ city }}" {% if request.args.get('city')==city %}selected{% endif %}>{{ city }}</option>{% endfor %}
+    </select>
+    <button class="btn small">Filter</button>
+  </form>
+</div>
+
+<div class="cards-3">
+  {% for tutor in tutors_list %}
+    <article class="card">
+      <h3>{{ tutor.full_name }}</h3>
+      <p>{{ tutor.subject or 'General tutoring' }}</p>
+      <p class="muted">{{ tutor.city }} · PKR {{ tutor.rate_pkr or 0 }}/hr</p>
+      <p>{{ tutor.bio }}</p>
+      <a class="btn small" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">Open profile</a>
+    </article>
+  {% else %}
+    <div class="card"><p>No tutors found.</p></div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block title %}Admin panel · TutorPK Live{% endblock %}
+{% block content %}
+<h1>Admin control panel</h1>
+<div class="stats-grid">
+  <div class="card stat"><strong>{{ users|length }}</strong><span>All users</span></div>
+  <div class="card stat"><strong>{{ payment_notices|selectattr('status','equalto','Pending')|list|length }}</strong><span>Pending payment notices</span></div>
+  <div class="card stat"><strong>{{ live_rooms|length }}</strong><span>Live sessions now</span></div>
+</div>
+
+<section class="card">
+  <h2>Live sessions</h2>
+  {% for room in live_rooms %}
+    <div class="list-row">
+      <div>
+        <strong>{{ room.booking.slot.title }}</strong>
+        <p>{{ room.booking.student.full_name }} with {{ room.booking.slot.tutor.full_name }}</p>
+        <p class="muted">Room {{ room.room_code }} · Started {{ room.started_at|dt }}</p>
+      </div>
+      <div class="text-right">
+        <a class="btn small" href="{{ url_for('join_session', room_code=room.room_code) }}">Join as observer</a>
+      </div>
+    </div>
+  {% else %}
+    <p>No live sessions at the moment.</p>
+  {% endfor %}
+</section>
+
+<section class="card">
+  <h2>Payment notices</h2>
+  {% for notice in payment_notices %}
+    <article class="booking-card">
+      <div class="list-row top">
+        <div>
+          <strong>Notice #{{ notice.id }} · {{ notice.student.full_name }}</strong>
+          <p>PKR {{ notice.amount_pkr }} → {{ notice.credits_requested }} credits</p>
+          <p class="muted">{{ notice.transfer_method }} · {{ notice.created_at|dt }} · {{ notice.status }}</p>
+          <p>Sender: {{ notice.sender_name or '-' }} · Account: {{ notice.sender_account or '-' }} · Ref: {{ notice.transfer_reference or '-' }}</p>
+          {% if notice.note %}<p>{{ notice.note }}</p>{% endif %}
+          {% if notice.screenshot_filename %}<p><a href="{{ url_for('admin_uploaded_file', filename=notice.screenshot_filename) }}">Open uploaded screenshot</a></p>{% endif %}
+        </div>
+        <div class="compact-actions">
+          <form method="post" action="{{ url_for('approve_payment_notice', notice_id=notice.id) }}" class="form-grid single-col">
+            <textarea name="admin_note" rows="2" placeholder="Admin note"></textarea>
+            <button class="btn small">Approve + add credits</button>
+          </form>
+          <form method="post" action="{{ url_for('reject_payment_notice', notice_id=notice.id) }}" class="form-grid single-col">
+            <textarea name="admin_note" rows="2" placeholder="Reason (optional)"></textarea>
+            <button class="btn small secondary">Reject</button>
+          </form>
+        </div>
+      </div>
+    </article>
+  {% else %}
+    <p>No payment notices yet.</p>
+  {% endfor %}
+</section>
+
+<section class="card">
+  <h2>User directory + manual credit control</h2>
+  {% for user in users %}
+    <div class="booking-card">
+      <div class="list-row top">
+        <div>
+          <strong>{{ user.full_name }}</strong>
+          <p>{{ user.email }} · {{ user.role|title }} · {{ user.city }}</p>
+          <p class="muted">Student credits: {{ user.credits_balance }} · Held: {{ user.credits_held }} · Tutor earnings: {{ user.tutor_earnings_credits }}</p>
+        </div>
+        <form method="post" action="{{ url_for('adjust_user_credits', user_id=user.id) }}" class="toolbar">
+          <input type="number" name="credits_delta" placeholder="+/- credits">
+          <input name="note" placeholder="Reason">
+          <button class="btn small">Adjust</button>
+        </form>
+      </div>
+    </div>
+  {% endfor %}
+</section>
+
+<section class="card">
+  <h2>Moderation flags</h2>
+  {% for flag in flags %}
+    <div class="list-row">
+      <div>
+        <strong>{{ flag.user.full_name }}</strong>
+        <p>{{ flag.event_type }} · room {{ flag.room.room_code }} · {{ flag.created_at|dt }}</p>
+      </div>
+      <div class="text-right"><small>{{ flag.content }}</small></div>
+    </div>
+  {% else %}
+    <p>No moderation events yet.</p>
+  {% endfor %}
+</section>
+
+<section class="card">
+  <h2>Withdrawals</h2>
+  {% for item in withdrawals %}
+    <article class="booking-card">
+      <div class="list-row top">
+        <div>
+          <strong>{{ item.tutor.full_name }}</strong>
+          <p>{{ item.credits_amount }} credits (PKR {{ item.credits_amount|pkr }})</p>
+          <p class="muted">{{ item.payout_method }} · {{ item.account_number or item.iban or '-' }} · {{ item.status }}</p>
+        </div>
+        <div class="compact-actions">
+          <form method="post" action="{{ url_for('approve_withdrawal', withdrawal_id=item.id) }}" class="form-grid single-col">
+            <textarea name="admin_note" rows="2" placeholder="Payment reference / note"></textarea>
+            <button class="btn small">Mark paid</button>
+          </form>
+          {% if item.status == 'Pending' %}
+          <form method="post" action="{{ url_for('reject_withdrawal', withdrawal_id=item.id) }}" class="form-grid single-col">
+            <textarea name="admin_note" rows="2" placeholder="Reason"></textarea>
+            <button class="btn small secondary">Reject</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </article>
+  {% else %}
+    <p>No withdrawal requests yet.</p>
+  {% endfor %}
+</section>
+{% endblock %}

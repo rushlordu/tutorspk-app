@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}{{ tutor.full_name }} · TutorPK Live{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>{{ tutor.full_name }}</h1>
+  <p>{{ tutor.subject }}</p>
+  <p class="muted">{{ tutor.city }} · PKR {{ tutor.rate_pkr or 0 }}/hr</p>
+  <p>{{ tutor.bio }}</p>
+</div>
+
+<div class="card">
+  <h2>Available slots</h2>
+  {% for slot in available_slots %}
+    <div class="booking-row">
+      <div>
+        <strong>{{ slot.title }}</strong>
+        <p>{{ slot.subject }} · {{ slot.start_time|dt }} · {{ slot.duration_minutes }} min</p>
+      </div>
+      <div class="text-right">
+        <p>PKR {{ slot.fee_pkr }} · <strong>{{ slot|credits_for_slot }} credits</strong></p>
+        {% if current_user and current_user.role == 'student' %}
+        <form method="post" action="{{ url_for('book_slot', slot_id=slot.id) }}" class="inline-form">
+          <input name="note" placeholder="Any learning goals?">
+          <button class="btn small">Book with credits</button>
+        </form>
+        {% else %}
+          <small>Login as student to book</small>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <p>No active slots.</p>
+  {% endfor %}
+</div>
+{% endblock %}

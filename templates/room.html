@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% block title %}Live room · TutorPK Live{% endblock %}
+{% block content %}
+<div class="room-header card">
+  <div>
+    <h1>{{ room.booking.slot.title }}</h1>
+    <p>{{ room.booking.slot.subject }} · Status: <strong id="roomStatus">{{ room.status|upper }}</strong> · Started: {{ room.started_at|dt }}</p>
+    <p class="muted">Contact sharing is blocked in chat. All tutoring should stay inside this website. Admin observation, if active, is transparent.</p>
+  </div>
+  <div class="actions wrap-right">
+    {% if current_user.role == 'tutor' %}
+      <form method="post" action="{{ url_for('complete_room', room_code=room.room_code) }}"><button class="btn secondary">End session</button></form>
+    {% endif %}
+    {% if room.playback_filename %}<a class="btn small" href="{{ url_for('playback', room_code=room.room_code) }}">Playback</a>{% endif %}
+  </div>
+</div>
+
+<div id="observerBanner" class="flash info {% if observer_state.count == 0 %}hidden{% endif %}">
+  {% if observer_state.count %}
+    Admin observer active: {{ observer_state.names|join(', ') }}
+  {% endif %}
+</div>
+
+<div class="room-layout">
+  <section class="card video-panel">
+    <div class="video-grid" id="videoGrid">
+      <div class="video-tile">
+        <small>{{ 'Observer' if current_user.role == 'admin' else 'Local' }}</small>
+        <video id="localVideo" autoplay playsinline muted></video>
+      </div>
+      <div id="remoteVideos" class="remote-video-grid"></div>
+    </div>
+    <div class="toolbar controls-row">
+      {% if current_user.role != 'admin' %}
+      <button class="btn small" id="startMediaBtn" type="button">Start camera</button>
+      <button class="btn small secondary" id="toggleMicBtn" type="button">Mute mic</button>
+      <button class="btn small secondary" id="toggleCamBtn" type="button">Hide cam</button>
+      <button class="btn small secondary" id="shareScreenBtn" type="button">Share screen</button>
+      {% endif %}
+      <button class="btn small" id="recordBtn" type="button">Start recording</button>
+      <span class="timer" id="sessionTimer">00:00:00</span>
+    </div>
+    <p class="muted">Production note: this demo ships with STUN only. Add TURN for real-world Pakistan connectivity.</p>
+  </section>
+
+  <aside class="card side-panel">
+    <h2>Chat</h2>
+    <div id="chatMessages" class="chat-box">
+      {% for message in messages %}
+        <div class="chat-msg {{ message.kind }}">
+          <strong>{% if message.kind == 'system' %}System{% else %}{{ message.user.full_name if message.user else 'System' }}{% endif %}:</strong>
+          {{ message.body }} <small>{{ message.created_at|short_dt }}</small>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="toolbar">
+      <input id="chatInput" placeholder="Send message">
+      <button class="btn small" id="sendChatBtn" type="button">Send</button>
+    </div>
+
+    <h2>Shared files + homework</h2>
+    <form method="post" action="{{ url_for('upload_room_file', room_code=room.room_code) }}" enctype="multipart/form-data" class="form-grid compact">
+      <input type="file" name="file" required>
+      <select name="category">
+        <option value="session_file">Session file</option>
+        <option value="homework">Homework</option>
+      </select>
+      <button class="btn small">Upload</button>
+    </form>
+    <div class="file-list">
+      {% for item in files %}
+        <div class="list-row tight">
+          <div><strong>{{ item.original_name }}</strong><p class="muted">{{ item.category }} · {{ item.user.full_name }}</p></div>
+          <a href="{{ url_for('uploaded_file', filename=item.stored_name) }}">Open</a>
+        </div>
+      {% else %}
+        <p>No files yet.</p>
+      {% endfor %}
+    </div>
+
+    <h2>Browser recording upload</h2>
+    <form id="recordingUploadForm" method="post" action="{{ url_for('upload_recording', room_code=room.room_code) }}" enctype="multipart/form-data">
+      <input type="file" id="recordingInput" name="recording" accept="video/webm,video/mp4">
+      <button class="btn small secondary">Upload recording</button>
+    </form>
+  </aside>
+</div>
+
+<div class="room-layout two-rows">
+  <section class="card whiteboard-panel">
+    <div class="list-row top">
+      <div>
+        <h2>Whiteboard</h2>
+        <p class="muted">Synchronized basic drawing canvas</p>
+      </div>
+      <button class="btn small secondary" id="clearBoardBtn" type="button">Clear</button>
+    </div>
+    <canvas id="whiteboard" width="1200" height="500"></canvas>
+  </section>
+
+  <section class="card">
+    <h2>AI notes + guardian access</h2>
+    <pre class="notes-box">{{ room.notes or 'Notes will be generated when the tutor ends the session.' }}</pre>
+    <p><strong>Parent view:</strong> <a href="{{ url_for('parent_view', token=room.parent_access_token) }}" target="_blank">Open guardian page</a></p>
+    <h3>Quizzes</h3>
+    {% for quiz in quizzes %}
+      <div class="subcard"><strong>{{ quiz.title }}</strong><p>{{ quiz.questions|length }} questions</p></div>
+    {% else %}
+      <p>No quizzes attached yet.</p>
+    {% endfor %}
+  </section>
+</div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+window.ROOM_BOOTSTRAP = {
+  roomCode: {{ room.room_code|tojson }},
+  currentUserId: {{ current_user.id }},
+  currentUserName: {{ current_user.full_name|tojson }},
+  startedAt: {{ (room.started_at.isoformat() if room.started_at else '')|tojson }},
+  isTutor: {{ (current_user.role == 'tutor')|tojson }},
+  isObserver: {{ (current_user.role == 'admin')|tojson }}
+};
+</script>
+<script src="{{ url_for('static', filename='js/room.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block title %}TutorPK Live{% endblock %}
+{% block content %}
+<section class="hero card gradient">
+  <div>
+    <p class="eyebrow">Pakistan tutoring MVP + live classrooms + transparent admin QA</p>
+    <h1>Book tutors, pay by bank transfer, study inside the platform, and keep every session on-site.</h1>
+    <p>Students buy credits at PKR {{ credit_rate }} per credit, admin verifies bank transfers manually, and live sessions can be transparently observed by admin for quality assurance and rule enforcement.</p>
+    <div class="actions">
+      <a class="btn" href="{{ url_for('register') }}">Create account</a>
+      <a class="btn secondary" href="{{ url_for('seed') }}">Load demo data</a>
+    </div>
+  </div>
+</section>
+
+<div class="stats-grid">
+  <div class="card stat"><strong>{{ featured_tutors|length }}</strong><span>Featured tutors</span></div>
+  <div class="card stat"><strong>{{ latest_slots|length }}</strong><span>Open class slots</span></div>
+  <div class="card stat"><strong>{{ live_sessions|length }}</strong><span>Live rooms now</span></div>
+</div>
+
+<section class="section-grid">
+  <div class="card">
+    <h2>How credits work</h2>
+    <ol class="plain-list">
+      <li>Send money to <strong>{{ site_config.BANK_ACCOUNT_TITLE }}</strong></li>
+      <li>Use IBAN <strong>{{ site_config.BANK_IBAN }}</strong></li>
+      <li>Submit payment notice on the site</li>
+      <li>Also send screenshot to admin WhatsApp <strong>{{ site_config.ADMIN_WHATSAPP }}</strong></li>
+      <li>Admin verifies manually and adds credits</li>
+    </ol>
+    <p class="muted">1 credit = PKR {{ credit_rate }}. Booking a slot holds credits in escrow until the student marks the session complete.</p>
+  </div>
+
+  <div class="card">
+    <h2>Live session policy</h2>
+    <p>Phone numbers, emails, WhatsApp links, and attempts to move off-platform are blocked in chat. Admin observation is transparent: when admin joins a room, everyone sees a visible notice.</p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div class="card">
+    <h2>Featured tutors</h2>
+    {% for tutor in featured_tutors %}
+      <div class="list-row">
+        <div>
+          <strong>{{ tutor.full_name }}</strong>
+          <p>{{ tutor.subject or 'General tutoring' }}</p>
+        </div>
+        <div class="text-right">
+          <small>{{ tutor.city }}</small>
+          <p>PKR {{ tutor.rate_pkr or 0 }}</p>
+          <a href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">View</a>
+        </div>
+      </div>
+    {% else %}
+      <p>No tutors yet.</p>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <h2>Upcoming slots</h2>
+    {% for slot in latest_slots %}
+      <div class="list-row">
+        <div>
+          <strong>{{ slot.title }}</strong>
+          <p>{{ slot.subject }} · {{ slot.start_time|dt }}</p>
+        </div>
+        <div class="text-right">
+          <small>{{ slot.tutor.full_name }}</small>
+          <p>{{ slot|credits_for_slot }} credits</p>
+        </div>
+      </div>
+    {% else %}
+      <p>No slots available.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

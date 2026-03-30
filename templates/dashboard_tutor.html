@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% block title %}Tutor dashboard · TutorPK Live{% endblock %}
+{% block content %}
+<h1>Tutor dashboard</h1>
+<div class="stats-grid">
+  <div class="card stat"><strong>{{ current_user.tutor_earnings_credits }}</strong><span>Available earnings credits</span></div>
+  <div class="card stat"><strong>PKR {{ current_user.tutor_earnings_credits|pkr }}</strong><span>Approx payout value</span></div>
+  <div class="card stat"><span>Admin payout review</span><strong>Manual</strong></div>
+</div>
+
+<div class="section-grid admin-grid">
+  <section class="card">
+    <h2>Create slot</h2>
+    <form method="post" action="{{ url_for('create_slot') }}" class="form-grid">
+      <label>Title<input name="title" required></label>
+      <label>Subject<input name="subject" required></label>
+      <label>Session type
+        <select name="session_type"><option>Online</option><option>Hybrid</option><option>In-person</option></select>
+      </label>
+      <label>Start time<input type="datetime-local" name="start_time" required></label>
+      <label>Duration minutes<input type="number" name="duration_minutes" required></label>
+      <label>Fee PKR<input type="number" name="fee_pkr" required></label>
+      <button class="btn">Create</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Payout settings</h2>
+    <form method="post" action="{{ url_for('update_payout_settings') }}" class="form-grid">
+      <label>Payout method
+        <select name="payout_method">
+          <option value="Bank" {% if current_user.payout_method == 'Bank' %}selected{% endif %}>Bank</option>
+          <option value="Easypaisa" {% if current_user.payout_method == 'Easypaisa' %}selected{% endif %}>Easypaisa</option>
+          <option value="JazzCash" {% if current_user.payout_method == 'JazzCash' %}selected{% endif %}>JazzCash</option>
+        </select>
+      </label>
+      <label>Account title<input name="payout_account_title" value="{{ current_user.payout_account_title or '' }}"></label>
+      <label>Account / wallet number<input name="payout_account_number" value="{{ current_user.payout_account_number or '' }}"></label>
+      <label>IBAN<input name="payout_iban" value="{{ current_user.payout_iban or '' }}"></label>
+      <button class="btn">Save payout settings</button>
+    </form>
+
+    <h3>Request withdrawal</h3>
+    <form method="post" action="{{ url_for('request_withdrawal') }}" class="toolbar">
+      <input type="number" name="credits_amount" min="1" max="{{ current_user.tutor_earnings_credits }}" placeholder="Credits to cash out">
+      <button class="btn small secondary">Request payout</button>
+    </form>
+  </section>
+</div>
+
+<section class="card">
+  <h2>Your slots</h2>
+  {% for slot in slots %}
+    <div class="list-row">
+      <div>
+        <strong>{{ slot.title }}</strong>
+        <p>{{ slot.subject }} · {{ slot.start_time|dt }}</p>
+      </div>
+      <div class="text-right">
+        <small>{{ 'Active' if slot.is_active else 'Hidden' }}</small>
+        <p>PKR {{ slot.fee_pkr }} / {{ slot|credits_for_slot }} credits</p>
+        <a href="{{ url_for('toggle_slot', slot_id=slot.id) }}">Toggle</a>
+      </div>
+    </div>
+  {% else %}
+    <p>No slots yet.</p>
+  {% endfor %}
+</section>
+
+<section class="card">
+  <h2>Bookings + live class controls</h2>
+  {% for booking in bookings %}
+    <article class="booking-card">
+      <div class="list-row top">
+        <div>
+          <strong>{{ booking.slot.title }}</strong>
+          <p>{{ booking.student.full_name }} · {{ booking.slot.subject }} · {{ booking.slot.start_time|dt }}</p>
+          <p class="muted">{{ booking.credits_cost }} credits · {{ booking.payment_status }} · Status: {{ booking.booking_status }}</p>
+          {% if booking.note %}<p>Note: {{ booking.note }}</p>{% endif %}
+        </div>
+        <div class="text-right compact-actions">
+          <form method="post" action="{{ url_for('update_booking_status', booking_id=booking.id) }}">
+            <select name="booking_status">
+              {% for option in ['Requested','Approved','Live','Completed','Cancelled'] %}
+                <option value="{{ option }}" {% if booking.booking_status == option %}selected{% endif %}>{{ option }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn small">Save</button>
+          </form>
+          {% if booking.session_room %}
+            <a class="btn small" href="{{ url_for('join_session', room_code=booking.session_room.room_code) }}">Open room</a>
+            <a class="btn small secondary" href="{{ url_for('start_session', booking_id=booking.id) }}">Start session</a>
+          {% else %}
+            <a class="btn small secondary" href="{{ url_for('start_session', booking_id=booking.id) }}">Create room</a>
+          {% endif %}
+          <form method="post" action="{{ url_for('tutor_complete_booking', booking_id=booking.id) }}">
+            <button class="btn small secondary">Tutor mark complete</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="section-grid">
+        <div class="subcard">
+          <h3>Parent access</h3>
+          {% if booking.session_room %}
+            <p class="muted">Share this read-only progress link with guardian.</p>
+            <input value="{{ request.host_url.rstrip('/') }}{{ url_for('parent_view', token=booking.session_room.parent_access_token) }}" readonly>
+          {% else %}
+            <p>Create room first.</p>
+          {% endif %}
+        </div>
+
+        <div class="subcard">
+          <h3>Create quick quiz</h3>
+          <form method="post" action="{{ url_for('create_quiz', booking_id=booking.id) }}" class="quiz-builder">
+            <input name="title" placeholder="Quiz title">
+            {% for idx in range(1,4) %}
+              <div class="quiz-q">
+                <input name="question_{{ idx }}" placeholder="Question {{ idx }}">
+                {% for opt in range(1,5) %}
+                  <input name="q{{ idx }}_opt_{{ opt }}" placeholder="Q{{ idx }} option {{ opt }}">
+                {% endfor %}
+                <select name="q{{ idx }}_correct">
+                  <option value="1">Correct option 1</option>
+                  <option value="2">Correct option 2</option>
+                  <option value="3">Correct option 3</option>
+                  <option value="4">Correct option 4</option>
+                </select>
+              </div>
+            {% endfor %}
+            <button class="btn small">Save quiz</button>
+          </form>
+        </div>
+      </div>
+    </article>
+  {% else %}
+    <p>No bookings yet.</p>
+  {% endfor %}
+</section>
+
+<section class="card">
+  <h2>Withdrawal requests</h2>
+  {% for item in withdrawals %}
+    <div class="list-row">
+      <div>
+        <strong>{{ item.credits_amount }} credits (PKR {{ item.credits_amount|pkr }})</strong>
+        <p class="muted">{{ item.payout_method }} · {{ item.created_at|dt }}</p>
+      </div>
+      <div class="text-right"><strong>{{ item.status }}</strong></div>
+    </div>
+  {% else %}
+    <p>No withdrawal requests yet.</p>
+  {% endfor %}
+</section>
+{% endblock %}

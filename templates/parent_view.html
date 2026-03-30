@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Guardian view</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+<main class="wrap page">
+  <div class="card">
+    <h1>Guardian progress view</h1>
+    <p><strong>Student:</strong> {{ room.booking.student.full_name }}</p>
+    <p><strong>Tutor:</strong> {{ room.booking.slot.tutor.full_name }}</p>
+    <p><strong>Subject:</strong> {{ room.booking.slot.subject }}</p>
+    <p><strong>Status:</strong> {{ room.status|upper }}</p>
+    <p><strong>Scheduled:</strong> {{ room.booking.slot.start_time|dt }}</p>
+    {% if room.playback_filename %}<p><strong>Playback:</strong> available after login by student/tutor.</p>{% endif %}
+    <h2>AI notes</h2>
+    <pre class="notes-box">{{ room.notes or 'No notes yet.' }}</pre>
+    <h2>Homework / files</h2>
+    {% for item in room.files if item.category == 'homework' %}
+      <div class="list-row"><strong>{{ item.original_name }}</strong><small>{{ item.created_at|short_dt }}</small></div>
+    {% else %}
+      <p>No homework uploaded yet.</p>
+    {% endfor %}
+  </div>
+</main>
+</body>
+</html>

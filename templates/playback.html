@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Playback · TutorPK Live{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Session playback</h1>
+  <p>{{ room.booking.slot.title }} · {{ room.booking.student.full_name }} with {{ room.booking.slot.tutor.full_name }}</p>
+  {% if room.playback_filename %}
+    <video controls class="playback-video" src="{{ url_for('uploaded_file', filename=room.playback_filename) }}"></video>
+  {% else %}
+    <p>No recording uploaded yet.</p>
+  {% endif %}
+  <pre class="notes-box">{{ room.notes or 'No AI notes yet.' }}</pre>
+</div>
+{% endblock %}

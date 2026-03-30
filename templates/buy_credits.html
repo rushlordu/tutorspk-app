@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Buy credits · TutorPK Live{% endblock %}
+{% block content %}
+<div class="section-grid admin-grid">
+  <section class="card">
+    <h1>Buy credits</h1>
+    <p><strong>Rate:</strong> PKR {{ credit_rate }} = 1 credit</p>
+    <div class="highlight-box">
+      <p><strong>Bank title:</strong> {{ site_config.BANK_ACCOUNT_TITLE }}</p>
+      <p><strong>IBAN:</strong> {{ site_config.BANK_IBAN }}</p>
+      <p><strong>Bank:</strong> {{ site_config.BANK_NAME }}</p>
+      <p><strong>Admin email:</strong> {{ site_config.ADMIN_NOTIFICATION_EMAIL }}</p>
+      <p><strong>WhatsApp screenshot:</strong> {{ site_config.ADMIN_WHATSAPP }}</p>
+    </div>
+    <p class="muted">After you transfer funds, submit this form and also send your transfer screenshot to the admin WhatsApp number above.</p>
+  </section>
+
+  <section class="card">
+    <h2>Submit payment notice</h2>
+    <form method="post" enctype="multipart/form-data" class="form-grid">
+      <label>Amount sent (PKR)<input type="number" name="amount_pkr" min="10" required></label>
+      <label>Sender name<input name="sender_name"></label>
+      <label>Sender account / wallet<input name="sender_account"></label>
+      <label>Transfer reference<input name="transfer_reference"></label>
+      <label class="full">Optional note<textarea name="note" rows="3"></textarea></label>
+      <label class="full">Optional screenshot upload<input type="file" name="screenshot" accept="image/*,.pdf"></label>
+      <button class="btn">Send payment notice</button>
+    </form>
+  </section>
+</div>
+{% endblock %}
