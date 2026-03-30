@@ -109,6 +109,18 @@ class User(UserMixin, db.Model):
     class_levels = db.Column(db.String(255), default="")
     experience_years = db.Column(db.Integer, default=0)
     bio = db.Column(db.Text, default="")
+    
+    gender = db.Column(db.String(50), default="")
+    city = db.Column(db.String(120), default="")
+    main_subject = db.Column(db.String(120), default="")
+    additional_subjects = db.Column(db.String(255), default="")
+    student_level = db.Column(db.String(120), default="")
+    student_subject_needed = db.Column(db.String(120), default="")
+    preferred_tutor_gender = db.Column(db.String(50), default="")
+    learning_mode = db.Column(db.String(50), default="")
+    teaching_mode = db.Column(db.String(50), default="")
+    hourly_rate = db.Column(db.Integer, default=0)
+    
     profile_image = db.Column(db.String(255), default="")
     demo_video_url = db.Column(db.String(255), default="")
     modest_profile = db.Column(db.Boolean, default=False)
@@ -290,25 +302,34 @@ def construction_gate():
 
     path = request.path
 
-    # Allow essential routes
+    # Always allow these routes during maintenance
     if (
-        path.startswith("/login")
+        path == "/"
+        or path.startswith("/UCsite")
+        or path.startswith("/login")
         or path.startswith("/logout")
         or path.startswith("/admin")
         or path.startswith("/google-login")
+        or path.startswith("/login/google/callback")
         or path.startswith("/static/")
         or path.startswith("/uploads/")
         or path.startswith("/seed")
+        or path.startswith("/register")
     ):
         return
 
-    # Allow logged-in admins
-    if current_user.is_authenticated and getattr(current_user, "role", None) == "admin":
+    # Allow logged-in users to access their own dashboard/wallet/live session areas
+    if current_user.is_authenticated and (
+        path.startswith("/dashboard")
+        or path.startswith("/wallet")
+        or path.startswith("/live/")
+        or path.startswith("/bookings/")
+        or path.startswith("/withdraw")
+    ):
         return
 
-    # Redirect everyone else to under construction page
-    if path != "/":
-        return redirect(url_for("index"))
+    # Redirect everything else to under construction page
+    return redirect(url_for("index"))
 
 
 def send_notification_email(subject: str, body: str):
@@ -374,13 +395,38 @@ def classify_teacher(subjects: str, levels: str) -> str:
         return "Matric Specialist"
     return "Grade 5–8 Tutor"
 
+def pick_with_other(form, field_name: str) -> str:
+    value = form.get(field_name, "").strip()
+    other_value = form.get(f"{field_name}_other", "").strip()
+    if value == "other" and other_value:
+        return other_value
+    return value
 
 @app.route("/")
 def index():
-    if UNDER_CONSTRUCTION and not (
-        current_user.is_authenticated and getattr(current_user, "role", None) == "admin"
-    ):
-        return render_template("under_construction.html")
+    return render_template("under_construction.html")
+
+@app.route("/UCsite")
+def ucsite():
+    featured_tutors = (
+        User.query.filter_by(role="tutor", is_verified_tutor=True)
+        .order_by(User.rating_avg.desc(), User.sessions_completed.desc())
+        .limit(6)
+        .all()
+    )
+    demo_topics = [
+        "Fractions for Grade 6",
+        "Linear Equations for O Level",
+        "Trigonometry Basics for Intermediate",
+        "A Level Mechanics Demo",
+        "Essay Writing Skills",
+        "Chemistry Stoichiometry Primer",
+    ]
+    return render_template(
+        "index.html",
+        featured_tutors=featured_tutors,
+        demo_topics=demo_topics,
+    )
 
     featured_tutors = (
         User.query.filter_by(role="tutor", is_verified_tutor=True)
@@ -412,23 +458,80 @@ def register():
             return redirect(url_for("register"))
 
         role = request.form["role"]
+
+        gender = pick_with_other(request.form, "gender")
+        city = pick_with_other(request.form, "city")
+
+        qualification = ""
+        subjects = ""
+        class_levels = ""
+        experience_years = 0
+        bio = ""
+        modest_profile = bool(request.form.get("modest_profile"))
+        audio_only = bool(request.form.get("audio_only"))
+        main_subject = ""
+        additional_subjects = ""
+        student_level = ""
+        student_subject_needed = ""
+        preferred_tutor_gender = ""
+        learning_mode = ""
+        teaching_mode = ""
+        hourly_rate = 0
+        demo_video_url = request.form.get("demo_video_url", "").strip()
+
+        if role == "student":
+            student_level = pick_with_other(request.form, "student_level")
+            student_subject_needed = pick_with_other(request.form, "student_subject_needed")
+            preferred_tutor_gender = request.form.get("preferred_tutor_gender", "").strip()
+            learning_mode = request.form.get("learning_mode", "").strip()
+            subjects = student_subject_needed
+            class_levels = student_level
+            bio = "Student account"
+
+        elif role == "tutor":
+            qualification = pick_with_other(request.form, "qualification")
+            main_subject = pick_with_other(request.form, "main_subject")
+            additional_subjects = request.form.get("additional_subjects", "").strip()
+            class_levels = pick_with_other(request.form, "class_levels")
+            experience_years = int(request.form.get("experience_years") or 0)
+            teaching_mode = request.form.get("teaching_mode", "").strip()
+            hourly_rate = int(request.form.get("hourly_rate") or 0)
+            bio = request.form.get("bio", "").strip()
+            subjects = ", ".join([s for s in [main_subject, additional_subjects] if s])
+
         user = User(
             email=email,
             role=role,
             full_name=request.form["full_name"].strip(),
-            public_name=request.form.get(
-                "public_name", request.form["full_name"]
-            ).strip(),
-            qualification=request.form.get("qualification", "").strip(),
-            subjects=request.form.get("subjects", "").strip(),
-            class_levels=request.form.get("class_levels", "").strip(),
-            experience_years=int(request.form.get("experience_years") or 0),
-            bio=request.form.get("bio", "").strip(),
-            modest_profile=bool(request.form.get("modest_profile")),
-            audio_only=bool(request.form.get("audio_only")),
+            public_name=request.form.get("public_name", request.form["full_name"]).strip(),
+            qualification=qualification,
+            subjects=subjects,
+            class_levels=class_levels,
+            experience_years=experience_years,
+            bio=bio,
+            modest_profile=modest_profile,
+            audio_only=audio_only,
+            gender=gender,
+            city=city,
+            main_subject=main_subject,
+            additional_subjects=additional_subjects,
+            student_level=student_level,
+            student_subject_needed=student_subject_needed,
+            preferred_tutor_gender=preferred_tutor_gender,
+            learning_mode=learning_mode,
+            teaching_mode=teaching_mode,
+            hourly_rate=hourly_rate,
+            demo_video_url=demo_video_url,
         )
+
         user.tutor_category = classify_teacher(user.subjects, user.class_levels)
         user.set_password(request.form["password"])
+
+        image_file = request.files.get("profile_image_file")
+        if image_file and image_file.filename:
+            filename = f"{uuid4().hex}_{secure_filename(image_file.filename)}"
+            image_file.save(Path(app.config["UPLOAD_FOLDER"]) / filename)
+            user.profile_image = filename
 
         if role == "tutor":
             user.is_verified_tutor = False
@@ -441,7 +544,9 @@ def register():
             f"New {role} registered\n"
             f"Name: {user.full_name}\n"
             f"Email: {user.email}\n"
-            f"Public Name: {user.public_name}",
+            f"Public Name: {user.public_name}\n"
+            f"City: {user.city}\n"
+            f"Gender: {user.gender}",
         )
         flash(
             "Registration completed. Tutors remain under review until admin verification.",
