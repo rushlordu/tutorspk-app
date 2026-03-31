@@ -4,21 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>TutorsOnline.pk</title>
+
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link rel="icon" href="{{ url_for('static', filename='images/favicon.svg') }}" type="image/svg+xml">
 </head>
 <body>
-  <header class="navbar">
-    <div class="container nav-inner">
-      <div class="logo">
-        <a href="{{ url_for('index') }}">
-          <span class="logo-icon">📖</span>
-          <span class="logo-text">TutorsOnline.pk</span>
-        </a>
-      </div>
+  <header class="site-header">
+    <div class="container nav-wrap">
+      <a href="{{ url_for('index') }}" class="brand">
+        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="TutorsOnline.pk" class="brand-logo">
+      </a>
 
-      <nav class="nav-links">
+      <nav class="main-nav">
         <a href="{{ url_for('tutors') }}">Find Tutors</a>
-        <a href="#">How it Works</a>
+        <a href="#how-it-works">How it Works</a>
 
         {% if current_user.is_authenticated %}
           <a href="{{ url_for('dashboard') }}">My Account</a>
@@ -28,24 +27,26 @@
           <a href="{{ url_for('logout') }}">Logout</a>
         {% else %}
           <a href="{{ url_for('login') }}">Login</a>
-          <a href="{{ url_for('register') }}" class="btn btn-sm">Join</a>
+          <a href="{{ url_for('register') }}" class="nav-join-btn">Join</a>
         {% endif %}
       </nav>
     </div>
   </header>
 
-  <main class="container main">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="flash-wrap">
-          {% for category, message in messages %}
-            <div class="flash {{ category }}">{{ message }}</div>
-          {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
+  <main class="site-main">
+    <div class="container">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-wrap">
+            {% for category, message in messages %}
+              <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
 
-    {% block content %}{% endblock %}
+      {% block content %}{% endblock %}
+    </div>
   </main>
 </body>
 </html>

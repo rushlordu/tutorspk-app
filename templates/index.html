@@ -1,111 +1,124 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<section class="hero-modern">
-  <div class="hero-modern-left">
-    <h1>Find the right tutor for your child or yourself</h1>
-    <p class="hero-trust-line">Safe • Verified Tutors • Online Only</p>
-    <p>
-      Simple online tutoring for Grade 5–8, Matric, Intermediate, O Levels,
-      A Levels, IELTS, GAT, and English language learners.
-    </p>
+<section class="hero-section">
+  <div class="hero-grid">
+    <div class="hero-copy">
+      <h1>Find the right tutor for your child with confidence</h1>
+      <p>
+        Trusted and simple online tutoring for school subjects, exams,
+        and English language learning.
+      </p>
 
-    <div class="hero-modern-actions">
-      <a class="btn" href="{{ url_for('tutors') }}">Find a Tutor</a>
+      <div class="hero-actions">
+        <a class="hero-btn hero-btn-primary" href="{{ url_for('tutors') }}">Find a Tutor</a>
 
-      {% if google_configured %}
-      <a class="btn btn-light google-btn-main" href="{{ url_for('google_login') }}">
-        <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google">
-        Continue with Google
-      </a>
-      {% endif %}
+        {% if google_configured %}
+        <a class="hero-btn hero-btn-light" href="{{ url_for('google_login') }}">
+          <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google">
+          Continue with Google
+        </a>
+        {% endif %}
+      </div>
+
+      <div class="hero-links">
+        <a href="{{ url_for('register') }}">Join with Email</a>
+        <span>|</span>
+        <a href="{{ url_for('tutors') }}">Browse Tutors</a>
+      </div>
     </div>
 
-    <div class="hero-modern-links">
-      <a href="{{ url_for('register') }}">Join with Email</a>
-      <span>|</span>
-      <a href="{{ url_for('tutors') }}">Browse Tutors</a>
-    </div>
-  </div>
-
-  <div class="hero-modern-right">
-    <img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80" alt="Online learning">
-  </div>
-</section>
-
-<section class="trust-strip">
-  <div class="trust-card">
-    <div class="trust-icon">✔</div>
-    <div>
-      <h3>Verified Tutors</h3>
-      <p>Reviewed profiles with qualifications and ratings</p>
-    </div>
-  </div>
-
-  <div class="trust-card">
-    <div class="trust-icon blue">👤</div>
-    <div>
-      <h3>Easy to Use</h3>
-      <p>Simple for parents, students, and first-time users</p>
-    </div>
-  </div>
-
-  <div class="trust-card">
-    <div class="trust-icon green">💳</div>
-    <div>
-      <h3>Transparent Credits</h3>
-      <p>1 credit = Rs {{ credit_rate }}</p>
+    <div class="hero-image-wrap">
+      <img src="{{ url_for('static', filename='images/hero-girl.png') }}" alt="Student learning online" class="hero-image">
     </div>
   </div>
 </section>
 
-<section class="category-section">
+<section class="reassurance-section">
+  <div class="reassurance-heading">Simple for parents, students, and first-time users</div>
+
+  <div class="reassurance-grid">
+    <div class="reassurance-card">
+      <div class="reassurance-icon">✓</div>
+      <div>
+        <h3>Verified Tutors</h3>
+        <p>Qualified and reviewed tutors you can trust</p>
+      </div>
+    </div>
+
+    <div class="reassurance-card">
+      <div class="reassurance-icon">👩</div>
+      <div>
+        <h3>Female Tutor Options</h3>
+        <p>Comfortable options for families</p>
+      </div>
+    </div>
+
+    <div class="reassurance-card">
+      <div class="reassurance-icon">☺</div>
+      <div>
+        <h3>Easy for Parents &amp; Students</h3>
+        <p>Simple and safe for all ages</p>
+      </div>
+    </div>
+
+    <div class="reassurance-card">
+      <div class="reassurance-icon">💳</div>
+      <div>
+        <h3>Transparent Pricing</h3>
+        <p>Clear and simple credit system</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="learning-section">
   <h2>Popular Learning Areas</h2>
 
-  <div class="category-grid">
-    <a href="{{ url_for('tutors') }}?level=grade_6_8" class="category-card">
-      <img src="https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=800&q=80" alt="School Subjects">
-      <div class="category-body">
+  <div class="learning-grid">
+    <a href="{{ url_for('tutors') }}?level=grade_6_8" class="learning-card">
+      <img src="https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=900&q=80" alt="School subjects">
+      <div class="learning-body">
         <h3>School Subjects</h3>
         <p>Grade 5–8</p>
       </div>
     </a>
 
-    <a href="{{ url_for('tutors') }}?level=o_level" class="category-card">
-      <img src="https://images.unsplash.com/photo-1513258496099-48168024aec0?auto=format&fit=crop&w=800&q=80" alt="O/A Levels">
-      <div class="category-body">
+    <a href="{{ url_for('tutors') }}?level=o_level" class="learning-card">
+      <img src="https://images.unsplash.com/photo-1513258496099-48168024aec0?auto=format&fit=crop&w=900&q=80" alt="O and A Levels">
+      <div class="learning-body">
         <h3>O / A Levels</h3>
         <p>Concept learning and exam prep</p>
       </div>
     </a>
 
-    <a href="{{ url_for('tutors') }}?subject=ielts" class="category-card">
-      <img src="https://images.unsplash.com/photo-1529390079861-591de354faf5?auto=format&fit=crop&w=800&q=80" alt="IELTS">
-      <div class="category-body">
+    <a href="{{ url_for('tutors') }}?subject=ielts" class="learning-card">
+      <img src="https://images.unsplash.com/photo-1529390079861-591de354faf5?auto=format&fit=crop&w=900&q=80" alt="IELTS">
+      <div class="learning-body">
         <h3>IELTS</h3>
         <p>English and test preparation</p>
       </div>
     </a>
 
-    <a href="{{ url_for('tutors') }}?subject=other&subject_other=GAT" class="category-card">
-      <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80" alt="GAT / Entry Test">
-      <div class="category-body">
-        <h3>GAT / Entry Test Prep</h3>
-        <p>Focused preparation support</p>
-      </div>
-    </a>
-
-    <a href="{{ url_for('tutors') }}?subject=spoken_english" class="category-card">
-      <img src="https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=800&q=80" alt="English Speaking">
-      <div class="category-body">
+    <a href="{{ url_for('tutors') }}?subject=spoken_english" class="learning-card">
+      <img src="https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=900&q=80" alt="English speaking">
+      <div class="learning-body">
         <h3>English Speaking</h3>
         <p>Language confidence and fluency</p>
       </div>
     </a>
 
-    <a href="{{ url_for('tutors') }}" class="category-card">
-      <img src="https://images.unsplash.com/photo-1571260899304-425eee4c7efc?auto=format&fit=crop&w=800&q=80" alt="Female Tutors">
-      <div class="category-body">
+    <a href="{{ url_for('tutors') }}?subject=other&subject_other=GAT" class="learning-card">
+      <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80" alt="Entry test">
+      <div class="learning-body">
+        <h3>GAT / Entry Test Prep</h3>
+        <p>Focused preparation support</p>
+      </div>
+    </a>
+
+    <a href="{{ url_for('tutors') }}" class="learning-card">
+      <img src="https://images.unsplash.com/photo-1571260899304-425eee4c7efc?auto=format&fit=crop&w=900&q=80" alt="Female tutors">
+      <div class="learning-body">
         <h3>Female Tutors</h3>
         <p>Comfortable options for families</p>
       </div>
@@ -113,41 +126,64 @@
   </div>
 </section>
 
-<section>
+<section id="how-it-works" class="how-section">
+  <h2>How it Works</h2>
+  <div class="how-grid">
+    <div class="how-card">
+      <div class="how-step">1</div>
+      <h3>Choose a Tutor</h3>
+      <p>Browse tutors by subject, level, and learning need.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-step">2</div>
+      <h3>Book Online</h3>
+      <p>Pick the right tutor and continue with a simple online process.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-step">3</div>
+      <h3>Start Learning</h3>
+      <p>Attend sessions online in a clear and guided way.</p>
+    </div>
+  </div>
+</section>
+
+<section class="featured-section">
   <div class="section-head">
     <div>
       <h2>Featured Tutors</h2>
-      <p class="muted section-subtext">Top-rated tutors available now</p>
+      <p class="section-subtext">Top-rated tutors available now</p>
     </div>
     <a href="{{ url_for('tutors') }}">View all</a>
   </div>
 
-  <div class="grid cards">
+  <div class="featured-grid">
     {% for tutor in featured_tutors %}
-      <article class="card tutor-card">
-        <img src="{{ tutor.profile_image or 'https://picsum.photos/seed/default/300/300' }}" alt="{{ tutor.public_name }}">
-        <h3>{{ tutor.public_name }}</h3>
-        <p class="muted">{{ tutor.qualification }}</p>
-        <p>{{ tutor.subjects }}</p>
-        <span class="badge">{{ tutor.tutor_category }}</span>
-        <p>⭐ {{ '%.1f'|format(tutor.rating_avg) }} · {{ tutor.sessions_completed }} sessions</p>
-        <a class="btn btn-sm" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">View profile</a>
+      <article class="featured-card">
+        <img src="{{ tutor.profile_image or 'https://picsum.photos/seed/default/500/500' }}" alt="{{ tutor.public_name }}">
+        <div class="featured-body">
+          <h3>{{ tutor.public_name }}</h3>
+          <p class="featured-qual">{{ tutor.qualification }}</p>
+          <p class="featured-subjects">{{ tutor.subjects }}</p>
+          <span class="featured-badge">{{ tutor.tutor_category }}</span>
+          <p class="featured-rating">⭐ {{ '%.1f'|format(tutor.rating_avg) }} · {{ tutor.sessions_completed }} sessions</p>
+          <a class="small-cta" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">View profile</a>
+        </div>
       </article>
     {% else %}
-      <div class="card">
+      <div class="empty-card">
         <p>No featured tutors yet.</p>
       </div>
     {% endfor %}
   </div>
 </section>
 
-<section class="final-cta">
-  <div class="card final-cta-card">
+<section class="final-cta-section">
+  <div class="final-cta-card">
     <h2>Start learning today</h2>
     <p>Find the right tutor in minutes.</p>
     <div class="final-cta-actions">
-      <a class="btn" href="{{ url_for('tutors') }}">Find Tutor</a>
-      <a class="btn btn-light" href="{{ url_for('register') }}">Join Now</a>
+      <a class="hero-btn hero-btn-primary" href="{{ url_for('tutors') }}">Find a Tutor</a>
+      <a class="hero-btn hero-btn-light" href="{{ url_for('register') }}">Join Now</a>
     </div>
   </div>
 </section>
