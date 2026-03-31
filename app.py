@@ -96,6 +96,34 @@ PHONE_OR_EMAIL_PATTERNS = [
     ),
 ]
 
+SUBJECT_OPTIONS = [
+    ("mathematics", "Mathematics"),
+    ("physics", "Physics"),
+    ("chemistry", "Chemistry"),
+    ("biology", "Biology"),
+    ("english", "English"),
+    ("urdu", "Urdu"),
+    ("computer_science", "Computer Science"),
+    ("pakistan_studies", "Pakistan Studies"),
+    ("islamiat", "Islamiat"),
+    ("ielts", "IELTS"),
+    ("spoken_english", "Spoken English"),
+    ("arabic", "Arabic"),
+    ("french", "French"),
+    ("other", "Other"),
+]
+
+LEVEL_OPTIONS = [
+    ("grade_1_5", "Grade 1–5"),
+    ("grade_6_8", "Grade 6–8"),
+    ("matric", "Matric"),
+    ("intermediate", "Intermediate"),
+    ("o_level", "O Level"),
+    ("a_level", "A Level"),
+    ("university", "University"),
+    ("language_learning", "Language Learning"),
+    ("other", "Other"),
+]
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -743,9 +771,15 @@ def dashboard():
 
 @app.route("/tutors")
 def tutors():
-  
-    level = request.args.get("level", "")
-    subject = request.args.get("subject", "")
+    level = request.args.get("level", "").strip()
+    subject = request.args.get("subject", "").strip()
+
+    if subject == "other":
+        subject = request.args.get("subject_other", "").strip()
+
+    if level == "other":
+        level = request.args.get("level_other", "").strip()
+
     query = User.query.filter_by(role="tutor", is_verified_tutor=True)
 
     if level:
@@ -753,7 +787,14 @@ def tutors():
     if subject:
         query = query.filter(User.subjects.ilike(f"%{subject}%"))
 
-    return render_template("tutors.html", tutors=query.all(), level=level, subject=subject)
+    return render_template(
+        "tutors.html",
+        tutors=query.all(),
+        level=level,
+        subject=subject,
+        subject_options=SUBJECT_OPTIONS,
+        level_options=LEVEL_OPTIONS,
+    )
 
 
 @app.route("/tutors/<int:tutor_id>", methods=["GET", "POST"])

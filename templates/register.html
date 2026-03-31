@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="card">
-  <h1>Join TutorPK</h1>
+  <h1>Join TutorsOnline.pk</h1>
   <p class="muted">Choose how you want to join, then complete a short profile.</p>
 
   <form method="post" enctype="multipart/form-data" id="registerForm">
@@ -18,7 +18,10 @@
       <input name="full_name" placeholder="Full name" required>
       <input name="public_name" placeholder="Display name" required>
       <input name="email" type="email" placeholder="Email" required>
-      <input name="password" type="password" placeholder="Password" required>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input id="register_password" name="password" type="password" placeholder="Password" required style="flex:1;">
+        <button type="button" class="btn btn-light btn-sm" onclick="togglePassword('register_password', this)">Show</button>
+      </div>
 
       <div>
         <select name="gender" id="gender" onchange="toggleOtherField('gender', 'gender_other_wrap')">
@@ -224,5 +227,42 @@ function toggleOtherField(selectId, wrapId) {
 document.addEventListener("DOMContentLoaded", function () {
   toggleRoleSections();
 });
+
+function toggleRoleSections() {
+  const role = document.getElementById("role").value;
+  document.getElementById("studentFields").style.display = role === "student" ? "block" : "none";
+  document.getElementById("tutorFields").style.display = role === "tutor" ? "block" : "none";
+}
+
+function toggleOtherField(selectId, wrapId) {
+  const select = document.getElementById(selectId);
+  const wrap = document.getElementById(wrapId);
+  if (!select || !wrap) return;
+  wrap.style.display = select.value === "other" ? "block" : "none";
+}
+
+function togglePassword(fieldId, btn) {
+  const field = document.getElementById(fieldId);
+  if (!field) return;
+  if (field.type === "password") {
+    field.type = "text";
+    btn.textContent = "Hide";
+  } else {
+    field.type = "password";
+    btn.textContent = "Show";
+  }
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  toggleRoleSections();
+  toggleOtherField("gender", "gender_other_wrap");
+  toggleOtherField("city", "city_other_wrap");
+  toggleOtherField("student_level", "student_level_other_wrap");
+  toggleOtherField("student_subject_needed", "student_subject_other_wrap");
+  toggleOtherField("qualification", "qualification_other_wrap");
+  toggleOtherField("main_subject", "main_subject_other_wrap");
+  toggleOtherField("class_levels", "class_levels_other_wrap");
+});
+
 </script>
 {% endblock %}

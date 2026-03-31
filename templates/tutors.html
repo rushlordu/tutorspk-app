@@ -6,8 +6,32 @@
   <p class="muted">Browse trusted online tutors by subject and level.</p>
 
   <form method="get" class="form-grid two-col compact">
-    <input name="subject" value="{{ subject }}" placeholder="Search by subject">
-    <input name="level" value="{{ level }}" placeholder="Search by level">
+    <div>
+      <select name="subject" id="search_subject" onchange="toggleOtherField('search_subject', 'search_subject_other_wrap')">
+        <option value="">Select subject</option>
+        {% for value, label in subject_options %}
+          <option value="{{ value }}" {% if subject == value or subject == label %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <div id="search_subject_other_wrap" style="display:none; margin-top:8px;">
+        <input name="subject_other" id="search_subject_other" placeholder="Enter subject"
+               value="{% if subject and subject not in ['mathematics','physics','chemistry','biology','english','urdu','computer_science','pakistan_studies','islamiat','ielts','spoken_english','arabic','french'] %}{{ subject }}{% endif %}">
+      </div>
+    </div>
+
+    <div>
+      <select name="level" id="search_level" onchange="toggleOtherField('search_level', 'search_level_other_wrap')">
+        <option value="">Select level</option>
+        {% for value, label in level_options %}
+          <option value="{{ value }}" {% if level == value or level == label %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <div id="search_level_other_wrap" style="display:none; margin-top:8px;">
+        <input name="level_other" id="search_level_other" placeholder="Enter level"
+               value="{% if level and level not in ['grade_1_5','grade_6_8','matric','intermediate','o_level','a_level','university','language_learning'] %}{{ level }}{% endif %}">
+      </div>
+    </div>
+
     <button class="btn" type="submit">Explore tutors</button>
   </form>
 </section>
@@ -37,5 +61,19 @@
   </div>
 {% endfor %}
 </section>
+
+<script>
+function toggleOtherField(selectId, wrapId) {
+  const select = document.getElementById(selectId);
+  const wrap = document.getElementById(wrapId);
+  if (!select || !wrap) return;
+  wrap.style.display = select.value === "other" ? "block" : "none";
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  toggleOtherField("search_subject", "search_subject_other_wrap");
+  toggleOtherField("search_level", "search_level_other_wrap");
+});
+</script>
 
 {% endblock %}

@@ -15,3 +15,257 @@ input,select,textarea,button,progress{font:inherit} input,select,textarea{width:
 .video-shell{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:18px 0}.video-box{background:#152238;color:#fff;border-radius:16px;min-height:180px;display:flex;align-items:center;justify-content:center}.video-box.observer{outline:3px solid #ffd54f}.observer-banner{background:#fff2cc;border:1px solid #ffe08a;border-radius:12px;padding:12px 14px;margin:10px 0 18px;font-weight:700}
 .progress-box progress{width:100%;height:18px}
 @media (max-width:860px){.hero-grid{grid-template-columns:1fr}.hero h1{font-size:30px}}
+.navbar {
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 12px 0;
+}
+
+.nav-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.logo a {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.logo-icon {
+  margin-right: 8px;
+  font-size: 22px;
+}
+
+.logo-text {
+  color: #2f6f3e;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.nav-links a {
+  text-decoration: none;
+  color: #243047;
+  font-weight: 500;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.main {
+  padding-top: 24px;
+  padding-bottom: 24px;
+}
+
+.btn {
+  background: #2563eb;
+  color: #ffffff;
+  padding: 10px 16px;
+  border-radius: 10px;
+  text-decoration: none;
+  display: inline-block;
+  border: none;
+}
+
+.btn-sm {
+  padding: 8px 14px;
+}
+
+.btn-light {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.flash-wrap {
+  margin-bottom: 18px;
+}
+
+@media (max-width: 768px) {
+  .nav-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .nav-links {
+    width: 100%;
+    gap: 12px;
+  }
+}
+.hero-modern {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 28px;
+  align-items: center;
+  padding: 28px 0 20px;
+}
+
+.hero-modern-left h1 {
+  font-size: 52px;
+  line-height: 1.15;
+  margin-bottom: 16px;
+  color: #1f2a44;
+}
+
+.hero-modern-left p {
+  font-size: 18px;
+  color: #5f6b7a;
+  line-height: 1.7;
+  margin-bottom: 24px;
+}
+
+.hero-modern-actions {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.google-btn-main {
+  display: inline-flex;
+  align-items: center;
+}
+
+.hero-modern-links {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: #64748b;
+  font-size: 15px;
+}
+
+.hero-modern-links a {
+  color: #3b5fbf;
+  text-decoration: none;
+}
+
+.hero-modern-right img {
+  width: 100%;
+  border-radius: 20px;
+  display: block;
+  object-fit: cover;
+  min-height: 360px;
+}
+
+.trust-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin: 26px 0 40px;
+}
+
+.trust-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  padding: 22px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.trust-card h3 {
+  margin: 0 0 6px;
+  font-size: 28px;
+  color: #243047;
+}
+
+.trust-card p {
+  margin: 0;
+  color: #64748b;
+  font-size: 22px;
+  line-height: 1.5;
+}
+
+.trust-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #79b36b;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.trust-icon.blue {
+  background: #5a88f0;
+}
+
+.trust-icon.green {
+  background: #6dac5d;
+}
+
+.category-section {
+  margin: 28px 0 40px;
+}
+
+.category-section h2 {
+  font-size: 38px;
+  margin-bottom: 22px;
+  color: #243047;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+
+.category-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.category-card img {
+  width: 100%;
+  height: 210px;
+  object-fit: cover;
+  display: block;
+}
+
+.category-body {
+  padding: 18px;
+}
+
+.category-body h3 {
+  margin: 0 0 8px;
+  font-size: 22px;
+  color: #243047;
+}
+
+.category-body p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 18px;
+}
+
+@media (max-width: 900px) {
+  .hero-modern {
+    grid-template-columns: 1fr;
+  }
+
+  .trust-strip,
+  .category-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-modern-left h1 {
+    font-size: 36px;
+  }
+}

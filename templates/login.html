@@ -4,7 +4,10 @@
   <h1>Login</h1>
   <form method="post" class="form-grid">
     <input name="email" type="email" placeholder="Email" required>
-    <input name="password" type="password" placeholder="Password" required>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <input id="login_password" name="password" type="password" placeholder="Password" required style="flex:1;">
+      <button type="button" class="btn btn-light btn-sm" onclick="togglePassword('login_password', this)">Show</button>
+    </div>
     <button class="btn" type="submit">Login</button>
   </form>
   <div class="divider"></div>
@@ -14,4 +17,19 @@
       Continue with Google
     </a>
 </div>
+
+<script>
+function togglePassword(fieldId, btn) {
+  const field = document.getElementById(fieldId);
+  if (!field) return;
+  if (field.type === "password") {
+    field.type = "text";
+    btn.textContent = "Hide";
+  } else {
+    field.type = "password";
+    btn.textContent = "Show";
+  }
+}
+</script>
+
 {% endblock %}

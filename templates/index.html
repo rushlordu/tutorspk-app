@@ -1,51 +1,120 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<section class="hero card hero-grid">
-  <div>
-    <p class="eyebrow">Trusted online tutoring for Pakistan</p>
-    <h1>Easily find the right tutor for your child or yourself.</h1>
+<section class="hero-modern">
+  <div class="hero-modern-left">
+    <h1>Find trusted online tutors for school, exams, and English learning</h1>
     <p>
-      Simple, safe and online-only tutoring for Grade 5–8, Matric, Intermediate,
-      O Levels, A Levels and English language learning.
+      Simple online tutoring for Grade 5–8, Matric, Intermediate, O Levels,
+      A Levels, IELTS, GAT, and English language learners.
     </p>
 
-    <div class="hero-actions" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px;">
-      <a class="btn" href="{{ url_for('tutors') }}">Find Tutor</a>
-      <a class="btn btn-light" href="{{ url_for('tutors') }}">Featured Tutors</a>
-      <a class="btn btn-light" href="{{ url_for('login') }}">My Account</a>
-      <a class="btn btn-light" href="{{ url_for('register') }}">Join Now</a>
+    <div class="hero-modern-actions">
+      <a class="btn" href="{{ url_for('tutors') }}">Find a Tutor</a>
+
       {% if google_configured %}
-      <a class="btn btn-light" href="{{ url_for('google_login') }}">Continue with Google</a>
+      <a class="btn btn-light google-btn-main" href="{{ url_for('google_login') }}">
+        <span style="font-size:18px; margin-right:8px;">G</span>
+        Continue with Google
+      </a>
       {% endif %}
+    </div>
+
+    <div class="hero-modern-links">
+      <a href="{{ url_for('register') }}">Join with Email</a>
+      <span>|</span>
+      <a href="{{ url_for('tutors') }}">Browse Tutors</a>
     </div>
   </div>
 
-  <div class="hero-panel">
-    <div class="metric"><strong>{{ featured_tutors|length }}+</strong><span>Featured tutors</span></div>
-    <div class="metric"><strong>Online only</strong><span>Safe and simple for parents and students</span></div>
-    <div class="metric"><strong>1 credit</strong><span>= Rs {{ credit_rate }}</span></div>
+  <div class="hero-modern-right">
+    <img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80" alt="Online learning">
   </div>
 </section>
 
-<section class="grid three">
-  <div class="card">
-    <h3>Easy to use</h3>
-    <p>Designed to be simple for parents, children and first-time users.</p>
+<section class="trust-strip">
+  <div class="trust-card">
+    <div class="trust-icon">✔</div>
+    <div>
+      <h3>Verified Tutors</h3>
+      <p>Reviewed profiles with qualifications and ratings</p>
+    </div>
   </div>
-  <div class="card">
-    <h3>Verified tutor profiles</h3>
-    <p>Public names, qualifications, ratings and platform-based records only.</p>
+
+  <div class="trust-card">
+    <div class="trust-icon blue">👤</div>
+    <div>
+      <h3>Easy to Use</h3>
+      <p>Simple for parents, students, and first-time users</p>
+    </div>
   </div>
-  <div class="card">
-    <h3>Simple credit system</h3>
-    <p>Students can access classes through TutorPK’s guided credits system. Payment options will be expanded soon.</p>
+
+  <div class="trust-card">
+    <div class="trust-icon green">💳</div>
+    <div>
+      <h3>Transparent Credits</h3>
+      <p>1 credit = Rs {{ credit_rate }}</p>
+    </div>
+  </div>
+</section>
+
+<section class="category-section">
+  <h2>Popular Learning Areas</h2>
+
+  <div class="category-grid">
+    <div class="category-card">
+      <img src="https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=800&q=80" alt="School Subjects">
+      <div class="category-body">
+        <h3>School Subjects</h3>
+        <p>Grade 5–8</p>
+      </div>
+    </div>
+
+    <div class="category-card">
+      <img src="https://images.unsplash.com/photo-1513258496099-48168024aec0?auto=format&fit=crop&w=800&q=80" alt="O/A Levels">
+      <div class="category-body">
+        <h3>O / A Levels</h3>
+        <p>Concept learning and exam prep</p>
+      </div>
+    </div>
+
+    <div class="category-card">
+      <img src="https://images.unsplash.com/photo-1529390079861-591de354faf5?auto=format&fit=crop&w=800&q=80" alt="IELTS">
+      <div class="category-body">
+        <h3>IELTS</h3>
+        <p>English and test preparation</p>
+      </div>
+    </div>
+
+    <div class="category-card">
+      <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80" alt="GAT / Entry Test">
+      <div class="category-body">
+        <h3>GAT / Entry Test Prep</h3>
+        <p>Focused preparation support</p>
+      </div>
+    </div>
+
+    <div class="category-card">
+      <img src="https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=800&q=80" alt="English Speaking">
+      <div class="category-body">
+        <h3>English Speaking</h3>
+        <p>Language confidence and fluency</p>
+      </div>
+    </div>
+
+    <div class="category-card">
+      <img src="https://images.unsplash.com/photo-1571260899304-425eee4c7efc?auto=format&fit=crop&w=800&q=80" alt="Female Tutors">
+      <div class="category-body">
+        <h3>Female Tutors</h3>
+        <p>Comfortable options for families</p>
+      </div>
+    </div>
   </div>
 </section>
 
 <section>
   <div class="section-head">
-    <h2>Featured tutors</h2>
+    <h2>Featured Tutors</h2>
     <a href="{{ url_for('tutors') }}">View all</a>
   </div>
 
@@ -65,28 +134,6 @@
         <p>No featured tutors yet.</p>
       </div>
     {% endfor %}
-  </div>
-</section>
-
-<section class="grid two">
-  <div class="card">
-    <h2>Popular categories</h2>
-    <ul class="clean-list">
-      <li>Math Tutoring</li>
-      <li>O / A Level Tutoring</li>
-      <li>English Language</li>
-      <li>IELTS / Entry Test Prep</li>
-      <li>Female Tutors Available</li>
-    </ul>
-  </div>
-
-  <div class="card">
-    <h2>Demo lecture ideas</h2>
-    <ul class="clean-list">
-      {% for topic in demo_topics %}
-      <li>{{ topic }}</li>
-      {% endfor %}
-    </ul>
   </div>
 </section>
 

@@ -3,23 +3,32 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>TutorPK</title>
+  <title>TutorsOnline.pk</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
 <body>
-  <header class="topbar">
-    <div class="container nav">
-      <a href="{{ url_for('index') }}" class="brand">TutorPK</a>
-      <nav>
-        <a href="{{ url_for('tutors') }}">Tutors</a>
+  <header class="navbar">
+    <div class="container nav-inner">
+      <div class="logo">
+        <a href="{{ url_for('index') }}">
+          <span class="logo-icon">📘</span>
+          <span class="logo-text">TutorsOnline.pk</span>
+        </a>
+      </div>
+
+      <nav class="nav-links">
+        <a href="{{ url_for('tutors') }}">Find Tutors</a>
+        <a href="#">How it Works</a>
+
         {% if current_user.is_authenticated %}
-          <a href="{{ url_for('dashboard') }}">Dashboard</a>
-          <a href="{{ url_for('student_wallet') }}">Wallet</a>
-          {% if current_user.role == 'admin' %}<a href="{{ url_for('admin_dashboard') }}">Admin</a>{% endif %}
+          <a href="{{ url_for('dashboard') }}">My Account</a>
+          {% if current_user.role == 'admin' %}
+            <a href="{{ url_for('admin_dashboard') }}">Admin</a>
+          {% endif %}
           <a href="{{ url_for('logout') }}">Logout</a>
         {% else %}
           <a href="{{ url_for('login') }}">Login</a>
-          <a href="{{ url_for('register') }}" class="btn btn-sm">Register</a>
+          <a href="{{ url_for('register') }}" class="btn btn-sm">Join</a>
         {% endif %}
       </nav>
     </div>
@@ -35,6 +44,7 @@
         </div>
       {% endif %}
     {% endwith %}
+
     {% block content %}{% endblock %}
   </main>
 </body>
