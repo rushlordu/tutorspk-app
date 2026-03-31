@@ -105,12 +105,8 @@
         </div>
 
         <div>
-          <select name="learning_mode">
-            <option value="">Learning mode</option>
-            <option value="online">Online</option>
-            <option value="in_person">In-person</option>
-            <option value="both">Both</option>
-          </select>
+         <input type="hidden" name="learning_mode" value="online">
+          <p class="muted">All sessions are conducted online.</p>
         </div>
       </div>
     </div>
@@ -188,12 +184,8 @@
         <input name="hourly_rate" type="number" min="0" step="1" placeholder="Rate per hour (PKR)">
 
         <div>
-          <select name="teaching_mode">
-            <option value="">Teaching mode</option>
-            <option value="online">Online</option>
-            <option value="in_person">In-person</option>
-            <option value="both">Both</option>
-          </select>
+         <input type="hidden" name="teaching_mode" value="online">
+         <p class="muted">TutorPK supports online teaching only.</p>
         </div>
 
         <label><input type="checkbox" name="modest_profile"> Modest / veiled profile preference</label>

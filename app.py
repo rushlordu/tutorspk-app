@@ -51,7 +51,7 @@ app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_DIR)
 
 # Temporary site status flag
-UNDER_CONSTRUCTION = True
+UNDER_CONSTRUCTION = False
 
 # Configurable placeholders for later setup
 app.config["MAIL_SERVER"] = os.getenv("MAIL_SERVER", "")
@@ -284,10 +284,6 @@ def load_user(user_id):
 def inject_globals():
     return {
         "credit_rate": app.config["CREDIT_RATE"],
-        "bank_iban": app.config["BANK_IBAN"],
-        "bank_title": app.config["BANK_ACCOUNT_TITLE"],
-        "bank_name": app.config["BANK_NAME"],
-        "support_whatsapp": app.config["WHATSAPP_SUPPORT"],
         "google_configured": bool(
             app.config["GOOGLE_CLIENT_ID"] and app.config["GOOGLE_CLIENT_SECRET"]
         ),
@@ -315,6 +311,7 @@ def construction_gate():
         or path.startswith("/uploads/")
         or path.startswith("/seed")
         or path.startswith("/register")
+        or path.startswith("/complete-google-signup")   
     ):
         return
 
@@ -402,16 +399,98 @@ def pick_with_other(form, field_name: str) -> str:
         return other_value
     return value
 
+def build_google_user_from_form(form, email: str, fallback_name: str) -> User:
+    role = form.get("role", "student").strip()
+
+    gender = pick_with_other(form, "gender")
+    city = pick_with_other(form, "city")
+
+    qualification = ""
+    subjects = ""
+    class_levels = ""
+    experience_years = 0
+    bio = ""
+    modest_profile = bool(form.get("modest_profile"))
+    audio_only = bool(form.get("audio_only"))
+    main_subject = ""
+    additional_subjects = ""
+    student_level = ""
+    student_subject_needed = ""
+    preferred_tutor_gender = ""
+    learning_mode = ""
+    teaching_mode = ""
+    hourly_rate = 0
+    demo_video_url = form.get("demo_video_url", "").strip()
+
+    full_name = form.get("full_name", fallback_name).strip() or fallback_name
+    public_name = form.get("public_name", full_name).strip() or full_name
+
+    if role == "student":
+        student_level = pick_with_other(form, "student_level")
+        student_subject_needed = pick_with_other(form, "student_subject_needed")
+        preferred_tutor_gender = form.get("preferred_tutor_gender", "").strip()
+        learning_mode = "online"
+        subjects = student_subject_needed
+        class_levels = student_level
+        bio = "Signed up via Google"
+
+    elif role == "tutor":
+        qualification = pick_with_other(form, "qualification")
+        main_subject = pick_with_other(form, "main_subject")
+        additional_subjects = form.get("additional_subjects", "").strip()
+        class_levels = pick_with_other(form, "class_levels")
+        experience_years = int(form.get("experience_years") or 0)
+        teaching_mode = "online"
+        hourly_rate = int(form.get("hourly_rate") or 0)
+        bio = form.get("bio", "").strip() or "Signed up via Google"
+        subjects = ", ".join([s for s in [main_subject, additional_subjects] if s])
+
+    user = User(
+        email=email,
+        role=role,
+        full_name=full_name,
+        public_name=public_name,
+        qualification=qualification,
+        subjects=subjects,
+        class_levels=class_levels,
+        experience_years=experience_years,
+        bio=bio,
+        modest_profile=modest_profile,
+        audio_only=audio_only,
+        gender=gender,
+        city=city,
+        main_subject=main_subject,
+        additional_subjects=additional_subjects,
+        student_level=student_level,
+        student_subject_needed=student_subject_needed,
+        preferred_tutor_gender=preferred_tutor_gender,
+        learning_mode=learning_mode,
+        teaching_mode=teaching_mode,
+        hourly_rate=hourly_rate,
+        demo_video_url=demo_video_url,
+    )
+
+    user.tutor_category = classify_teacher(user.subjects, user.class_levels)
+    user.set_password(uuid4().hex)
+
+    if role == "tutor":
+        user.is_verified_tutor = False
+
+    image_file = request.files.get("profile_image_file")
+    if image_file and image_file.filename:
+        filename = f"{uuid4().hex}_{secure_filename(image_file.filename)}"
+        image_file.save(Path(app.config["UPLOAD_FOLDER"]) / filename)
+        user.profile_image = filename
+
+    return user
+
+
 @app.route("/")
 def index():
-    return render_template("under_construction.html")
-
-@app.route("/UCsite")
-def ucsite():
     featured_tutors = (
         User.query.filter_by(role="tutor", is_verified_tutor=True)
         .order_by(User.rating_avg.desc(), User.sessions_completed.desc())
-        .limit(6)
+        .limit(10)
         .all()
     )
     demo_topics = [
@@ -427,27 +506,6 @@ def ucsite():
         featured_tutors=featured_tutors,
         demo_topics=demo_topics,
     )
-
-    featured_tutors = (
-        User.query.filter_by(role="tutor", is_verified_tutor=True)
-        .order_by(User.rating_avg.desc(), User.sessions_completed.desc())
-        .limit(6)
-        .all()
-    )
-    demo_topics = [
-        "Fractions for Grade 6",
-        "Linear Equations for O Level",
-        "Trigonometry Basics for Intermediate",
-        "A Level Mechanics Demo",
-        "Essay Writing Skills",
-        "Chemistry Stoichiometry Primer",
-    ]
-    return render_template(
-        "index.html",
-        featured_tutors=featured_tutors,
-        demo_topics=demo_topics,
-    )
-
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -569,33 +627,79 @@ def google_login():
 @app.route("/login/google/callback")
 def google_callback():
     token = google.authorize_access_token()
-    user_info = token.get('userinfo')
+    user_info = token.get("userinfo") or {}
 
-    email = user_info['email'].lower()
-    name = user_info.get('name', email.split('@')[0])
+    email = user_info.get("email", "").lower().strip()
+    name = user_info.get("name", "").strip() or email.split("@")[0]
+
+    if not email:
+        flash("Google account did not return an email address.", "danger")
+        return redirect(url_for("login"))
 
     user = User.query.filter_by(email=email).first()
 
-    if not user:
-        user = User(
-            email=email,
-            role="student",
-            full_name=name,
-            public_name=name,
-            qualification="",
-            bio="Signed up via Google"
-        )
-        user.set_password(uuid4().hex)
+    if user:
+        login_user(user)
+        flash("Logged in with Google.", "success")
+        if user.role == "admin":
+            return redirect(url_for("admin_dashboard"))
+        return redirect(url_for("dashboard"))
+
+    session["google_signup"] = {
+        "email": email,
+        "name": name,
+    }
+    return redirect(url_for("complete_google_signup"))
+
+@app.route("/complete-google-signup", methods=["GET", "POST"])
+def complete_google_signup():
+    google_signup = session.get("google_signup")
+    if not google_signup:
+        flash("Your Google signup session expired. Please try again.", "warning")
+        return redirect(url_for("login"))
+
+    email = google_signup["email"]
+    fallback_name = google_signup["name"]
+
+    existing_user = User.query.filter_by(email=email).first()
+    if existing_user:
+        login_user(existing_user)
+        flash("Account already exists. Logged in successfully.", "success")
+        if existing_user.role == "admin":
+            return redirect(url_for("admin_dashboard"))
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        user = build_google_user_from_form(request.form, email=email, fallback_name=fallback_name)
+
         db.session.add(user)
         db.session.commit()
 
-    login_user(user)
-    flash("Logged in with Google.", "success")
+        send_notification_email(
+            "New TutorPK Google Registration",
+            f"New {user.role} registered via Google\n"
+            f"Name: {user.full_name}\n"
+            f"Email: {user.email}\n"
+            f"Public Name: {user.public_name}\n"
+            f"City: {user.city}\n"
+            f"Gender: {user.gender}"
+        )
 
-    if user.role == "admin":
-        return redirect(url_for("admin_dashboard"))
+        session.pop("google_signup", None)
 
-    return redirect(url_for("dashboard"))
+        login_user(user)
+        if user.role == "tutor":
+            flash("Google signup completed. Tutor profile created and sent for review.", "success")
+        else:
+            flash("Google signup completed successfully.", "success")
+
+        return redirect(url_for("dashboard"))
+
+    return render_template(
+        "google_complete_profile.html",
+        google_email=email,
+        google_name=fallback_name,
+    )
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -639,9 +743,7 @@ def dashboard():
 
 @app.route("/tutors")
 def tutors():
-    if UNDER_CONSTRUCTION:
-        return redirect(url_for("index"))
-
+  
     level = request.args.get("level", "")
     subject = request.args.get("subject", "")
     query = User.query.filter_by(role="tutor", is_verified_tutor=True)
@@ -656,10 +758,9 @@ def tutors():
 
 @app.route("/tutors/<int:tutor_id>", methods=["GET", "POST"])
 def tutor_profile(tutor_id):
-    if UNDER_CONSTRUCTION:
-        return redirect(url_for("index"))
-
+   
     tutor = User.query.get_or_404(tutor_id)
+    
     if tutor.role != "tutor":
         flash("Tutor not found.", "danger")
         return redirect(url_for("tutors"))
@@ -1028,8 +1129,64 @@ def admin_users():
     if current_user.role != "admin":
         return redirect(url_for("dashboard"))
 
-    users = User.query.order_by(User.created_at.desc()).all()
-    return render_template("admin_users.html", users=users)
+    q = request.args.get("q", "").strip()
+    query = User.query
+
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            (User.full_name.ilike(like))
+            | (User.public_name.ilike(like))
+            | (User.email.ilike(like))
+            | (User.role.ilike(like))
+        )
+
+    users = query.order_by(User.created_at.desc()).all()
+    return render_template("admin_users.html", users=users, q=q)
+
+@app.route("/admin/users/<int:user_id>")
+@login_required
+def admin_user_detail(user_id):
+    if current_user.role != "admin":
+        return redirect(url_for("dashboard"))
+
+    user = User.query.get_or_404(user_id)
+    return render_template("admin_user_detail.html", user=user)
+
+@app.route("/admin/users/<int:user_id>/review", methods=["POST"])
+@login_required
+def admin_review_user(user_id):
+    if current_user.role != "admin":
+        return redirect(url_for("dashboard"))
+
+    user = User.query.get_or_404(user_id)
+    action = request.form.get("action", "").strip()
+    reason = request.form.get("reason", "").strip()
+
+    if action == "approve":
+        if user.role == "tutor":
+            user.is_verified_tutor = True
+        flash("User approved successfully.", "success")
+
+    elif action == "reject":
+        if user.role == "tutor":
+            user.is_verified_tutor = False
+        flash(
+            f"User marked rejected.{f' Reason: {reason}' if reason else ''}",
+            "warning",
+        )
+
+    elif action == "pend":
+        if user.role == "tutor":
+            user.is_verified_tutor = False
+        flash("User marked pending review.", "info")
+
+    else:
+        flash("Invalid review action.", "danger")
+        return redirect(url_for("admin_user_detail", user_id=user.id))
+
+    db.session.commit()
+    return redirect(url_for("admin_user_detail", user_id=user.id))
 
 
 @app.route("/admin/users/<int:user_id>/toggle", methods=["POST"])

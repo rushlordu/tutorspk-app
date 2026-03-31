@@ -1,26 +1,46 @@
 {% extends 'base.html' %}
 {% block content %}
+
 <section class="hero card hero-grid">
   <div>
-    <p class="eyebrow">Monitored online tutoring for Pakistan</p>
-    <h1>Book trusted tutors for Grade 5–8, Matric, Intermediate, O Levels and A Levels.</h1>
-    <p>Platform-only classes, transparent admin observer mode, credits-based payments, featured tutors and demo lessons.</p>
-    <div class="hero-actions">
-      <a class="btn" href="{{ url_for('tutors') }}">Explore tutors</a>
-      <a class="btn btn-light" href="{{ url_for('register') }}">Join TutorPK</a>
+    <p class="eyebrow">Trusted online tutoring for Pakistan</p>
+    <h1>Easily find the right tutor for your child or yourself.</h1>
+    <p>
+      Simple, safe and online-only tutoring for Grade 5–8, Matric, Intermediate,
+      O Levels, A Levels and English language learning.
+    </p>
+
+    <div class="hero-actions" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px;">
+      <a class="btn" href="{{ url_for('tutors') }}">Find Tutor</a>
+      <a class="btn btn-light" href="{{ url_for('tutors') }}">Featured Tutors</a>
+      <a class="btn btn-light" href="{{ url_for('login') }}">My Account</a>
+      <a class="btn btn-light" href="{{ url_for('register') }}">Join Now</a>
+      {% if google_configured %}
+      <a class="btn btn-light" href="{{ url_for('google_login') }}">Continue with Google</a>
+      {% endif %}
     </div>
   </div>
+
   <div class="hero-panel">
-    <div class="metric"><strong>10+</strong><span>Demo tutors</span></div>
-    <div class="metric"><strong>20%</strong><span>Platform commission with tutor bonus program</span></div>
+    <div class="metric"><strong>{{ featured_tutors|length }}+</strong><span>Featured tutors</span></div>
+    <div class="metric"><strong>Online only</strong><span>Safe and simple for parents and students</span></div>
     <div class="metric"><strong>1 credit</strong><span>= Rs {{ credit_rate }}</span></div>
   </div>
 </section>
 
 <section class="grid three">
-  <div class="card"><h3>Featured tutors</h3><p>Public aliases, qualifications, demo lectures and ratings.</p></div>
-  <div class="card"><h3>Quality assurance</h3><p>Admin can join sessions as visible observer. Contact-sharing is scanned in chat.</p></div>
-  <div class="card"><h3>Manual payments now</h3><p>Students top up by bank transfer, admin verifies and adds credits.</p></div>
+  <div class="card">
+    <h3>Easy to use</h3>
+    <p>Designed to be simple for parents, children and first-time users.</p>
+  </div>
+  <div class="card">
+    <h3>Verified tutor profiles</h3>
+    <p>Public names, qualifications, ratings and platform-based records only.</p>
+  </div>
+  <div class="card">
+    <h3>Simple credit system</h3>
+    <p>Students can access classes through TutorPK’s guided credits system. Payment options will be expanded soon.</p>
+  </div>
 </section>
 
 <section>
@@ -28,6 +48,7 @@
     <h2>Featured tutors</h2>
     <a href="{{ url_for('tutors') }}">View all</a>
   </div>
+
   <div class="grid cards">
     {% for tutor in featured_tutors %}
       <article class="card tutor-card">
@@ -39,21 +60,26 @@
         <p>⭐ {{ '%.1f'|format(tutor.rating_avg) }} · {{ tutor.sessions_completed }} sessions</p>
         <a class="btn btn-sm" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">View profile</a>
       </article>
+    {% else %}
+      <div class="card">
+        <p>No featured tutors yet.</p>
+      </div>
     {% endfor %}
   </div>
 </section>
 
 <section class="grid two">
   <div class="card">
-    <h2>Popular learning tracks</h2>
+    <h2>Popular categories</h2>
     <ul class="clean-list">
-      <li>Grade 5–8 foundation strengthening</li>
-      <li>Matric board preparation</li>
-      <li>Intermediate pre-engineering / pre-medical</li>
-      <li>O Level concept sessions</li>
-      <li>A Level exam prep and revision clinics</li>
+      <li>Math Tutoring</li>
+      <li>O / A Level Tutoring</li>
+      <li>English Language</li>
+      <li>IELTS / Entry Test Prep</li>
+      <li>Female Tutors Available</li>
     </ul>
   </div>
+
   <div class="card">
     <h2>Demo lecture ideas</h2>
     <ul class="clean-list">
@@ -63,4 +89,5 @@
     </ul>
   </div>
 </section>
+
 {% endblock %}

@@ -2,19 +2,43 @@
 {% block content %}
 <section class="card">
   <h1>All Users</h1>
+
+  <form method="get" class="form-grid two-col compact" style="margin-bottom:16px;">
+    <input name="q" value="{{ q or '' }}" placeholder="Search by name, email or role">
+    <button class="btn" type="submit">Search</button>
+  </form>
+
   <table class="table">
-    <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Verified</th><th>Actions</th></tr>
+    <tr>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Role</th>
+      <th>Status</th>
+      <th>Verified</th>
+      <th>Actions</th>
+    </tr>
+
     {% for user in users %}
     <tr>
-      <td>{{ user.public_name }}</td>
+      <td>
+        <strong>{{ user.public_name }}</strong><br>
+        <span class="muted">{{ user.full_name }}</span>
+      </td>
       <td>{{ user.email }}</td>
       <td>{{ user.role }}</td>
       <td>{{ 'Active' if user.is_active_user else 'Suspended' }}</td>
       <td>{{ 'Yes' if user.is_verified_tutor else '-' }}</td>
       <td>
-        <form method="post" action="{{ url_for('admin_toggle_user', user_id=user.id) }}" style="display:inline"><button class="btn btn-sm">Toggle</button></form>
+        <a class="btn btn-sm btn-light" href="{{ url_for('admin_user_detail', user_id=user.id) }}">View profile</a>
+
+        <form method="post" action="{{ url_for('admin_toggle_user', user_id=user.id) }}" style="display:inline">
+          <button class="btn btn-sm" type="submit">Toggle</button>
+        </form>
+
         {% if user.role == 'tutor' and not user.is_verified_tutor %}
-        <form method="post" action="{{ url_for('admin_verify_tutor', user_id=user.id) }}" style="display:inline"><button class="btn btn-sm btn-light">Verify tutor</button></form>
+        <form method="post" action="{{ url_for('admin_verify_tutor', user_id=user.id) }}" style="display:inline">
+          <button class="btn btn-sm btn-light" type="submit">Quick verify</button>
+        </form>
         {% endif %}
       </td>
     </tr>

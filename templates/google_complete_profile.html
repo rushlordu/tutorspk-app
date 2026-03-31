@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="card">
+  <h1>Complete your signup</h1>
+  <p class="muted">Continue your registration using Google account.</p>
+
+  <form method="post" enctype="multipart/form-data" id="registerForm">
+
+    <div class="form-grid two-col">
+      <input name="full_name" value="{{ google_name }}" required>
+      <input name="public_name" value="{{ google_name }}" required>
+
+      <!-- LOCKED EMAIL -->
+      <input name="email" value="{{ google_email }}" readonly>
+      <input type="hidden" name="role" id="roleHidden">
+
+      <div>
+        <select name="gender">
+          <option value="">Gender</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+          <option value="prefer_not_to_say">Prefer not to say</option>
+        </select>
+      </div>
+
+      <input name="city" placeholder="City">
+
+      <div>
+        <label>Profile picture</label>
+        <input name="profile_image_file" type="file" accept="image/*">
+      </div>
+    </div>
+
+    <!-- ROLE SELECT -->
+    <div style="margin-top:20px;">
+      <strong>Select your role</strong><br><br>
+      <button type="button" class="btn" onclick="setRole('student')">Join as Student</button>
+      <button type="button" class="btn btn-light" onclick="setRole('tutor')">Join as Tutor</button>
+    </div>
+
+    <!-- STUDENT -->
+    <div id="studentFields" style="display:none; margin-top:20px;">
+      <h3>Student Details</h3>
+
+      <input name="student_subject_needed" placeholder="Subject needed">
+
+      <select name="student_level">
+        <option value="">Level</option>
+        <option value="grade_6_8">Grade 6–8</option>
+        <option value="matric">Matric</option>
+        <option value="intermediate">Intermediate</option>
+        <option value="o_level">O Level</option>
+        <option value="a_level">A Level</option>
+      </select>
+
+      <select name="preferred_tutor_gender">
+        <option value="">Tutor gender</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
+
+      <input type="hidden" name="learning_mode" value="online">
+    </div>
+
+    <!-- TUTOR -->
+    <div id="tutorFields" style="display:none; margin-top:20px;">
+      <h3>Tutor Details</h3>
+
+      <select name="qualification">
+        <option value="">Qualification</option>
+        <option value="masters">Master's</option>
+        <option value="mphil">MPhil</option>
+        <option value="phd">PhD</option>
+      </select>
+
+      <input name="main_subject" placeholder="Main subject">
+      <input name="additional_subjects" placeholder="Additional subjects">
+
+      <select name="class_levels">
+        <option value="">Levels</option>
+        <option value="grade_6_8">Grade 6–8</option>
+        <option value="matric">Matric</option>
+        <option value="intermediate">Intermediate</option>
+        <option value="o_level">O Level</option>
+        <option value="a_level">A Level</option>
+      </select>
+
+      <input name="experience_years" type="number" placeholder="Experience years">
+      <input name="hourly_rate" type="number" placeholder="Hourly rate">
+
+      <textarea name="bio" placeholder="Your teaching style"></textarea>
+      <input name="demo_video_url" placeholder="Demo video URL">
+
+      <label><input type="checkbox" name="modest_profile"> Modest profile</label>
+      <label><input type="checkbox" name="audio_only"> Audio only</label>
+
+      <input type="hidden" name="teaching_mode" value="online">
+    </div>
+
+    <div style="margin-top:20px;">
+      <button class="btn" type="submit">Complete signup</button>
+    </div>
+
+  </form>
+</div>
+
+<script>
+function setRole(role) {
+  document.getElementById("roleHidden").value = role;
+
+  document.getElementById("studentFields").style.display =
+    role === "student" ? "block" : "none";
+
+  document.getElementById("tutorFields").style.display =
+    role === "tutor" ? "block" : "none";
+}
+</script>
+
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+  <h1>User Review</h1>
+
+  <div class="grid two">
+    <div class="card">
+      <h2>Basic Information</h2>
+      <p><strong>Full name:</strong> {{ user.full_name }}</p>
+      <p><strong>Public name:</strong> {{ user.public_name }}</p>
+      <p><strong>Email:</strong> {{ user.email }}</p>
+      <p><strong>Role:</strong> {{ user.role }}</p>
+      <p><strong>Gender:</strong> {{ user.gender or '-' }}</p>
+      <p><strong>City:</strong> {{ user.city or '-' }}</p>
+      <p><strong>Created:</strong> {{ user.created_at.strftime('%d %b %Y %H:%M') if user.created_at else '-' }}</p>
+      <p><strong>Status:</strong> {{ 'Active' if user.is_active_user else 'Suspended' }}</p>
+    </div>
+
+    <div class="card">
+      <h2>Profile</h2>
+      {% if user.profile_image %}
+        <img src="{{ url_for('static', filename='..') }}" style="display:none;">
+        <img src="{{ url_for('uploaded_file', filename=user.profile_image) }}" alt="{{ user.public_name }}" style="max-width:180px; border-radius:12px;">
+      {% else %}
+        <p class="muted">No profile image uploaded.</p>
+      {% endif %}
+
+      <p><strong>Qualification:</strong> {{ user.qualification or '-' }}</p>
+      <p><strong>Subjects:</strong> {{ user.subjects or '-' }}</p>
+      <p><strong>Levels:</strong> {{ user.class_levels or '-' }}</p>
+      <p><strong>Experience:</strong> {{ user.experience_years or 0 }} years</p>
+      <p><strong>Bio:</strong> {{ user.bio or '-' }}</p>
+      <p><strong>Hourly rate:</strong> PKR {{ user.hourly_rate or 0 }}</p>
+      <p><strong>Modest profile:</strong> {{ 'Yes' if user.modest_profile else 'No' }}</p>
+      <p><strong>Audio only:</strong> {{ 'Yes' if user.audio_only else 'No' }}</p>
+
+      {% if user.demo_video_url %}
+        <p><strong>Demo video:</strong> <a href="{{ user.demo_video_url }}" target="_blank">Open link</a></p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Admin Review Action</h2>
+  <form method="post" action="{{ url_for('admin_review_user', user_id=user.id) }}" class="form-grid">
+    <select name="action" required>
+      <option value="">Select decision</option>
+      <option value="approve">Approve</option>
+      <option value="reject">Reject</option>
+      <option value="pend">Pend</option>
+    </select>
+
+    <textarea name="reason" placeholder="Reason for rejection / pending note (optional for now)"></textarea>
+
+    <button class="btn" type="submit">Submit decision</button>
+  </form>
+</section>
+{% endblock %}

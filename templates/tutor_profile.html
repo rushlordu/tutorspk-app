@@ -5,7 +5,7 @@
     <img class="profile-pic" src="{{ tutor.profile_image or 'https://picsum.photos/seed/default/300/300' }}" alt="{{ tutor.public_name }}">
     <h1>{{ tutor.public_name }}</h1>
     <p class="muted">{{ tutor.qualification }}</p>
-    <p>{{ tutor.bio }}</p>
+    <p>{{ tutor.bio or 'Qualified online tutor available through TutorPK.' }}</p>
     <div class="badges">
       <span class="badge">{{ tutor.tutor_category }}</span>
       {% if tutor.audio_only %}<span class="badge alt">Audio-first</span>{% endif %}
@@ -15,7 +15,7 @@
     <p><strong>Levels:</strong> {{ tutor.class_levels }}</p>
     <p><strong>Experience:</strong> {{ tutor.experience_years }} years</p>
     <p><strong>Rating:</strong> ⭐ {{ '%.1f'|format(tutor.rating_avg) }} ({{ tutor.rating_count }} reviews)</p>
-    {% if tutor.demo_video_url %}<p><strong>Demo video:</strong> <a href="{{ tutor.demo_video_url }}" target="_blank">Open link</a></p>{% endif %}
+    <p><strong>Demo lecture:</strong> <a href="{{ tutor.demo_video_url }}" target="_blank">Watch demo</a></p>
     {% if current_user.is_authenticated and current_user.role == 'student' %}
       <a class="btn" href="{{ url_for('book_tutor', tutor_id=tutor.id) }}">Book this tutor</a>
     {% endif %}

@@ -1,29 +1,41 @@
 {% extends 'base.html' %}
 {% block content %}
+
 <section class="card">
-  <h1>Tutor Directory</h1>
+  <h1>Find a Tutor</h1>
+  <p class="muted">Browse trusted online tutors by subject and level.</p>
+
   <form method="get" class="form-grid two-col compact">
-    <input name="subject" value="{{ subject }}" placeholder="Filter by subject">
-    <input name="level" value="{{ level }}" placeholder="Filter by level">
-    <button class="btn">Apply filters</button>
+    <input name="subject" value="{{ subject }}" placeholder="Search by subject">
+    <input name="level" value="{{ level }}" placeholder="Search by level">
+    <button class="btn" type="submit">Explore tutors</button>
   </form>
 </section>
+
 <section class="grid cards">
 {% for tutor in tutors %}
-<article class="card tutor-card">
-  <img src="{{ tutor.profile_image or 'https://picsum.photos/seed/default/300/300' }}" alt="{{ tutor.public_name }}">
-  <h3>{{ tutor.public_name }}</h3>
-  <p class="muted">{{ tutor.qualification }}</p>
-  <p>{{ tutor.subjects }}</p>
-  <p>{{ tutor.class_levels }}</p>
-  <div class="badges">
-    <span class="badge">{{ tutor.tutor_category }}</span>
-    {% if tutor.audio_only %}<span class="badge alt">Audio-first</span>{% endif %}
-    {% if tutor.modest_profile %}<span class="badge alt">Modest profile</span>{% endif %}
+  <article class="card tutor-card">
+    <img src="{{ tutor.profile_image or 'https://picsum.photos/seed/default/300/300' }}" alt="{{ tutor.public_name }}">
+    <h3>{{ tutor.public_name }}</h3>
+    <p class="muted">{{ tutor.qualification }}</p>
+    <p><strong>Subjects:</strong> {{ tutor.subjects }}</p>
+    <p><strong>Levels:</strong> {{ tutor.class_levels }}</p>
+
+    <div class="badges">
+      <span class="badge">{{ tutor.tutor_category }}</span>
+      {% if tutor.audio_only %}<span class="badge alt">Audio-first</span>{% endif %}
+      {% if tutor.modest_profile %}<span class="badge alt">Modest profile</span>{% endif %}
+    </div>
+
+    <p>⭐ {{ '%.1f'|format(tutor.rating_avg) }} · {{ tutor.sessions_completed }} sessions</p>
+    <a class="btn btn-sm" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">Open profile</a>
+  </article>
+{% else %}
+  <div class="card">
+    <h3>No tutors found</h3>
+    <p>Try a different subject or level.</p>
   </div>
-  <p>⭐ {{ '%.1f'|format(tutor.rating_avg) }} · {{ tutor.sessions_completed }} sessions</p>
-  <a class="btn btn-sm" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">Open profile</a>
-</article>
 {% endfor %}
 </section>
+
 {% endblock %}

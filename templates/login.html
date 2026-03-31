@@ -8,6 +8,10 @@
     <button class="btn" type="submit">Login</button>
   </form>
   <div class="divider"></div>
-  <a class="btn btn-light" href="{{ url_for('google_login') }}">Continue with Google{% if not google_configured %} (configure later){% endif %}</a>
+    <a class="btn btn-light" href="{{ url_for('google_login') }}">
+      <img src="https://developers.google.com/identity/images/g-logo.png"
+          style="height:16px; vertical-align:middle; margin-right:6px;">
+      Continue with Google
+    </a>
 </div>
 {% endblock %}
