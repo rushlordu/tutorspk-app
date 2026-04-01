@@ -1,12 +1,18 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<section class="card">
-  <h1>Find a Tutor</h1>
-  <p class="muted">Browse trusted online tutors by subject and level.</p>
-
-  <form method="get" class="form-grid two-col compact">
+<section class="card tutors-hero-card">
+  <div class="tutors-hero-top">
     <div>
+      <h1>Find a Tutor</h1>
+      <p class="muted">Browse trusted online tutors by subject and level.</p>
+    </div>
+    <div class="results-chip">{{ tutors|length }} tutor{{ '' if tutors|length == 1 else 's' }} found</div>
+  </div>
+
+  <form method="get" class="form-grid two-col compact tutor-search-form">
+    <div>
+      <label class="small-label">Subject</label>
       <select name="subject" id="search_subject" onchange="toggleOtherField('search_subject', 'search_subject_other_wrap')">
         <option value="">Select subject</option>
         {% for value, label in subject_options %}
@@ -14,12 +20,17 @@
         {% endfor %}
       </select>
       <div id="search_subject_other_wrap" style="display:none; margin-top:8px;">
-        <input name="subject_other" id="search_subject_other" placeholder="Enter subject"
-               value="{% if subject and subject not in ['mathematics','physics','chemistry','biology','english','urdu','computer_science','pakistan_studies','islamiat','ielts','spoken_english','arabic','french'] %}{{ subject }}{% endif %}">
+        <input
+          name="subject_other"
+          id="search_subject_other"
+          placeholder="Enter subject"
+          value="{% if subject and subject not in ['mathematics','physics','chemistry','biology','english','urdu','computer_science','pakistan_studies','islamiat','ielts','spoken_english','arabic','french'] %}{{ subject }}{% endif %}"
+        >
       </div>
     </div>
 
     <div>
+      <label class="small-label">Level</label>
       <select name="level" id="search_level" onchange="toggleOtherField('search_level', 'search_level_other_wrap')">
         <option value="">Select level</option>
         {% for value, label in level_options %}
@@ -27,37 +38,69 @@
         {% endfor %}
       </select>
       <div id="search_level_other_wrap" style="display:none; margin-top:8px;">
-        <input name="level_other" id="search_level_other" placeholder="Enter level"
-               value="{% if level and level not in ['grade_1_5','grade_6_8','matric','intermediate','o_level','a_level','university','language_learning'] %}{{ level }}{% endif %}">
+        <input
+          name="level_other"
+          id="search_level_other"
+          placeholder="Enter level"
+          value="{% if level and level not in ['grade_1_5','grade_6_8','matric','intermediate','o_level','a_level','university','language_learning'] %}{{ level }}{% endif %}"
+        >
       </div>
     </div>
 
-    <button class="btn" type="submit">Explore tutors</button>
+    <div class="search-actions-row">
+      <button class="btn" type="submit">Find Tutors</button>
+      <a class="btn btn-light" href="{{ url_for('tutors') }}">Clear</a>
+    </div>
   </form>
 </section>
 
-<section class="grid cards">
-{% for tutor in tutors %}
-  <article class="card tutor-card">
-    <img src="{{ tutor.profile_image or 'https://picsum.photos/seed/default/300/300' }}" alt="{{ tutor.public_name }}">
-    <h3>{{ tutor.public_name }}</h3>
-    <p class="muted">{{ tutor.qualification }}</p>
-    <p><strong>Subjects:</strong> {{ tutor.subjects }}</p>
-    <p><strong>Levels:</strong> {{ tutor.class_levels }}</p>
+<section class="tutors-trust-row">
+  <div class="trust-mini-card">Verified tutors</div>
+  <div class="trust-mini-card">Female tutor options</div>
+  <div class="trust-mini-card">Online-only learning</div>
+  <div class="trust-mini-card">Simple for parents</div>
+</section>
 
-    <div class="badges">
-      <span class="badge">{{ tutor.tutor_category }}</span>
-      {% if tutor.audio_only %}<span class="badge alt">Audio-first</span>{% endif %}
-      {% if tutor.modest_profile %}<span class="badge alt">Modest profile</span>{% endif %}
+<section class="grid cards tutors-results-grid">
+{% for tutor in tutors %}
+  <article class="card tutor-card tutor-card-refined">
+    <div class="tutor-card-media">
+      <img src="{{ tutor.profile_image or 'https://picsum.photos/seed/default/300/300' }}" alt="{{ tutor.public_name }}">
     </div>
 
-    <p>⭐ {{ '%.1f'|format(tutor.rating_avg) }} · {{ tutor.sessions_completed }} sessions</p>
-    <a class="btn btn-sm" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">Open profile</a>
+    <div class="tutor-card-body">
+      <div class="tutor-card-head">
+        <div>
+          <h3>{{ tutor.public_name }}</h3>
+          <p class="muted tutor-qual-line">{{ tutor.qualification or 'Qualified tutor' }}</p>
+        </div>
+        {% if tutor.is_verified_tutor %}
+          <span class="verified-pill">Verified</span>
+        {% endif %}
+      </div>
+
+      <div class="badges">
+        {% if tutor.tutor_category %}<span class="badge">{{ tutor.tutor_category }}</span>{% endif %}
+        {% if tutor.audio_only %}<span class="badge alt">Audio-first</span>{% endif %}
+        {% if tutor.modest_profile %}<span class="badge alt">Modest profile</span>{% endif %}
+      </div>
+
+      <div class="tutor-info-grid">
+        <p><strong>Subjects:</strong> {{ tutor.subjects or 'Not added yet' }}</p>
+        <p><strong>Levels:</strong> {{ tutor.class_levels or 'Not added yet' }}</p>
+      </div>
+
+      <p class="tutor-rating-line">⭐ {{ '%.1f'|format(tutor.rating_avg) }} · {{ tutor.sessions_completed }} sessions</p>
+
+      <div class="tutor-card-actions">
+        <a class="btn btn-sm" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">View Profile</a>
+      </div>
+    </div>
   </article>
 {% else %}
-  <div class="card">
+  <div class="card empty-state-card">
     <h3>No tutors found</h3>
-    <p>Try a different subject or level.</p>
+    <p>Try a different subject or level to see more options.</p>
   </div>
 {% endfor %}
 </section>

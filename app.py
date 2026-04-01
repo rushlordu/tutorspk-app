@@ -51,7 +51,8 @@ app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_DIR)
 
 # Temporary site status flag
-UNDER_CONSTRUCTION = False
+UNDER_CONSTRUCTION= False
+#UNDER_CONSTRUCTION = os.getenv("UNDER_CONSTRUCTION", "true").lower() == "true"
 
 # Configurable placeholders for later setup
 app.config["MAIL_SERVER"] = os.getenv("MAIL_SERVER", "")
@@ -63,7 +64,7 @@ app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER", "")
 app.config["ADMIN_NOTIFICATION_EMAIL"] = os.getenv(
     "ADMIN_NOTIFICATION_EMAIL", "jojopk44@gmail.com"
 )
-app.config["BANK_ACCOUNT_TITLE"] = os.getenv("BANK_ACCOUNT_TITLE", "TutorPK")
+app.config["BANK_ACCOUNT_TITLE"] = os.getenv("BANK_ACCOUNT_TITLE", "TutorsOnline.pk")
 app.config["BANK_IBAN"] = os.getenv("BANK_IBAN", "PK47ASCM0000111000196711")
 app.config["BANK_NAME"] = os.getenv("BANK_NAME", "Askari Bank")
 app.config["WHATSAPP_SUPPORT"] = os.getenv("WHATSAPP_SUPPORT", "+923558500230")
@@ -124,6 +125,7 @@ LEVEL_OPTIONS = [
     ("language_learning", "Language Learning"),
     ("other", "Other"),
 ]
+
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -319,41 +321,59 @@ def inject_globals():
     }
 
 
+@app.route("/preview-off")
+@login_required
+def preview_off():
+    session.pop("preview_mode", None)
+    flash("Preview mode disabled", "info")
+    return redirect(url_for("index"))
+
+
 @app.before_request
 def construction_gate():
+    # simple in-memory visitor count for admin only
+    if request.method == "GET" and not request.path.startswith("/static/"):
+        if not session.get("_visit_counted"):
+            session["_visit_counted"] = True
+            app.config["VISITOR_COUNT"] = app.config.get("VISITOR_COUNT", 0) + 1
+
+    # admin preview bypass
+    if current_user.is_authenticated and current_user.role == "admin":
+        if request.args.get("preview") == "1":
+            return
+
+    # Admin preview activation
+    if current_user.is_authenticated and current_user.role == "admin":
+        if request.args.get("preview") == "1":
+            session["preview_mode"] = True
+
+    # If preview mode is active, allow everything
+    if session.get("preview_mode"):
+        return
+
+
     if not UNDER_CONSTRUCTION:
         return
 
     path = request.path
 
-    # Always allow these routes during maintenance
     if (
         path == "/"
-        or path.startswith("/UCsite")
         or path.startswith("/login")
         or path.startswith("/logout")
-        or path.startswith("/admin")
+        or path.startswith("/register")
         or path.startswith("/google-login")
         or path.startswith("/login/google/callback")
+        or path.startswith("/complete-google-signup")
+        or path.startswith("/admin")
+        or path.startswith("/dashboard")
+        or path.startswith("/contact")
         or path.startswith("/static/")
         or path.startswith("/uploads/")
         or path.startswith("/seed")
-        or path.startswith("/register")
-        or path.startswith("/complete-google-signup")   
     ):
         return
 
-    # Allow logged-in users to access their own dashboard/wallet/live session areas
-    if current_user.is_authenticated and (
-        path.startswith("/dashboard")
-        or path.startswith("/wallet")
-        or path.startswith("/live/")
-        or path.startswith("/bookings/")
-        or path.startswith("/withdraw")
-    ):
-        return
-
-    # Redirect everything else to under construction page
     return redirect(url_for("index"))
 
 
@@ -427,6 +447,7 @@ def pick_with_other(form, field_name: str) -> str:
         return other_value
     return value
 
+
 def build_google_user_from_form(form, email: str, fallback_name: str) -> User:
     role = form.get("role", "student").strip()
 
@@ -461,7 +482,6 @@ def build_google_user_from_form(form, email: str, fallback_name: str) -> User:
         subjects = student_subject_needed
         class_levels = student_level
         bio = "Signed up via Google"
-
     elif role == "tutor":
         qualification = pick_with_other(form, "qualification")
         main_subject = pick_with_other(form, "main_subject")
@@ -512,9 +532,11 @@ def build_google_user_from_form(form, email: str, fallback_name: str) -> User:
 
     return user
 
-
 @app.route("/")
 def index():
+    if UNDER_CONSTRUCTION:
+        return render_template("under_construction.html")
+
     featured_tutors = (
         User.query.filter_by(role="tutor", is_verified_tutor=True)
         .order_by(User.rating_avg.desc(), User.sessions_completed.desc())
@@ -626,7 +648,7 @@ def register():
         db.session.commit()
 
         send_notification_email(
-            "New TutorPK Registration",
+            "New TutorsOnline.pk Registration",
             f"New {role} registered\n"
             f"Name: {user.full_name}\n"
             f"Email: {user.email}\n"
@@ -665,7 +687,6 @@ def google_callback():
         return redirect(url_for("login"))
 
     user = User.query.filter_by(email=email).first()
-
     if user:
         login_user(user)
         flash("Logged in with Google.", "success")
@@ -673,11 +694,9 @@ def google_callback():
             return redirect(url_for("admin_dashboard"))
         return redirect(url_for("dashboard"))
 
-    session["google_signup"] = {
-        "email": email,
-        "name": name,
-    }
+    session["google_signup"] = {"email": email, "name": name}
     return redirect(url_for("complete_google_signup"))
+
 
 @app.route("/complete-google-signup", methods=["GET", "POST"])
 def complete_google_signup():
@@ -699,28 +718,25 @@ def complete_google_signup():
 
     if request.method == "POST":
         user = build_google_user_from_form(request.form, email=email, fallback_name=fallback_name)
-
         db.session.add(user)
         db.session.commit()
 
         send_notification_email(
-            "New TutorPK Google Registration",
+            "New TutorsOnline.pk Google Registration",
             f"New {user.role} registered via Google\n"
             f"Name: {user.full_name}\n"
             f"Email: {user.email}\n"
             f"Public Name: {user.public_name}\n"
             f"City: {user.city}\n"
-            f"Gender: {user.gender}"
+            f"Gender: {user.gender}",
         )
 
         session.pop("google_signup", None)
-
         login_user(user)
         if user.role == "tutor":
             flash("Google signup completed. Tutor profile created and sent for review.", "success")
         else:
             flash("Google signup completed successfully.", "success")
-
         return redirect(url_for("dashboard"))
 
     return render_template(
@@ -729,7 +745,9 @@ def complete_google_signup():
         google_name=fallback_name,
     )
 
+
 @app.route("/login", methods=["GET", "POST"])
+
 def login():
     if request.method == "POST":
         email = request.form["email"].strip().lower()
@@ -776,12 +794,10 @@ def tutors():
 
     if subject == "other":
         subject = request.args.get("subject_other", "").strip()
-
     if level == "other":
         level = request.args.get("level_other", "").strip()
 
     query = User.query.filter_by(role="tutor", is_verified_tutor=True)
-
     if level:
         query = query.filter(User.class_levels.ilike(f"%{level}%"))
     if subject:
@@ -799,9 +815,10 @@ def tutors():
 
 @app.route("/tutors/<int:tutor_id>", methods=["GET", "POST"])
 def tutor_profile(tutor_id):
-   
+    if UNDER_CONSTRUCTION:
+        return redirect(url_for("index"))
+
     tutor = User.query.get_or_404(tutor_id)
-    
     if tutor.role != "tutor":
         flash("Tutor not found.", "danger")
         return redirect(url_for("tutors"))
@@ -946,7 +963,7 @@ def buy_credits():
         db.session.commit()
 
         fallback = send_notification_email(
-            "TutorPK Payment Notice",
+            "TutorsOnline.pk Payment Notice",
             f"Student: {current_user.full_name} ({current_user.email})\n"
             f"Amount: PKR {amount}\n"
             f"Claimed credits: {credits}\n"
@@ -1034,7 +1051,7 @@ def live_session(booking_id):
             )
             db.session.commit()
             flash(
-                "Message blocked. Contact sharing is not allowed on TutorPK.",
+                "Message blocked. Contact sharing is not allowed on TutorsOnline.pk.",
                 "danger",
             )
         else:
@@ -1122,7 +1139,7 @@ def withdraw():
     db.session.add(wr)
 
     send_notification_email(
-        "TutorPK Withdrawal Request",
+        "TutorsOnline.pk Withdrawal Request",
         f"Tutor: {current_user.full_name} ({current_user.email})\n"
         f"Amount: PKR {amount}\n"
         f"Method: {wr.payout_method}",
@@ -1130,6 +1147,30 @@ def withdraw():
     db.session.commit()
     flash("Withdrawal request submitted.", "success")
     return redirect(url_for("student_wallet"))
+
+
+@app.route("/contact", methods=["GET", "POST"])
+def contact():
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        email = request.form.get("email", "").strip()
+        message = request.form.get("message", "").strip()
+
+        if not name or not email or not message:
+            flash("Please fill in all fields.", "danger")
+            return redirect(url_for("contact"))
+
+        fallback = send_notification_email(
+            "TutorsOnline.pk Contact Form",
+            f"Name: {name}\nEmail: {email}\n\nMessage:\n{message}",
+        )
+        if fallback:
+            flash("Message saved. SMTP not configured yet; email logged to email_outbox.log", "warning")
+        else:
+            flash("Message sent successfully.", "success")
+        return redirect(url_for("contact"))
+
+    return render_template("contact.html")
 
 
 @app.route("/admin")
@@ -1144,17 +1185,12 @@ def admin_dashboard():
         "tutors": User.query.filter_by(role="tutor").count(),
         "students": User.query.filter_by(role="student").count(),
         "pending_notices": PaymentNotice.query.filter_by(status="pending").count(),
-        "live_sessions": LiveSessionLog.query.filter(
-            LiveSessionLog.ended_at.is_(None)
-        ).count(),
+        "live_sessions": LiveSessionLog.query.filter(LiveSessionLog.ended_at.is_(None)).count(),
         "withdrawals": WithdrawalRequest.query.filter_by(status="requested").count(),
+        "visitors": app.config.get("VISITOR_COUNT", 0),
     }
-    recent_notices = (
-        PaymentNotice.query.order_by(PaymentNotice.created_at.desc()).limit(10).all()
-    )
-    live_sessions = (
-        LiveSessionLog.query.order_by(LiveSessionLog.started_at.desc()).limit(10).all()
-    )
+    recent_notices = PaymentNotice.query.order_by(PaymentNotice.created_at.desc()).limit(10).all()
+    live_sessions = LiveSessionLog.query.order_by(LiveSessionLog.started_at.desc()).limit(10).all()
 
     return render_template(
         "admin_dashboard.html",
@@ -1172,7 +1208,6 @@ def admin_users():
 
     q = request.args.get("q", "").strip()
     query = User.query
-
     if q:
         like = f"%{q}%"
         query = query.filter(
@@ -1185,6 +1220,7 @@ def admin_users():
     users = query.order_by(User.created_at.desc()).all()
     return render_template("admin_users.html", users=users, q=q)
 
+
 @app.route("/admin/users/<int:user_id>")
 @login_required
 def admin_user_detail(user_id):
@@ -1193,6 +1229,7 @@ def admin_user_detail(user_id):
 
     user = User.query.get_or_404(user_id)
     return render_template("admin_user_detail.html", user=user)
+
 
 @app.route("/admin/users/<int:user_id>/review", methods=["POST"])
 @login_required
@@ -1208,20 +1245,14 @@ def admin_review_user(user_id):
         if user.role == "tutor":
             user.is_verified_tutor = True
         flash("User approved successfully.", "success")
-
     elif action == "reject":
         if user.role == "tutor":
             user.is_verified_tutor = False
-        flash(
-            f"User marked rejected.{f' Reason: {reason}' if reason else ''}",
-            "warning",
-        )
-
+        flash(f"User marked rejected.{f' Reason: {reason}' if reason else ''}", "warning")
     elif action == "pend":
         if user.role == "tutor":
             user.is_verified_tutor = False
         flash("User marked pending review.", "info")
-
     else:
         flash("Invalid review action.", "danger")
         return redirect(url_for("admin_user_detail", user_id=user.id))
@@ -1259,6 +1290,7 @@ def admin_verify_tutor(user_id):
 
 
 @app.route("/admin/payment-notices")
+
 @login_required
 def admin_payment_notices():
     if current_user.role != "admin":
@@ -1373,10 +1405,10 @@ def seed():
     admin = User(
         email="jojopk44@gmail.com",
         role="admin",
-        full_name="TutorPK Admin",
-        public_name="TutorPK Admin",
+        full_name="TutorsOnline.pk Admin",
+        public_name="TutorsOnline.pk Admin",
         qualification="Platform Manager",
-        bio="Administrative control account for TutorPK",
+        bio="Administrative control account for TutorsOnline.pk",
         is_verified_tutor=False,
     )
     admin.set_password("admin123")

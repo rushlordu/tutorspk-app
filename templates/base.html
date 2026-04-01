@@ -17,7 +17,8 @@
 
       <nav class="main-nav">
         <a href="{{ url_for('tutors') }}">Find Tutors</a>
-        <a href="#how-it-works">How it Works</a>
+        <a href="#pricing-plans">Pricing</a>
+        <a href="{{ url_for('contact') }}">Contact</a>
 
         {% if current_user.is_authenticated %}
           <a href="{{ url_for('dashboard') }}">My Account</a>
@@ -32,6 +33,12 @@
       </nav>
     </div>
   </header>
+
+  {% if session.get('preview_mode') %}
+  <div style="background:red;color:white;padding:6px;text-align:center;">
+    PREVIEW MODE ACTIVE
+  </div>
+  {% endif %}
 
   <main class="site-main">
     <div class="container">

@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<section class="form-card narrow card">
+  <h1>Contact Us</h1>
+  <p class="muted">
+    Send us your question and we will get back to you as soon as possible.
+  </p>
+
+  <form method="post" class="form-grid">
+    <input type="text" name="name" placeholder="Your name" required>
+    <input type="email" name="email" placeholder="Your email" required>
+    <textarea name="message" placeholder="Write your message here" required></textarea>
+    <button class="btn" type="submit">Send Message</button>
+  </form>
+</section>
+
+{% endblock %}

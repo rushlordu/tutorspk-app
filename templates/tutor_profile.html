@@ -1,41 +1,88 @@
 {% extends 'base.html' %}
 {% block content %}
-<section class="grid two profile-layout">
-  <div class="card">
-    <img class="profile-pic" src="{{ tutor.profile_image or 'https://picsum.photos/seed/default/300/300' }}" alt="{{ tutor.public_name }}">
-    <h1>{{ tutor.public_name }}</h1>
-    <p class="muted">{{ tutor.qualification }}</p>
-    <p>{{ tutor.bio or 'Qualified online tutor available through TutorPK.' }}</p>
-    <div class="badges">
-      <span class="badge">{{ tutor.tutor_category }}</span>
-      {% if tutor.audio_only %}<span class="badge alt">Audio-first</span>{% endif %}
-      {% if tutor.modest_profile %}<span class="badge alt">Veiled / modest preference</span>{% endif %}
+
+<section class="grid two profile-layout tutor-profile-layout-refined">
+  <div class="card tutor-profile-main">
+    <div class="tutor-profile-top">
+      <img class="profile-pic profile-pic-large" src="{{ tutor.profile_image or 'https://picsum.photos/seed/default/300/300' }}" alt="{{ tutor.public_name }}">
+
+      <div class="tutor-profile-intro">
+        <div class="profile-title-row">
+          <h1>{{ tutor.public_name }}</h1>
+          {% if tutor.is_verified_tutor %}
+            <span class="verified-pill">Verified</span>
+          {% endif %}
+        </div>
+
+        <p class="muted tutor-profile-qual">{{ tutor.qualification or 'Qualified tutor' }}</p>
+
+        <div class="badges">
+          {% if tutor.tutor_category %}<span class="badge">{{ tutor.tutor_category }}</span>{% endif %}
+          {% if tutor.audio_only %}<span class="badge alt">Audio-first</span>{% endif %}
+          {% if tutor.modest_profile %}<span class="badge alt">Modest / veiled option</span>{% endif %}
+        </div>
+
+        <p class="tutor-bio-text">{{ tutor.bio or 'Qualified online tutor available through TutorsOnline.pk.' }}</p>
+      </div>
     </div>
-    <p><strong>Subjects:</strong> {{ tutor.subjects }}</p>
-    <p><strong>Levels:</strong> {{ tutor.class_levels }}</p>
-    <p><strong>Experience:</strong> {{ tutor.experience_years }} years</p>
-    <p><strong>Rating:</strong> ⭐ {{ '%.1f'|format(tutor.rating_avg) }} ({{ tutor.rating_count }} reviews)</p>
-    <p><strong>Demo lecture:</strong> <a href="{{ tutor.demo_video_url }}" target="_blank">Watch demo</a></p>
-    {% if current_user.is_authenticated and current_user.role == 'student' %}
-      <a class="btn" href="{{ url_for('book_tutor', tutor_id=tutor.id) }}">Book this tutor</a>
-    {% endif %}
+
+    <div class="profile-stat-grid">
+      <div class="profile-stat-card">
+        <span class="profile-stat-label">Subjects</span>
+        <strong>{{ tutor.subjects or 'Not added yet' }}</strong>
+      </div>
+      <div class="profile-stat-card">
+        <span class="profile-stat-label">Levels</span>
+        <strong>{{ tutor.class_levels or 'Not added yet' }}</strong>
+      </div>
+      <div class="profile-stat-card">
+        <span class="profile-stat-label">Experience</span>
+        <strong>{{ tutor.experience_years or 0 }} years</strong>
+      </div>
+      <div class="profile-stat-card">
+        <span class="profile-stat-label">Rating</span>
+        <strong>⭐ {{ '%.1f'|format(tutor.rating_avg) }}{% if tutor.rating_count %} ({{ tutor.rating_count }} reviews){% endif %}</strong>
+      </div>
+    </div>
+
+    <div class="tutor-profile-cta-row">
+      {% if tutor.demo_video_url %}
+        <a class="btn btn-light" href="{{ tutor.demo_video_url }}" target="_blank" rel="noopener">Watch Demo</a>
+      {% endif %}
+
+      {% if current_user.is_authenticated and current_user.role == 'student' %}
+        <a class="btn" href="{{ url_for('book_tutor', tutor_id=tutor.id) }}">Book This Tutor</a>
+      {% endif %}
+    </div>
   </div>
-  <div>
+
+  <div class="profile-side-stack">
+    <section class="card">
+      <h2>Why parents feel comfortable</h2>
+      <ul class="clean-list">
+        <li>Public profile uses platform-safe display details.</li>
+        <li>Institution names and current job roles stay hidden.</li>
+        <li>Female-friendly options can be shown when enabled.</li>
+        <li>All sessions are conducted online.</li>
+      </ul>
+    </section>
+
     <section class="card">
       <h2>Public profile rules</h2>
       <ul class="clean-list">
-        <li>Institution names are hidden.</li>
-        <li>Current job roles are not displayed.</li>
-        <li>Real names may remain hidden behind platform aliases.</li>
-        <li>All sessions and reviews rely on TutorPK records only.</li>
+        <li>Qualification may be shown, but not institution names.</li>
+        <li>Current workplaces and roles are not displayed.</li>
+        <li>Profiles can stay modest and privacy-conscious.</li>
+        <li>Reviews shown here come from platform records.</li>
       </ul>
     </section>
+
     <section class="card">
-      <h2>Feedback</h2>
+      <h2>Recent Feedback</h2>
       {% for item in tutor.feedback_received[:5] %}
         <div class="review">
           <strong>{{ item.student.public_name }}</strong> · ⭐ {{ item.rating }}
-          <p>{{ item.comment }}</p>
+          <p>{{ item.comment or 'Positive learning experience.' }}</p>
         </div>
       {% else %}
         <p>No public reviews yet.</p>
@@ -45,21 +92,27 @@
 </section>
 
 {% if current_user.is_authenticated and current_user.role == 'student' and completed_bookings %}
-<section class="card">
-  <h2>Leave feedback</h2>
+<section class="card feedback-form-card">
+  <h2>Leave Feedback</h2>
+  <p class="muted">Share your experience to help other students and parents.</p>
+
   <form method="post" class="form-grid two-col">
     <select name="booking_id" required>
       {% for booking in completed_bookings %}
       <option value="{{ booking.id }}">Booking #{{ booking.id }} - {{ booking.subject }}</option>
       {% endfor %}
     </select>
+
     <input name="rating" type="number" min="1" max="5" placeholder="Overall rating" required>
     <input name="punctuality" type="number" min="1" max="5" placeholder="Punctuality" required>
     <input name="explanation" type="number" min="1" max="5" placeholder="Explanation clarity" required>
     <input name="professionalism" type="number" min="1" max="5" placeholder="Professionalism" required>
-    <textarea name="comment" placeholder="Comment"></textarea>
-    <button class="btn" type="submit">Submit feedback</button>
+
+    <textarea name="comment" placeholder="Write a short comment"></textarea>
+
+    <button class="btn" type="submit">Submit Feedback</button>
   </form>
 </section>
 {% endif %}
+
 {% endblock %}

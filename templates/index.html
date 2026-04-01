@@ -1,48 +1,137 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<section class="hero-section">
+<section class="hero-section hero-section-clean">
   <div class="hero-grid">
     <div class="hero-copy">
-      <h1>Find the right tutor for your child with confidence</h1>
+      <div class="hero-eyebrow">Online tutoring made simple</div>
+
+      <h1>Trusted online tutors for every learner</h1>
+
       <p>
-        Trusted and simple online tutoring for school subjects, exams,
-        and English language learning.
+        Simple, guided online tutoring for school subjects, exam preparation,
+        English language learning, and more.
       </p>
 
-      <div class="hero-actions">
-        <a class="hero-btn hero-btn-primary" href="{{ url_for('tutors') }}">Find a Tutor</a>
+      <div class="hero-intent-card">
+        <h3>Choose what you want to do</h3>
+        <p class="hero-intent-sub">
+          We’ll guide you to the right next step.
+        </p>
+
+        <div class="intent-toggle">
+          <button type="button" id="studyBtn" class="intent-btn active" onclick="setIntent('study')">
+            I want to study
+          </button>
+          <button type="button" id="teachBtn" class="intent-btn" onclick="setIntent('teach')">
+            I want to teach
+          </button>
+        </div>
+
+        <div class="intent-panel" id="studyPanel">
+          <label for="studySubject">What do you want to study?</label>
+          <select id="studySubject">
+            <option value="">Select a subject</option>
+            <option value="mathematics">Mathematics</option>
+            <option value="physics">Physics</option>
+            <option value="chemistry">Chemistry</option>
+            <option value="biology">Biology</option>
+            <option value="english">English</option>
+            <option value="urdu">Urdu</option>
+            <option value="computer_science">Computer Science</option>
+            <option value="pakistan_studies">Pakistan Studies</option>
+            <option value="islamiat">Islamiat</option>
+            <option value="ielts">IELTS</option>
+            <option value="spoken_english">Spoken English</option>
+            <option value="arabic">Arabic</option>
+            <option value="french">French</option>
+            <option value="other">Other</option>
+          </select>
+
+          <label for="studyLevel" class="intent-label-gap">What level are you at?</label>
+          <select id="studyLevel">
+            <option value="">Select a level</option>
+            <option value="grade_1_5">Grade 1–5</option>
+            <option value="grade_6_8">Grade 6–8</option>
+            <option value="matric">Matric</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="o_level">O Level</option>
+            <option value="a_level">A Level</option>
+            <option value="university">University</option>
+            <option value="language_learning">Language Learning</option>
+            <option value="other">Other</option>
+          </select>
+
+          <a class="hero-btn hero-btn-primary hero-btn-wide" href="{{ url_for('tutors') }}">
+            Find a Tutor
+          </a>
+        </div>
+
+        <div class="intent-panel" id="teachPanel" style="display:none;">
+          <label for="teachSubject">What do you want to teach?</label>
+          <select id="teachSubject">
+            <option value="">Select a subject</option>
+            <option value="mathematics">Mathematics</option>
+            <option value="physics">Physics</option>
+            <option value="chemistry">Chemistry</option>
+            <option value="biology">Biology</option>
+            <option value="english">English</option>
+            <option value="urdu">Urdu</option>
+            <option value="computer_science">Computer Science</option>
+            <option value="pakistan_studies">Pakistan Studies</option>
+            <option value="islamiat">Islamiat</option>
+            <option value="ielts">IELTS</option>
+            <option value="spoken_english">Spoken English</option>
+            <option value="arabic">Arabic</option>
+            <option value="french">French</option>
+            <option value="other">Other</option>
+          </select>
+
+          <label for="teachLevel" class="intent-label-gap">What levels do you teach?</label>
+          <select id="teachLevel">
+            <option value="">Select a level</option>
+            <option value="grade_1_5">Grade 1–5</option>
+            <option value="grade_6_8">Grade 6–8</option>
+            <option value="matric">Matric</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="o_level">O Level</option>
+            <option value="a_level">A Level</option>
+            <option value="university">University</option>
+            <option value="language_learning">Language Learning</option>
+            <option value="other">Other</option>
+          </select>
+
+          <a class="hero-btn hero-btn-primary hero-btn-wide" href="{{ url_for('register') }}">
+            Start Teaching
+          </a>
+        </div>
 
         {% if google_configured %}
-        <a class="hero-btn hero-btn-light" href="{{ url_for('google_login') }}">
-          <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google">
-          Continue with Google
-        </a>
+        <div class="hero-secondary-link">
+          <a href="{{ url_for('google_login') }}">Continue with Google</a>
+        </div>
         {% endif %}
-      </div>
+    </div>
 
-      <div class="hero-links">
-        <a href="{{ url_for('register') }}">Join with Email</a>
-        <span>|</span>
-        <a href="{{ url_for('tutors') }}">Browse Tutors</a>
-      </div>
     </div>
 
     <div class="hero-image-wrap">
-      <img src="{{ url_for('static', filename='images/hero-girl.png') }}" alt="Student learning online" class="hero-image">
+      <img
+        src="{{ url_for('static', filename='images/hero-girl.png') }}"
+        alt="Student learning online"
+        class="hero-image"
+      >
     </div>
   </div>
 </section>
 
-<section class="reassurance-section">
-  <div class="reassurance-heading">Simple for parents, students, and first-time users</div>
-
+<section class="reassurance-section home-reassurance">
   <div class="reassurance-grid">
     <div class="reassurance-card">
       <div class="reassurance-icon">✓</div>
       <div>
         <h3>Verified Tutors</h3>
-        <p>Qualified and reviewed tutors you can trust</p>
+        <p>Qualified and reviewed tutors you can trust.</p>
       </div>
     </div>
 
@@ -50,15 +139,15 @@
       <div class="reassurance-icon">👩</div>
       <div>
         <h3>Female Tutor Options</h3>
-        <p>Comfortable options for families</p>
+        <p>Comfortable learning choices for families.</p>
       </div>
     </div>
 
     <div class="reassurance-card">
-      <div class="reassurance-icon">☺</div>
+      <div class="reassurance-icon">💻</div>
       <div>
-        <h3>Easy for Parents &amp; Students</h3>
-        <p>Simple and safe for all ages</p>
+        <h3>Online-Only Learning</h3>
+        <p>Simple, flexible sessions from home.</p>
       </div>
     </div>
 
@@ -66,92 +155,69 @@
       <div class="reassurance-icon">💳</div>
       <div>
         <h3>Transparent Pricing</h3>
-        <p>Clear and simple credit system</p>
+        <p>Clear packages and simple payment understanding.</p>
       </div>
     </div>
   </div>
 </section>
 
-<section class="learning-section">
-  <h2>Popular Learning Areas</h2>
+<section id="pricing-plans" class="pricing-section">
+  <div class="section-head section-head-stack">
+    <div>
+      <h2>Pricing Plans</h2>
+      <p class="section-subtext">
+        Clear options for students, tutors, and families.
+      </p>
+    </div>
+  </div>
 
-  <div class="learning-grid">
-    <a href="{{ url_for('tutors') }}?level=grade_6_8" class="learning-card">
-      <img src="https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=900&q=80" alt="School subjects">
-      <div class="learning-body">
-        <h3>School Subjects</h3>
-        <p>Grade 5–8</p>
-      </div>
-    </a>
+  <div class="pricing-grid">
+    <article class="pricing-card">
+      <div class="pricing-badge">For Students</div>
+      <h3>Pay Per Lesson</h3>
+      <p class="pricing-text">
+        Book online sessions one by one with the tutor that fits your subject and level.
+      </p>
+      <ul class="pricing-list">
+        <li>Simple online booking flow</li>
+        <li>Suitable for flexible learning</li>
+        <li>Good for trying a tutor first</li>
+      </ul>
+    </article>
 
-    <a href="{{ url_for('tutors') }}?level=o_level" class="learning-card">
-      <img src="https://images.unsplash.com/photo-1513258496099-48168024aec0?auto=format&fit=crop&w=900&q=80" alt="O and A Levels">
-      <div class="learning-body">
-        <h3>O / A Levels</h3>
-        <p>Concept learning and exam prep</p>
-      </div>
-    </a>
+    <article class="pricing-card featured-plan">
+      <div class="pricing-badge">Most Practical</div>
+      <h3>Monthly Packages</h3>
+      <p class="pricing-text">
+        Lower-cost structured learning with regular weekly sessions and clearer progress.
+      </p>
+      <ul class="pricing-list">
+        <li>Better value than single sessions</li>
+        <li>Useful for exam preparation</li>
+        <li>Good for consistent learning routines</li>
+      </ul>
+    </article>
 
-    <a href="{{ url_for('tutors') }}?subject=ielts" class="learning-card">
-      <img src="https://images.unsplash.com/photo-1529390079861-591de354faf5?auto=format&fit=crop&w=900&q=80" alt="IELTS">
-      <div class="learning-body">
-        <h3>IELTS</h3>
-        <p>English and test preparation</p>
-      </div>
-    </a>
-
-    <a href="{{ url_for('tutors') }}?subject=spoken_english" class="learning-card">
-      <img src="https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=900&q=80" alt="English speaking">
-      <div class="learning-body">
-        <h3>English Speaking</h3>
-        <p>Language confidence and fluency</p>
-      </div>
-    </a>
-
-    <a href="{{ url_for('tutors') }}?subject=other&subject_other=GAT" class="learning-card">
-      <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80" alt="Entry test">
-      <div class="learning-body">
-        <h3>GAT / Entry Test Prep</h3>
-        <p>Focused preparation support</p>
-      </div>
-    </a>
-
-    <a href="{{ url_for('tutors') }}" class="learning-card">
-      <img src="https://images.unsplash.com/photo-1571260899304-425eee4c7efc?auto=format&fit=crop&w=900&q=80" alt="Female tutors">
-      <div class="learning-body">
-        <h3>Female Tutors</h3>
-        <p>Comfortable options for families</p>
-      </div>
-    </a>
+    <article class="pricing-card">
+      <div class="pricing-badge">For Tutors</div>
+      <h3>Free to Join</h3>
+      <p class="pricing-text">
+        Create your profile, teach online, and grow through the platform’s earning and bonus model.
+      </p>
+      <ul class="pricing-list">
+        <li>Simple tutor onboarding</li>
+        <li>Transparent platform model</li>
+        <li>Bonus and growth structure later</li>
+      </ul>
+    </article>
   </div>
 </section>
 
-<section id="how-it-works" class="how-section">
-  <h2>How it Works</h2>
-  <div class="how-grid">
-    <div class="how-card">
-      <div class="how-step">1</div>
-      <h3>Choose a Tutor</h3>
-      <p>Browse tutors by subject, level, and learning need.</p>
-    </div>
-    <div class="how-card">
-      <div class="how-step">2</div>
-      <h3>Book Online</h3>
-      <p>Pick the right tutor and continue with a simple online process.</p>
-    </div>
-    <div class="how-card">
-      <div class="how-step">3</div>
-      <h3>Start Learning</h3>
-      <p>Attend sessions online in a clear and guided way.</p>
-    </div>
-  </div>
-</section>
-
-<section class="featured-section">
+<section class="featured-section compact-featured">
   <div class="section-head">
     <div>
       <h2>Featured Tutors</h2>
-      <p class="section-subtext">Top-rated tutors available now</p>
+      <p class="section-subtext">Trusted tutors available on the platform</p>
     </div>
     <a href="{{ url_for('tutors') }}">View all</a>
   </div>
@@ -177,15 +243,30 @@
   </div>
 </section>
 
-<section class="final-cta-section">
-  <div class="final-cta-card">
-    <h2>Start learning today</h2>
-    <p>Find the right tutor in minutes.</p>
-    <div class="final-cta-actions">
-      <a class="hero-btn hero-btn-primary" href="{{ url_for('tutors') }}">Find a Tutor</a>
-      <a class="hero-btn hero-btn-light" href="{{ url_for('register') }}">Join Now</a>
-    </div>
-  </div>
-</section>
+<script>
+function setIntent(intent) {
+  const studyBtn = document.getElementById('studyBtn');
+  const teachBtn = document.getElementById('teachBtn');
+  const studyPanel = document.getElementById('studyPanel');
+  const teachPanel = document.getElementById('teachPanel');
+
+  studyBtn.classList.remove('active');
+  teachBtn.classList.remove('active');
+
+  if (intent === 'study') {
+    studyBtn.classList.add('active');
+    studyPanel.style.display = 'block';
+    teachPanel.style.display = 'none';
+  } else {
+    teachBtn.classList.add('active');
+    studyPanel.style.display = 'none';
+    teachPanel.style.display = 'block';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  setIntent('study');
+});
+</script>
 
 {% endblock %}
