@@ -868,36 +868,23 @@ textarea {
 }
 
 .hero-intent-card h3 {
-  margin: 0 0 8px;
-  font-size: 24px;
-  line-height: 1.2;
-  color: #243047;
+  font-size: 20px;
+  margin-bottom: 6px;
 }
 
 .hero-intent-sub {
-  margin: 0 0 18px !important;
-  font-size: 15px !important;
-  line-height: 1.5 !important;
-  color: #6b7280 !important;
+  font-size: 14px !important;
+  margin-bottom: 14px !important;
 }
 
 .intent-toggle {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-bottom: 18px;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
 .intent-btn {
-  min-height: 54px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: #f8fafb;
-  color: #243047;
-  font-size: 16px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: 0.18s ease;
+  min-height: 48px;
+  font-size: 15px;
 }
 
 .intent-btn.active {
@@ -908,26 +895,21 @@ textarea {
 }
 
 .intent-panel label {
-  display: block;
-  margin-bottom: 10px;
-  font-size: 15px;
-  font-weight: 700;
-  color: #33425f;
+  margin-bottom: 8px;
+  font-size: 14px;
 }
 
 .intent-panel select {
-  min-height: 54px;
-  border-radius: 14px;
+  min-height: 48px;
 }
 
 .hero-btn-wide {
-  width: 100%;
-  margin-top: 14px;
+  margin-top: 12px;
+  min-height: 52px;
 }
 
 .hero-secondary-link {
-  margin-top: 14px;
-  text-align: center;
+  margin-top: 10px;
 }
 
 .hero-secondary-link a {
@@ -1010,11 +992,14 @@ textarea {
 
 @media (max-width: 1080px) {
   .hero-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 0.92fr 1.08fr;
   }
 
   .hero-image-wrap {
-    min-height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 24px 20px 0;
   }
 
   .reassurance-grid,
@@ -1036,20 +1021,27 @@ textarea {
   }
 
   .hero-copy {
-    padding: 32px 22px 28px;
+    padding: 48px 40px 36px;
   }
 
   .hero-copy h1 {
-    font-size: 38px;
+    font-size: 52px;
+    line-height: 1.1;
+    max-width: 560px;
+    margin-bottom: 14px;
   }
 
   .hero-copy p {
-    font-size: 18px;
-    line-height: 1.6;
+     font-size: 18px;
+      line-height: 1.55;
+      max-width: 560px;
+      margin-bottom: 18px;
   }
 
   .hero-intent-card {
-    padding: 18px;
+      max-width: 500px;
+      padding: 18px;
+      border-radius: 20px;
   }
 
   .intent-toggle,
@@ -1549,4 +1541,15 @@ textarea {
   .admin-action-buttons .btn {
     width: 100%;
   }
+}
+.hero-image-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-image {
+  max-width: 500px;
+  width: 100%;
+  height: auto;
 }
