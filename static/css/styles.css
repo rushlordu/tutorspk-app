@@ -872,19 +872,24 @@ textarea {
   margin-bottom: 6px;
 }
 
+.hero-intent-card-overlay h3 {
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+
 .hero-intent-sub {
-  font-size: 14px !important;
-  margin-bottom: 14px !important;
+  font-size: 13px !important;
+  margin-bottom: 10px !important;
 }
 
 .intent-toggle {
-  gap: 8px;
-  margin-bottom: 14px;
+  gap: 6px;
+  margin-bottom: 10px;
 }
 
 .intent-btn {
-  min-height: 48px;
-  font-size: 15px;
+  min-height: 42px;
+  font-size: 14px;
 }
 
 .intent-btn.active {
@@ -895,21 +900,22 @@ textarea {
 }
 
 .intent-panel label {
-  margin-bottom: 8px;
-  font-size: 14px;
+  font-size: 13px;
+  margin-bottom: 6px;
 }
 
 .intent-panel select {
-  min-height: 48px;
+  min-height: 42px;
 }
 
 .hero-btn-wide {
-  margin-top: 12px;
-  min-height: 52px;
+
+  min-height: 46px;
+  margin-top: 10px;
 }
 
 .hero-secondary-link {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .hero-secondary-link a {
@@ -1569,6 +1575,7 @@ textarea {
 }
 
 .hero-bg-image {
+  transform: scale(1);  /* 🔥 zoom out */
   position: absolute;
   inset: 0;
   width: 100%;
@@ -1585,6 +1592,7 @@ textarea {
 }
 
 .hero-media-content {
+  align-items: flex-start;   /* keeps it left-aligned nicely */
   position: relative;
   z-index: 2;
   min-height: 620px;
@@ -1623,11 +1631,15 @@ textarea {
 }
 
 .hero-intent-card-overlay {
-  max-width: 520px;
-  margin-top: 28px;
+  max-width: 360px;
+  width: 100%;
+  padding: 16px;
+  margin-top: 16px;
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(255, 255, 255, 0.32);
   backdrop-filter: blur(10px);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.08);
 }
 
 .hero-intent-card-overlay .hero-intent-sub {
@@ -1675,7 +1687,7 @@ textarea {
   }
 
   .hero-media-copy h1 {
-    font-size: 40px;
+    font-size: 30px;
     line-height: 1.08;
   }
 
