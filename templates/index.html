@@ -1,20 +1,33 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<section class="hero-section hero-section-clean">
-  <div class="hero-grid">
-    <div class="hero-copy">
-      <div class="hero-eyebrow">Online tutoring made simple</div>
+<section class="hero-media-section">
+  <div class="hero-media-shell">
+    <img
+      src="{{ url_for('static', filename='images/hero-girl.png') }}"
+      alt="Student learning online"
+      class="hero-bg-image"
+    >
 
-      <h1>Trusted online tutors for every learner</h1>
+    <div class="hero-overlay"></div>
 
-      <p>
-        Simple, guided online tutoring for school subjects, exam preparation,
-        English language learning, and more.
-      </p>
+    <div class="hero-media-content">
+      <div class="hero-media-copy">
+        <div class="hero-eyebrow hero-eyebrow-on-media">Online tutoring made simple</div>
 
-      <div class="hero-intent-card">
+        <h1>Trusted online tutors for every learner</h1>
+
+        <p>
+          Simple, guided online tutoring for school subjects,
+          exam preparation, English language learning, and more.
+        </p>
+      </div>
+
+      <div class="hero-intent-card hero-intent-card-overlay">
         <h3>Choose what you want to do</h3>
+        <p class="hero-intent-sub">
+          We’ll guide you to the right next step.
+        </p>
 
         <div class="intent-toggle">
           <button type="button" id="studyBtn" class="intent-btn active" onclick="setIntent('study')">
@@ -108,19 +121,11 @@
           <a href="{{ url_for('google_login') }}">Continue with Google</a>
         </div>
         {% endif %}
-    </div>
-
-    </div>
-
-    <div class="hero-image-wrap">
-      <img
-        src="{{ url_for('static', filename='images/hero-girl.png') }}"
-        alt="Student learning online"
-        class="hero-image"
-      >
+      </div>
     </div>
   </div>
 </section>
+
 
 <section class="reassurance-section home-reassurance">
   <div class="reassurance-grid">
