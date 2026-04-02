@@ -29,7 +29,21 @@
       <td>{{ 'Active' if user.is_active_user else 'Suspended' }}</td>
       <td>{{ 'Yes' if user.is_verified_tutor else '-' }}</td>
       <td>
-        <a class="btn btn-sm btn-light" href="{{ url_for('admin_user_detail', user_id=user.id) }}">View profile</a>
+        <div class="admin-user-actions">
+
+        <a class="btn btn-sm btn-light" href="{{ url_for('admin_user_detail', user_id=user.id) }}">
+          View
+        </a>
+
+        <form method="post" action="{{ url_for('admin_delete_user', user_id=user.id) }}" style="display:inline;" onsubmit="return confirm('Delete this user? This cannot be undone.');">
+          <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+        </form>
+
+        <button class="btn btn-sm" onclick="openContactModal({{ user.id }}, '{{ user.email }}')">
+          Contact
+        </button>
+
+        </div>
 
         <form method="post" action="{{ url_for('admin_toggle_user', user_id=user.id) }}" style="display:inline">
           <button class="btn btn-sm" type="submit">Toggle</button>
@@ -45,4 +59,49 @@
     {% endfor %}
   </table>
 </section>
+
+<!-- CONTACT MODAL -->
+<div id="contactModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:999;">
+  <div style="background:#fff; padding:20px; width:400px; margin:100px auto; border-radius:8px;">
+
+    <h3>Contact User</h3>
+
+    <form id="contactForm" method="post">
+      <input type="hidden" id="contact_user_id">
+
+      <div>
+        <label>Subject</label>
+        <input type="text" name="subject" required>
+      </div>
+
+      <div>
+        <label>Message</label>
+        <textarea name="message" rows="4" required></textarea>
+      </div>
+
+      <div style="margin-top:12px;">
+        <button class="btn" type="submit">Send</button>
+        <button class="btn btn-light" type="button" onclick="closeContactModal()">Cancel</button>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+<script>
+function openContactModal(userId, email) {
+  const modal = document.getElementById("contactModal");
+  const form = document.getElementById("contactForm");
+
+  form.action = "/admin/users/" + userId + "/contact";
+
+  modal.style.display = "block";
+}
+
+function closeContactModal() {
+  document.getElementById("contactModal").style.display = "none";
+}
+</script>
+
+
 {% endblock %}

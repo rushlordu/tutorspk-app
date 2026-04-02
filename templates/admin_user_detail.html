@@ -26,47 +26,41 @@
 
   <div class="grid two admin-review-grid">
     <section class="card admin-review-card">
-      <h2>Basic Information</h2>
+  <h2>Admin Review Action</h2>
+  <p class="muted">
+    Tutor application is submitted free of cost. If selected after review, request PKR 500 registration fee. Activate the tutor only after payment is received.
+  </p>
 
-      <div class="detail-list">
-        <div class="detail-row">
-          <span class="detail-label">Full name</span>
-          <span class="detail-value">{{ user.full_name }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Public name</span>
-          <span class="detail-value">{{ user.public_name }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Email</span>
-          <span class="detail-value">{{ user.email }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Role</span>
-          <span class="detail-value">{{ user.role|title }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Gender</span>
-          <span class="detail-value">{{ user.gender or '-' }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">City</span>
-          <span class="detail-value">{{ user.city or '-' }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Created</span>
-          <span class="detail-value">{{ user.created_at.strftime('%d %b %Y %H:%M') if user.created_at else '-' }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Account status</span>
-          <span class="detail-value">{{ 'Active' if user.is_active_user else 'Suspended' }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Verified tutor</span>
-          <span class="detail-value">{{ 'Yes' if user.is_verified_tutor else 'No' }}</span>
-        </div>
-      </div>
-    </section>
+  <form method="post" action="{{ url_for('admin_review_user', user_id=user.id) }}" class="form-grid admin-review-form">
+    <div>
+      <label class="small-label">Decision</label>
+      <select name="action" id="review_action" required>
+        <option value="">Select decision</option>
+        <option value="request_fee">Select &amp; Request PKR 500</option>
+        <option value="activate">Activate After Fee Received</option>
+        <option value="reject">Reject</option>
+        <option value="pend">Pend</option>
+      </select>
+    </div>
+
+    <div class="admin-review-note-wrap">
+      <label class="small-label" for="review_reason">Reason / note</label>
+      <textarea
+        id="review_reason"
+        name="reason"
+        placeholder="Add note for tutor, rejection reason, or fee instructions"
+      ></textarea>
+      <p class="admin-help-note">
+        This note is used in the outgoing review email, but it is not yet stored as permanent review history in the database.
+      </p>
+    </div>
+
+    <div class="admin-action-buttons">
+      <button class="btn" type="submit">Submit Decision</button>
+      <a class="btn btn-light" href="{{ url_for('admin_users') }}">Back to Users</a>
+    </div>
+  </form>
+</section>
 
     <section class="card admin-review-card">
       <h2>Profile Summary</h2>
@@ -117,6 +111,20 @@
           </div>
         </div>
 
+        <div class="detail-row">
+          <span class="detail-label">Qualification submitted</span>
+          <span class="detail-value">{{ 'Yes' if user.qualification else 'No' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Experience submitted</span>
+          <span class="detail-value">{{ 'Yes' if user.experience_years else 'No' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Demo video submitted</span>
+          <span class="detail-value">{{ 'Yes' if user.demo_video_url else 'No' }}</span>
+        </div>
+
+
         <div class="admin-bio-box">
           <strong>Bio</strong>
           <p>{{ user.bio or 'No bio added.' }}</p>
@@ -154,7 +162,7 @@
   <section class="card admin-review-card">
     <h2>Admin Review Action</h2>
     <p class="muted">
-      Approve verified tutors, reject unsuitable profiles, or keep an account pending review.
+      Tutor application is submitted free of cost. If selected after review, request PKR 500 registration fee. Activate only after payment is received.
     </p>
 
     <form method="post" action="{{ url_for('admin_review_user', user_id=user.id) }}" class="form-grid admin-review-form">
@@ -162,7 +170,8 @@
         <label class="small-label">Decision</label>
         <select name="action" id="review_action" required>
           <option value="">Select decision</option>
-          <option value="approve">Approve</option>
+          <option value="request_fee">Select &amp; Request PKR 500</option>
+          <option value="activate">Activate After Fee Received</option>
           <option value="reject">Reject</option>
           <option value="pend">Pend</option>
         </select>
@@ -180,11 +189,17 @@
         </p>
       </div>
 
-      <div class="admin-action-buttons">
-        <button class="btn" type="submit">Submit Decision</button>
-        <a class="btn btn-light" href="{{ url_for('admin_users') }}">Back to Users</a>
-      </div>
-    </form>
+    <div class="admin-action-buttons">
+  <button class="btn" type="submit">Submit Decision</button>
+  <a class="btn btn-light" href="{{ url_for('admin_users') }}">Back to Users</a>
+</div>
+
+</form>
+
+<form method="post" action="{{ url_for('admin_delete_user', user_id=user.id) }}" onsubmit="return confirm('Are you sure you want to delete this user? This cannot be undone.');" style="margin-top:12px;">
+  <button class="btn btn-danger" type="submit">Delete User</button>
+</form>
+
   </section>
 </section>
 

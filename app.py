@@ -1,9 +1,12 @@
 import os
 import re
+import smtplib
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 from dotenv import load_dotenv
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 from flask import (
     Flask,
@@ -15,9 +18,6 @@ from flask import (
     url_for,
     session,
 )
-
-load_dotenv()
-
 from flask_login import (
     LoginManager,
     UserMixin,
@@ -30,6 +30,228 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 from authlib.integrations.flask_client import OAuth
+
+load_dotenv()
+
+
+def send_email(to_email, subject, body, is_html=False, reply_to=None):
+    try:
+        import smtplib
+        import os
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        smtp_server = os.getenv("SMTP_SERVER")
+        smtp_port = int(os.getenv("SMTP_PORT", 587))
+        username = os.getenv("SMTP_USERNAME")
+        password = os.getenv("SMTP_PASSWORD")
+        from_email = os.getenv("FROM_EMAIL")
+
+        if isinstance(to_email, str):
+            recipients = [to_email]
+        else:
+            recipients = to_email
+
+        msg = MIMEMultipart()
+        msg["From"] = from_email
+        msg["To"] = ", ".join(recipients)
+        msg["Subject"] = subject
+
+        if reply_to:
+            msg["Reply-To"] = reply_to
+
+        msg.attach(MIMEText(body, "html" if is_html else "plain"))
+
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(username, password)
+            server.send_message(msg)
+
+        print(f"✅ Email sent to {recipients}")
+        return True
+
+    except Exception as e:
+        print("❌ Email failed:", str(e))
+        return False
+
+def safe_send_email(to_email, subject, body, is_html=False, reply_to=None):
+    try:
+        return send_email(
+            to_email=to_email,
+            subject=subject,
+            body=body,
+            is_html=is_html,
+            reply_to=reply_to,
+        )
+    except Exception as e:
+        print("❌ safe_send_email failed:", str(e))
+        return False
+
+
+def send_signup_emails(user):
+    # Admin notification
+    safe_send_email(
+        "superadmin@tutorsonline.pk",
+        f"New TutorsOnline.pk {user.role.title()} Registration",
+        f"""A new account has been created.
+
+Role: {user.role.title()}
+Name: {user.full_name}
+Public Name: {user.public_name}
+Email: {user.email}
+City: {user.city or '-'}
+Gender: {user.gender or '-'}
+
+Please review this account in admin panel if needed.
+"""
+    )
+
+    # User confirmation
+    if user.role == "tutor":
+        user_subject = "Tutor application received - TutorsOnline.pk"
+        user_body = f"""Assalam-o-Alaikum,
+
+Thank you for joining TutorsOnline.pk as a tutor.
+
+We have received your profile and it is now under review.
+
+Account details:
+Name: {user.full_name}
+Email: {user.email}
+
+You will receive another email once your tutor profile is approved or if it remains pending review.
+
+Regards,
+TutorsOnline.pk
+superadmin@tutorsonline.pk
+"""
+    else:
+        user_subject = "Welcome to TutorsOnline.pk"
+        user_body = f"""Assalam-o-Alaikum,
+
+Welcome to TutorsOnline.pk.
+
+Your student account has been created successfully.
+
+Account details:
+Name: {user.full_name}
+Email: {user.email}
+
+You can now log in and start exploring tutors.
+
+Regards,
+TutorsOnline.pk
+superadmin@tutorsonline.pk
+"""
+
+    safe_send_email(user.email, user_subject, user_body)
+
+
+def send_tutor_review_email(user, action, reason=""):
+    if user.role != "tutor":
+        return
+
+    if action == "request_fee":
+        subject = "Tutor selected - registration fee required - TutorsOnline.pk"
+        body = f"""Assalam-o-Alaikum {user.full_name},
+
+Thank you for applying as a tutor on TutorsOnline.pk.
+
+Your profile has been selected in principle, and the next step is the final registration payment of PKR 500.
+
+Please send the payment as instructed by the platform team. Once payment is confirmed, your tutor profile will be activated.
+
+{f"Note: {reason}" if reason else ""}
+
+Regards,
+TutorsOnline.pk
+superadmin@tutorsonline.pk
+"""
+
+    elif action == "activate":
+        subject = "Your tutor profile is now active - TutorsOnline.pk"
+        body = f"""Assalam-o-Alaikum {user.full_name},
+
+Your tutor registration has been completed successfully.
+
+Your profile is now active on TutorsOnline.pk and can be shown to students.
+
+Regards,
+TutorsOnline.pk
+superadmin@tutorsonline.pk
+"""
+
+    elif action == "reject":
+        subject = "Tutor profile review update - TutorsOnline.pk"
+        body = f"""Assalam-o-Alaikum {user.full_name},
+
+Your tutor application could not be approved at this time.
+
+{f"Reason: {reason}" if reason else "Please review your submitted details and contact us if needed."}
+
+Regards,
+TutorsOnline.pk
+superadmin@tutorsonline.pk
+"""
+
+    elif action == "pend":
+        subject = "Tutor profile pending review - TutorsOnline.pk"
+        body = f"""Assalam-o-Alaikum {user.full_name},
+
+Your tutor profile is still under review.
+
+{f"Note: {reason}" if reason else "We will notify you once the review is complete."}
+
+Regards,
+TutorsOnline.pk
+superadmin@tutorsonline.pk
+"""
+    else:
+        return
+
+    safe_send_email(user.email, subject, body)
+
+
+def send_booking_emails(booking):
+    student = booking.student
+    tutor = booking.tutor
+    when = booking.scheduled_at.strftime("%d %b %Y %I:%M %p") if booking.scheduled_at else "-"
+
+    student_subject = "Booking confirmed - TutorsOnline.pk"
+    student_body = f"""Assalam-o-Alaikum {student.full_name},
+
+Your session has been booked successfully.
+
+Tutor: {tutor.public_name}
+Subject: {booking.subject}
+Level: {booking.class_level}
+Date & Time: {when}
+Duration: {booking.duration_minutes} minutes
+Credits Used: {booking.credits_cost}
+
+Regards,
+TutorsOnline.pk
+superadmin@tutorsonline.pk
+"""
+
+    tutor_subject = "New student booking - TutorsOnline.pk"
+    tutor_body = f"""Assalam-o-Alaikum {tutor.full_name},
+
+You have received a new booking on TutorsOnline.pk.
+
+Student: {student.public_name}
+Subject: {booking.subject}
+Level: {booking.class_level}
+Date & Time: {when}
+Duration: {booking.duration_minutes} minutes
+
+Regards,
+TutorsOnline.pk
+superadmin@tutorsonline.pk
+"""
+
+    safe_send_email(student.email, student_subject, student_body)
+    safe_send_email(tutor.email, tutor_subject, tutor_body)
 
 BASE_DIR = Path(__file__).resolve().parent
 INSTANCE_DIR = BASE_DIR / "instance"
@@ -51,8 +273,8 @@ app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_DIR)
 
 # Temporary site status flag
-#UNDER_CONSTRUCTION= False
-UNDER_CONSTRUCTION = os.getenv("UNDER_CONSTRUCTION", "true").lower() == "true"
+UNDER_CONSTRUCTION= False
+#UNDER_CONSTRUCTION = os.getenv("UNDER_CONSTRUCTION", "true").lower() == "true"
 
 # Configurable placeholders for later setup
 app.config["MAIL_SERVER"] = os.getenv("MAIL_SERVER", "")
@@ -328,6 +550,22 @@ def preview_off():
     flash("Preview mode disabled", "info")
     return redirect(url_for("index"))
 
+@app.route("/test-email")
+def test_email():
+    ok = send_email(
+        "superadmin@tutorsonline.pk",
+        "TutorsOnline.pk SMTP Test",
+        """Assalam-o-Alaikum,
+
+This is a successful SMTP test email from TutorsOnline.pk.
+
+Regards,
+TutorsOnline.pk
+superadmin@tutorsonline.pk
+"""
+    )
+    return "Email sent!" if ok else "Email failed!"
+
 
 @app.before_request
 def construction_gate():
@@ -401,6 +639,26 @@ def add_credits(user: User, credits: int, tx_type: str, note: str = "", rupees: 
         )
     )
 
+
+def validate_tutor_application_form(form):
+    qualification = form.get("qualification", "").strip()
+    experience_years = form.get("experience_years", "").strip()
+    demo_video_url = form.get("demo_video_url", "").strip()
+    demo_length_confirmed = form.get("demo_length_confirmed", "").strip()
+
+    if not qualification:
+        return "Qualification is required for tutor applications."
+
+    if not experience_years:
+        return "Teaching experience is required for tutor applications."
+
+    if not demo_video_url:
+        return "A 2–5 minute demo video is required for tutor applications."
+
+    if demo_length_confirmed != "yes":
+        return "Please confirm that your demo video is between 2 and 5 minutes."
+
+    return None
 
 def apply_bonus_if_eligible(tutor: User):
     milestones = [
@@ -543,6 +801,11 @@ def index():
         .limit(10)
         .all()
     )
+    recent_reviews = (
+        Feedback.query.order_by(Feedback.created_at.desc())
+        .limit(6)
+        .all()
+    )
     demo_topics = [
         "Fractions for Grade 6",
         "Linear Equations for O Level",
@@ -551,10 +814,35 @@ def index():
         "Essay Writing Skills",
         "Chemistry Stoichiometry Primer",
     ]
+
     return render_template(
         "index.html",
         featured_tutors=featured_tutors,
+        recent_reviews=recent_reviews,
         demo_topics=demo_topics,
+    )
+
+@app.route("/select-tutor/<int:tutor_id>", methods=["GET", "POST"])
+@login_required
+def select_tutor(tutor_id):
+    tutor = User.query.get_or_404(tutor_id)
+
+    if request.method == "POST":
+        subject = request.form.get("subject")
+        level = request.form.get("level")
+
+        return redirect(url_for(
+            "book_tutor",
+            tutor_id=tutor.id,
+            subject=subject,
+            level=level
+        ))
+
+    return render_template(
+        "select_tutor.html",
+        tutor=tutor,
+        subject_options=SUBJECT_OPTIONS,
+        level_options=LEVEL_OPTIONS
     )
 
 @app.route("/register", methods=["GET", "POST"])
@@ -644,25 +932,25 @@ def register():
         if role == "tutor":
             user.is_verified_tutor = False
 
+
         db.session.add(user)
         db.session.commit()
 
-        send_notification_email(
-            "New TutorsOnline.pk Registration",
-            f"New {role} registered\n"
-            f"Name: {user.full_name}\n"
-            f"Email: {user.email}\n"
-            f"Public Name: {user.public_name}\n"
-            f"City: {user.city}\n"
-            f"Gender: {user.gender}",
-        )
-        flash(
-            "Registration completed. Tutors remain under review until admin verification.",
-            "success",
-        )
+        
+        send_signup_emails(user)
+
+        if role == "tutor":
+            flash(
+                "Tutor application submitted free of cost. If selected after review, you will be asked to pay PKR 500 to activate your profile.",
+                "success",
+            )
+        else:
+            flash("Registration completed successfully. Please log in.", "success")
         return redirect(url_for("login"))
 
+
     return render_template("register.html")
+
 
 
 @app.route("/google-login")
@@ -701,6 +989,8 @@ def google_callback():
 @app.route("/complete-google-signup", methods=["GET", "POST"])
 def complete_google_signup():
     google_signup = session.get("google_signup")
+    
+ 
     if not google_signup:
         flash("Your Google signup session expired. Please try again.", "warning")
         return redirect(url_for("login"))
@@ -716,20 +1006,21 @@ def complete_google_signup():
             return redirect(url_for("admin_dashboard"))
         return redirect(url_for("dashboard"))
 
+    
     if request.method == "POST":
+        role = request.form.get("role", "student").strip().lower()
+
+        if role == "tutor":
+            tutor_error = validate_tutor_application_form(request.form)
+            if tutor_error:
+                flash(tutor_error, "danger")
+                return redirect(url_for("complete_google_signup"))
+
         user = build_google_user_from_form(request.form, email=email, fallback_name=fallback_name)
         db.session.add(user)
         db.session.commit()
 
-        send_notification_email(
-            "New TutorsOnline.pk Google Registration",
-            f"New {user.role} registered via Google\n"
-            f"Name: {user.full_name}\n"
-            f"Email: {user.email}\n"
-            f"Public Name: {user.public_name}\n"
-            f"City: {user.city}\n"
-            f"Gender: {user.gender}",
-        )
+        send_signup_emails(user)
 
         session.pop("google_signup", None)
         login_user(user)
@@ -784,8 +1075,14 @@ def dashboard():
         .limit(10)
         .all()
     )
+    pending_notices = []
+    if current_user.role == "student":
+        pending_notices = PaymentNotice.query.filter_by(
+        student_id=current_user.id,
+        status="pending"
+        ).order_by(PaymentNotice.created_at.desc()).all()
+    pending_notices=pending_notices,
     return render_template("dashboard.html", bookings=upcoming)
-
 
 @app.route("/tutors")
 def tutors():
@@ -899,6 +1196,10 @@ def book_tutor(tutor_id):
 
     tutor = User.query.get_or_404(tutor_id)
 
+    subject = request.args.get("subject", "")
+    level = request.args.get("level", "")
+
+
     if request.method == "POST":
         credits_cost = int(request.form.get("credits_cost", 100))
         if current_user.credits_balance < credits_cost:
@@ -926,11 +1227,39 @@ def book_tutor(tutor_id):
         )
         db.session.add(booking)
         db.session.commit()
-        flash("Session booked.", "success")
+
+        send_booking_emails(booking)
+
+        flash("Session booked successfully.", "success")
         return redirect(url_for("dashboard"))
+    return render_template(
+            "book_tutor.html",
+                tutor=tutor,
+                subject_options=SUBJECT_OPTIONS,
+                level_options=LEVEL_OPTIONS,
+                subject_prefill=subject,
+                level_prefill=level
+        )
+    
 
-    return render_template("book_tutor.html", tutor=tutor)
+@app.route("/terms")
+def terms():
+    return render_template("terms.html")
 
+
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
+
+
+@app.route("/accessibility")
+def accessibility():
+    return render_template("accessibility.html")
+
+
+@app.route("/about")
+def about():
+    return render_template("about.html")
 
 @app.route("/buy-credits", methods=["GET", "POST"])
 @login_required
@@ -940,6 +1269,10 @@ def buy_credits():
         return redirect(url_for("dashboard"))
 
     if request.method == "POST":
+        credits_requested = int(request.form.get("amount_sent_pkr", 0)) // app.config["CREDIT_RATE"]
+        if credits_requested < 10:
+            flash("Minimum purchase is 10 credits.", "danger")
+            return redirect(url_for("buy_credits"))
         amount = int(request.form["amount_sent_pkr"])
         credits = amount // app.config["CREDIT_RATE"]
         screenshot = request.files.get("screenshot")
@@ -1160,14 +1493,42 @@ def contact():
             flash("Please fill in all fields.", "danger")
             return redirect(url_for("contact"))
 
-        fallback = send_notification_email(
-            "TutorsOnline.pk Contact Form",
-            f"Name: {name}\nEmail: {email}\n\nMessage:\n{message}",
+        admin_sent = send_email(
+            "superadmin@tutorsonline.pk",
+            f"New Contact Message from {name}",
+            f"""A new contact form message has been received.
+
+Name: {name}
+Email: {email}
+
+Message:
+{message}
+""",
+            reply_to=email,
         )
-        if fallback:
-            flash("Message saved. SMTP not configured yet; email logged to email_outbox.log", "warning")
-        else:
+
+        user_sent = send_email(
+            email,
+            "We received your message - TutorsOnline.pk",
+            f"""Assalam-o-Alaikum,
+
+Thank you for contacting TutorsOnline.pk.
+
+We have received your message and will get back to you as soon as possible.
+
+Regards,
+TutorsOnline.pk
+superadmin@tutorsonline.pk
+"""
+        )
+
+        if admin_sent and user_sent:
             flash("Message sent successfully.", "success")
+        elif admin_sent:
+            flash("Your message was received, but confirmation email could not be sent.", "warning")
+        else:
+            flash("Your message could not be sent right now. Please try again shortly.", "danger")
+
         return redirect(url_for("contact"))
 
     return render_template("contact.html")
@@ -1241,24 +1602,93 @@ def admin_review_user(user_id):
     action = request.form.get("action", "").strip()
     reason = request.form.get("reason", "").strip()
 
-    if action == "approve":
+    if action == "request_fee":
+        if user.role == "tutor":
+            user.is_verified_tutor = False
+        flash("Tutor selected. Registration fee request email sent.", "success")
+
+    elif action == "activate":
         if user.role == "tutor":
             user.is_verified_tutor = True
-        flash("User approved successfully.", "success")
+        flash("Tutor activated successfully.", "success")
+
     elif action == "reject":
         if user.role == "tutor":
             user.is_verified_tutor = False
         flash(f"User marked rejected.{f' Reason: {reason}' if reason else ''}", "warning")
+
     elif action == "pend":
         if user.role == "tutor":
             user.is_verified_tutor = False
         flash("User marked pending review.", "info")
+
     else:
         flash("Invalid review action.", "danger")
         return redirect(url_for("admin_user_detail", user_id=user.id))
 
     db.session.commit()
+    send_tutor_review_email(user, action, reason)
+
     return redirect(url_for("admin_user_detail", user_id=user.id))
+
+@app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
+@login_required
+def admin_delete_user(user_id):
+    if current_user.role != "admin":
+        return redirect(url_for("dashboard"))
+
+    user = User.query.get_or_404(user_id)
+
+    if user.id == current_user.id:
+        flash("You cannot delete your own admin account.", "danger")
+        return redirect(url_for("admin_users"))
+
+    try:
+        db.session.delete(user)
+        db.session.commit()
+        flash("User deleted successfully.", "success")
+    except Exception as e:
+        db.session.rollback()
+        print("❌ Delete error:", str(e))
+        flash("Failed to delete user.", "danger")
+
+    return redirect(url_for("admin_users"))
+
+@app.route("/admin/users/<int:user_id>/contact", methods=["POST"])
+@login_required
+def admin_contact_user(user_id):
+    if current_user.role != "admin":
+        return redirect(url_for("dashboard"))
+
+    user = User.query.get_or_404(user_id)
+
+    subject = request.form.get("subject", "").strip()
+    message = request.form.get("message", "").strip()
+
+    if not subject or not message:
+        flash("Subject and message are required.", "danger")
+        return redirect(url_for("admin_users"))
+
+    try:
+        send_email(
+            user.email,
+            f"[TutorsOnline.pk] {subject}",
+            f"""
+Assalam-o-Alaikum,
+
+{message}
+
+Regards,
+TutorsOnline.pk
+superadmin@tutorsonline.pk
+"""
+        )
+        flash("Email sent to user successfully.", "success")
+    except Exception as e:
+        print("❌ Contact error:", str(e))
+        flash("Failed to send email.", "danger")
+
+    return redirect(url_for("admin_users"))
 
 
 @app.route("/admin/users/<int:user_id>/toggle", methods=["POST"])

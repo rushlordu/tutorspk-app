@@ -108,45 +108,57 @@
       </div>
     </div>
 
-    <!-- ================= TUTOR ================= -->
     <div id="tutorFields" style="display:none; margin-top:25px;">
-      <h3 class="section-title">Tutor Details</h3>
+  <h3 class="section-title">Tutor Application</h3>
+  <p class="muted">
+    Applying as a tutor is free. If your profile is selected after review, you will be asked to pay a one-time registration fee of PKR 500 to activate your profile.
+  </p>
 
-      <div class="form-grid two-col">
+  <div class="form-grid two-col">
 
-        <select name="qualification">
-          <option value="">Select Qualification</option>
-          <option value="bachelors">Bachelor's</option>
-          <option value="masters">Master's</option>
-          <option value="mphil">MPhil</option>
-          <option value="phd">PhD</option>
-        </select>
+    <select name="qualification" required>
+      <option value="">Select Qualification</option>
+      <option value="bachelors">Bachelor's</option>
+      <option value="masters">Master's</option>
+      <option value="mphil">MPhil</option>
+      <option value="phd">PhD</option>
+      <option value="other">Other</option>
+    </select>
 
-        <input name="main_subject" placeholder="Main Subject">
+    <input name="main_subject" placeholder="Main Subject" required>
 
-        <input name="additional_subjects" placeholder="Additional Subjects">
+    <input name="additional_subjects" placeholder="Additional Subjects">
 
-        <input name="class_levels" placeholder="Levels You Teach">
+    <input name="class_levels" placeholder="Levels You Teach" required>
 
-        <select name="experience_years">
-          <option value="">Teaching Experience</option>
-          <option value="1">1 year</option>
-          <option value="3">3 years</option>
-          <option value="5">5 years</option>
-          <option value="10">10+ years</option>
-        </select>
+    <select name="experience_years" required>
+      <option value="">Teaching Experience</option>
+      <option value="1">1 year</option>
+      <option value="3">3 years</option>
+      <option value="5">5 years</option>
+      <option value="10">10+ years</option>
+    </select>
 
-        <input name="hourly_rate" type="number" placeholder="Hourly Rate (PKR)">
+    <input name="hourly_rate" type="number" placeholder="Hourly Rate (PKR)">
 
-        <label><input type="checkbox" name="modest_profile"> Modest / Veiled Profile</label>
-        <label><input type="checkbox" name="audio_only"> Audio-first Teaching</label>
+    <label><input type="checkbox" name="modest_profile"> Modest / Veiled Profile</label>
+    <label><input type="checkbox" name="audio_only"> Audio-first Teaching</label>
 
-        <textarea name="bio" placeholder="Write a short teaching profile"></textarea>
+    <textarea name="bio" placeholder="Write a short teaching profile"></textarea>
 
-        <input name="demo_video_url" placeholder="Demo Video URL (optional)">
+    <input
+      name="demo_video_url"
+      placeholder="Demo Video URL (2–5 minutes required)"
+      required
+    >
 
-      </div>
-    </div>
+    <label class="checkbox-wide">
+      <input type="checkbox" name="demo_length_confirmed" value="yes" required>
+      I confirm that my demo video is between 2 and 5 minutes.
+    </label>
+
+  </div>
+</div>
 
     <button class="auth-btn-primary" type="submit" style="margin-top:25px;">
       Create Account
@@ -171,16 +183,37 @@ function setRole(role) {
   document.getElementById("studentBtn").classList.remove("active");
   document.getElementById("tutorBtn").classList.remove("active");
 
+  const studentFields = document.getElementById("studentFields");
+  const tutorFields = document.getElementById("tutorFields");
+
+  const studentInputs = studentFields.querySelectorAll("input, select, textarea");
+  const tutorInputs = tutorFields.querySelectorAll("input, select, textarea");
+
   if (role === "student") {
     document.getElementById("studentBtn").classList.add("active");
-    document.getElementById("studentFields").style.display = "block";
-    document.getElementById("tutorFields").style.display = "none";
+    studentFields.style.display = "block";
+    tutorFields.style.display = "none";
+
+    studentInputs.forEach(el => {
+      el.disabled = false;
+    });
+    tutorInputs.forEach(el => {
+      el.disabled = true;
+    });
   } else {
     document.getElementById("tutorBtn").classList.add("active");
-    document.getElementById("tutorFields").style.display = "block";
-    document.getElementById("studentFields").style.display = "none";
+    tutorFields.style.display = "block";
+    studentFields.style.display = "none";
+
+    studentInputs.forEach(el => {
+      el.disabled = true;
+    });
+    tutorInputs.forEach(el => {
+      el.disabled = false;
+    });
   }
 }
+</script>
 
 function togglePassword(fieldId, btn) {
   const field = document.getElementById(fieldId);

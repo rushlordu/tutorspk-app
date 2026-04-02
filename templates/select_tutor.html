@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<section class="card">
+  <h1>Select Tutor</h1>
+
+  <div class="tutor-preview">
+    <h3>{{ tutor.public_name }}</h3>
+    <p class="muted">{{ tutor.subjects }}</p>
+  </div>
+
+  <form method="post" class="form-grid">
+
+    <div>
+      <label>Subject</label>
+      <select name="subject" required>
+        {% for val, label in subject_options %}
+          <option value="{{ val }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label>Level</label>
+      <select name="level" required>
+        {% for val, label in level_options %}
+          <option value="{{ val }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <button class="btn btn-primary">
+      Continue to Booking
+    </button>
+
+  </form>
+
+</section>
+
+{% endblock %}

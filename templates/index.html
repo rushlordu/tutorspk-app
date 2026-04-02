@@ -73,7 +73,9 @@
           </select>
 
           <a class="hero-btn hero-btn-primary hero-btn-wide" href="{{ url_for('tutors') }}">
+            <button type="button" class="hero-btn hero-btn-primary hero-btn-wide" onclick="goStudySearch()">
             Find a Tutor
+            </button>
           </a>
         </div>
 
@@ -245,6 +247,56 @@
   </div>
 </section>
 
+<section class="featured-section reviews-home-section">
+  <div class="section-head">
+    <div>
+      <h2>What students are saying</h2>
+      <p class="section-subtext">Recent public feedback from the platform</p>
+    </div>
+  </div>
+
+  <div class="featured-grid">
+    {% for review in recent_reviews %}
+      <article class="featured-card review-card">
+        <div class="featured-body">
+          <h3>{{ review.student.public_name }}</h3>
+          <p class="featured-rating">⭐ {{ review.rating }} · {{ review.tutor.public_name }}</p>
+          <p>{{ review.comment or 'Positive learning experience.' }}</p>
+        </div>
+      </article>
+    {% else %}
+      <div class="empty-card">
+        <p>No public reviews yet.</p>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="featured-section reviews-home-section">
+  <div class="section-head">
+    <div>
+      <h2>What students are saying</h2>
+      <p class="section-subtext">Recent public feedback from the platform</p>
+    </div>
+  </div>
+
+  <div class="featured-grid">
+    {% for review in recent_reviews %}
+      <article class="featured-card review-card">
+        <div class="featured-body">
+          <h3>{{ review.student.public_name }}</h3>
+          <p class="featured-rating">⭐ {{ review.rating }} · {{ review.tutor.public_name }}</p>
+          <p>{{ review.comment or 'Positive learning experience.' }}</p>
+        </div>
+      </article>
+    {% else %}
+      <div class="empty-card">
+        <p>No public reviews yet.</p>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
 <script>
 function setIntent(intent) {
   const studyBtn = document.getElementById('studyBtn');
@@ -269,6 +321,18 @@ function setIntent(intent) {
 document.addEventListener('DOMContentLoaded', function () {
   setIntent('study');
 });
+
+function goStudySearch() {
+  const subject = document.getElementById("studySubject")?.value || "";
+  const level = document.getElementById("studyLevel")?.value || "";
+
+  const params = new URLSearchParams();
+  if (subject) params.append("subject", subject);
+  if (level) params.append("level", level);
+
+  window.location.href = "{{ url_for('tutors') }}" + (params.toString() ? "?" + params.toString() : "");
+}
+
 </script>
 
 {% endblock %}

@@ -14,8 +14,8 @@
       <td>{% if notice.screenshot_filename %}<a href="{{ url_for('uploaded_file', filename=notice.screenshot_filename) }}" target="_blank">Open</a>{% else %}-{% endif %}</td>
       <td>
         {% if notice.status == 'pending' %}
-        <form method="post" action="{{ url_for('admin_approve_notice', notice_id=notice.id) }}" style="display:inline"><button class="btn btn-sm">Approve</button></form>
-        <form method="post" action="{{ url_for('admin_reject_notice', notice_id=notice.id) }}" style="display:inline"><button class="btn btn-sm btn-light">Reject</button></form>
+        <form method="post" action="{{ url_for('admin_approve_notice', notice_id=notice.id) }}" style="display:inline" onsubmit="return confirm('Approve this payment notice and add credits?');"></form>
+        <form method="post" action="{{ url_for('admin_reject_notice', notice_id=notice.id) }}" style="display:inline" onsubmit="return confirm('Reject this payment notice?');"></form>
         {% else %}Reviewed{% endif %}
       </td>
     </tr>

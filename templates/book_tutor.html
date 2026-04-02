@@ -1,14 +1,61 @@
 {% extends 'base.html' %}
 {% block content %}
+
 <div class="card narrow">
   <h1>Book {{ tutor.public_name }}</h1>
-  <form method="post" class="form-grid">
-    <input name="subject" value="{{ tutor.subjects.split(',')[0] if tutor.subjects else '' }}" placeholder="Subject" required>
-    <input name="class_level" value="{{ tutor.class_levels.split(',')[0] if tutor.class_levels else '' }}" placeholder="Class level" required>
-    <input name="scheduled_at" type="datetime-local" required>
-    <input name="duration_minutes" type="number" min="30" value="60" required>
-    <input name="credits_cost" type="number" min="1" value="100" required>
-    <button class="btn" type="submit">Confirm booking</button>
+
+  <form method="post" class="form-grid"
+        onsubmit="return confirm('You are about to book this session and spend credits. Continue?');">
+
+    <!-- SUBJECT -->
+    <div>
+      <label>Subject</label>
+      <select name="subject" required>
+        {% for val, label in subject_options %}
+          <option value="{{ val }}" {% if val == subject_prefill %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- LEVEL -->
+    <div>
+      <label>Class Level</label>
+      <select name="class_level" required>
+        {% for val, label in level_options %}
+          <option value="{{ val }}" {% if val == level_prefill %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- DATE & TIME -->
+    <div>
+      <label>Date & Time</label>
+      <input name="scheduled_at" type="datetime-local" required>
+    </div>
+
+    <!-- DURATION -->
+    <div>
+      <label>Duration (minutes)</label>
+      <input name="duration_minutes" type="number" min="30" value="60" required>
+    </div>
+
+    <!-- CREDITS -->
+    <div>
+      <label>Credits Cost</label>
+      <input name="credits_cost" type="number" min="1" value="100" required>
+      <p class="muted small">1 credit = PKR 10</p>
+    </div>
+
+    <!-- SUBMIT -->
+    <button class="btn btn-primary" type="submit">
+      Confirm Booking
+    </button>
+
   </form>
 </div>
+
 {% endblock %}

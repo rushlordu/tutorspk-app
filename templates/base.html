@@ -17,7 +17,6 @@
 
       <nav class="main-nav">
         <a href="{{ url_for('tutors') }}">Find Tutors</a>
-        <a href="#pricing-plans">Pricing</a>
         <a href="{{ url_for('contact') }}">Contact</a>
 
         {% if current_user.is_authenticated %}
@@ -55,5 +54,22 @@
       {% block content %}{% endblock %}
     </div>
   </main>
+
+  <footer class="site-footer">
+    <div class="container footer-wrap">
+      <div class="footer-brand">
+        <strong>TutorsOnline.pk</strong>
+        <p>Trusted online tutoring for students, parents, and families.</p>
+      </div>
+
+      <div class="footer-links">
+        <a href="{{ url_for('terms') }}">Terms of Service</a>
+        <a href="{{ url_for('privacy') }}">Privacy Policy</a>
+        <a href="{{ url_for('accessibility') }}">Accessibility</a>
+        <a href="{{ url_for('about') }}">About</a>
+        <a href="{{ url_for('contact') }}">Contact</a>
+      </div>
+    </div>
+  </footer>
 </body>
 </html>

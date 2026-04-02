@@ -51,7 +51,18 @@
       {% endif %}
 
       {% if current_user.is_authenticated and current_user.role == 'student' %}
-        <a class="btn" href="{{ url_for('book_tutor', tutor_id=tutor.id) }}">Book This Tutor</a>
+        <div class="tutor-cta-box">
+
+  <a class="btn btn-primary"
+     href="{{ url_for('select_tutor', tutor_id=tutor.id) }}">
+     Select Tutor
+  </a>
+
+  <p class="muted small">
+    Choose subject, level and session details before booking
+  </p>
+
+</div>
       {% endif %}
     </div>
   </div>

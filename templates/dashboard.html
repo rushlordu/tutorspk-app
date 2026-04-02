@@ -1,5 +1,27 @@
 {% extends 'base.html' %}
 {% block content %}
+
+{% if current_user.role == 'student' and pending_notices %}
+<section class="card">
+  <h2>Pending Credit Top-Up</h2>
+  <p class="muted">Your payment notice is under review.</p>
+  <ul class="clean-list">
+    {% for notice in pending_notices %}
+      <li>Notice #{{ notice.id }} · PKR {{ notice.amount_sent_pkr }} · {{ notice.claimed_credits }} credits</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if current_user.role == 'tutor' and not current_user.is_verified_tutor %}
+<section class="card">
+  <h2>Tutor Application Status</h2>
+  <p class="muted">
+    Your tutor profile is under review or pending activation. Please also check your email for the next required action.
+  </p>
+</section>
+{% endif %}
+
 <section class="grid two">
   <div class="card">
     <h2>Welcome, {{ current_user.public_name }}</h2>

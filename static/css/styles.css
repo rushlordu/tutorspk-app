@@ -1701,3 +1701,100 @@ textarea {
     margin-top: 22px;
   }
 }
+.site-footer {
+  margin-top: 48px;
+  background: #ffffff;
+  border-top: 1px solid var(--line);
+}
+
+.footer-wrap {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 20px 30px;
+  flex-wrap: wrap;
+}
+
+.footer-brand strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #243047;
+}
+
+.footer-brand p {
+  margin: 0;
+  color: var(--muted);
+  max-width: 380px;
+  line-height: 1.6;
+}
+
+.footer-links {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.footer-links a {
+  color: #3b5fbf;
+  font-weight: 500;
+}
+
+.legal-card {
+  max-width: 900px;
+  margin: 20px auto 0;
+  line-height: 1.75;
+}
+
+.review-card p {
+  line-height: 1.7;
+}
+
+@media (max-width: 720px) {
+  .footer-wrap {
+    flex-direction: column;
+  }
+
+  .footer-links {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+.checkbox-wide {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  color: #33425f;
+}
+
+.checkbox-wide input {
+  width: auto;
+  margin-top: 3px;
+}
+.btn-danger {
+  background: #e53935;
+  color: white;
+  border: none;
+}
+
+.btn-danger:hover {
+  background: #c62828;
+}
+
+.btn-danger {
+  background: #e53935;
+  color: white;
+  border: none;
+}
+
+.btn-danger:hover {
+  background: #c62828;
+}
+
+.admin-user-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}

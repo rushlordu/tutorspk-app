@@ -65,13 +65,15 @@
 {% for tutor in tutors %}
   <article class="card tutor-card tutor-card-refined">
     <div class="tutor-card-media">
+    <a href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">
       <img src="{{ tutor.profile_image or 'https://picsum.photos/seed/default/300/300' }}" alt="{{ tutor.public_name }}">
+    </a>
     </div>
 
     <div class="tutor-card-body">
       <div class="tutor-card-head">
         <div>
-          <h3>{{ tutor.public_name }}</h3>
+          <h3><a href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">{{ tutor.public_name }}</a></h3>
           <p class="muted tutor-qual-line">{{ tutor.qualification or 'Qualified tutor' }}</p>
         </div>
         {% if tutor.is_verified_tutor %}

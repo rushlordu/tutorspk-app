@@ -1,25 +1,69 @@
 {% extends 'base.html' %}
 {% block content %}
-<section class="grid two">
-  <div class="card">
-    <h1>Buy Credits</h1>
-    <p><strong>Rate:</strong> 1 credit = Rs {{ credit_rate }}</p>
-    <p><strong>Bank title:</strong> {{ bank_title }}</p>
-    <p><strong>Bank name:</strong> {{ bank_name }}</p>
-    <p><strong>IBAN:</strong> {{ bank_iban }}</p>
-    <p><strong>WhatsApp proof:</strong> Send transfer screenshot to admin via {{ support_whatsapp }}</p>
-  </div>
-  <div class="card">
-    <h2>Submit payment notice</h2>
-    <form method="post" enctype="multipart/form-data" class="form-grid">
-      <input name="amount_sent_pkr" type="number" min="10" placeholder="Amount sent (PKR)" required>
-      <input name="sender_name" placeholder="Sender name">
-      <input name="sender_account" placeholder="Sender account / wallet no">
-      <select name="transfer_method"><option value="bank">Bank</option><option value="easypaisa">EasyPaisa</option></select>
-      <input name="screenshot" type="file" accept="image/*,.pdf">
-      <textarea name="note" placeholder="Optional note"></textarea>
-      <button class="btn" type="submit">Submit notice</button>
-    </form>
-  </div>
+<section class="card">
+  <h1>Buy Credits</h1>
+  <p class="muted">10 PKR = 1 credit. Minimum purchase: 10 credits.</p>
+  <p><strong>EasyPaisa Account:</strong> 03334431313</p>
+
+  <form method="post" enctype="multipart/form-data" class="form-grid two-col" onsubmit="return confirm('Please confirm your payment details before submitting.');">
+    <div>
+      <label class="small-label">Select credits</label>
+      <select id="credit_select" onchange="syncCreditAmount()">
+        <option value="10">10 credits</option>
+        <option value="50">50 credits</option>
+        <option value="100">100 credits</option>
+        <option value="200">200 credits</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+
+    <div id="custom_credit_wrap" style="display:none;">
+      <label class="small-label">Custom credits</label>
+      <input type="number" id="custom_credits" min="10" step="1" placeholder="Enter credits" oninput="syncCreditAmount()">
+    </div>
+
+    <div>
+      <label class="small-label">Amount sent (PKR)</label>
+      <input type="number" name="amount_sent_pkr" id="amount_sent_pkr" min="100" required>
+    </div>
+
+    <input type="text" name="sender_name" placeholder="Sender name">
+    <input type="text" name="sender_account" placeholder="EasyPaisa number / sender account">
+    <input type="hidden" name="transfer_method" value="easypaisa">
+
+    <div>
+      <label class="small-label">Payment screenshot</label>
+      <input type="file" name="screenshot" accept="image/*">
+    </div>
+
+    <textarea name="note" placeholder="Any note (optional)"></textarea>
+
+    <button class="btn" type="submit">Submit Payment Notice</button>
+  </form>
 </section>
+
+<script>
+function syncCreditAmount() {
+  const select = document.getElementById("credit_select");
+  const customWrap = document.getElementById("custom_credit_wrap");
+  const customCredits = document.getElementById("custom_credits");
+  const amountInput = document.getElementById("amount_sent_pkr");
+
+  let credits = 10;
+
+  if (select.value === "other") {
+    customWrap.style.display = "block";
+    credits = parseInt(customCredits.value || "0", 10);
+  } else {
+    customWrap.style.display = "none";
+    credits = parseInt(select.value, 10);
+  }
+
+  if (credits >= 10) {
+    amountInput.value = credits * 10;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", syncCreditAmount);
+</script>
 {% endblock %}
