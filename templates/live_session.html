@@ -2,29 +2,410 @@
 {% block content %}
 <section class="card">
   <h1>Live Session Room #{{ booking.room_code }}</h1>
-  {% if log.admin_joined %}
-  <div class="observer-banner">Admin observer is in this session for quality assurance.</div>
-  {% endif %}
-  <p><strong>Booking:</strong> {{ booking.subject }} · {{ booking.class_level }}</p>
-  <p><strong>Status:</strong> {{ booking.status }}</p>
-  <p><strong>Participants:</strong> student {% if log.student_joined %}joined{% else %}pending{% endif %}, tutor {% if log.tutor_joined %}joined{% else %}pending{% endif %}, admin {% if log.admin_joined %}observing{% else %}not present{% endif %}</p>
-  <div class="video-shell">
-    <div class="video-box">Student view</div>
-    <div class="video-box">Tutor view</div>
-    {% if current_user.role == 'admin' %}<div class="video-box observer">Admin observer</div>{% endif %}
+
+  <div id="admin-banner" class="observer-banner" style="{% if log and log.admin_joined %}display:block;{% else %}display:none;{% endif %}">
+    Admin observer is in this session for quality assurance.
   </div>
-  <p class="muted">This build includes the monitored session shell, audit logging and transparent observer notice. External OAuth, TURN/media scaling and production-grade video backend can be configured later.</p>
+
+  <p><strong>Booking:</strong> {{ booking.subject }} · {{ booking.class_level }}</p>
+  <p><strong>Status:</strong> <span id="booking-status">{{ booking.status }}</span></p>
+  <p id="participant-status">
+    <strong>Participants:</strong>
+    student {% if log and log.student_joined %}joined{% else %}pending{% endif %},
+    tutor {% if log and log.tutor_joined %}joined{% else %}pending{% endif %},
+    admin {% if log and log.admin_joined %}observing{% else %}not present{% endif %}
+  </p>
+
+  <div class="session-controls" style="display:flex; gap:10px; flex-wrap:wrap; margin:14px 0;">
+    <button class="btn" id="join-btn" type="button">Join Session</button>
+    <button class="btn" id="leave-btn" type="button">Leave Session</button>
+    <button class="btn" id="mute-btn" type="button">Mute</button>
+    <button class="btn" id="camera-btn" type="button">Camera Off</button>
+  </div>
+
+  <div class="video-shell" id="video-shell" style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;">
+    <div>
+      <div class="video-box" id="local-player" style="width:320px; height:220px; background:#111; border-radius:12px; overflow:hidden; display:flex; align-items:center; justify-content:center; color:#fff;">
+        {% if current_user.role == 'admin' %}
+          Admin observer
+        {% else %}
+          Your video
+        {% endif %}
+      </div>
+      <p class="muted" style="margin-top:6px;">Local</p>
+    </div>
+
+    <div id="remote-container" style="display:flex; gap:16px; flex-wrap:wrap;"></div>
+  </div>
+
+  <p class="muted" style="margin-top:14px;">
+    This build includes monitored session shell, audit logging, transparent observer notice,
+    protected chat, and Agora-based live join flow.
+  </p>
 </section>
+
 <section class="card">
   <h2>Protected chat box</h2>
-  <form method="post" class="form-grid two-col compact">
-    <input name="message" placeholder="Type a message. Phone/email/contact-sharing is blocked.">
-    <button class="btn">Send</button>
-  </form>
+
+  <div id="chat-box" style="border:1px solid #dcdcdc; border-radius:10px; min-height:220px; max-height:320px; overflow:auto; padding:12px; margin-bottom:12px; background:#fff;"></div>
+
+  <div class="form-grid" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+    <input
+      id="chat-input"
+      name="message"
+      placeholder="Type a message. Phone/email/contact-sharing is blocked."
+      style="flex:1; min-width:260px;"
+    >
+    <button class="btn" id="send-btn" type="button">Send</button>
+  </div>
+
+  <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px;">
+    <input id="file-input" type="file">
+    <button class="btn" id="upload-btn" type="button">Upload File</button>
+  </div>
+
+  <p class="muted" style="margin-top:10px;">
+    Personal phone numbers, email addresses, and direct contact-sharing terms are blocked in chat.
+  </p>
 </section>
+
 {% if current_user.role == 'student' and not booking.student_marked_complete %}
 <form method="post" action="{{ url_for('complete_student', booking_id=booking.id) }}">
   <button class="btn" type="submit">Mark session complete</button>
 </form>
 {% endif %}
+
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
+<script>
+  let client = null;
+  let localTracks = { audio: null, video: null };
+  let joined = false;
+  let adminPollingStarted = false;
+
+  const bookingId = {{ booking.id }};
+  const currentUserRole = "{{ current_user.role }}";
+  const localPlayerId = "local-player";
+  const remoteContainer = document.getElementById("remote-container");
+  const adminBanner = document.getElementById("admin-banner");
+  const bookingStatusEl = document.getElementById("booking-status");
+  const participantStatusEl = document.getElementById("participant-status");
+  const chatBox = document.getElementById("chat-box");
+  const chatInput = document.getElementById("chat-input");
+  const fileInput = document.getElementById("file-input");
+
+  function appendSystemMessage(text) {
+    const div = document.createElement("div");
+    div.style.marginBottom = "10px";
+    div.style.padding = "8px 10px";
+    div.style.background = "#f6f8fa";
+    div.style.borderRadius = "8px";
+    div.style.fontSize = "14px";
+    div.innerText = text;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  function appendChatMessage(m) {
+    const div = document.createElement("div");
+    div.style.marginBottom = "10px";
+    div.style.padding = "8px 10px";
+    div.style.background = "#f9f9f9";
+    div.style.borderRadius = "8px";
+
+    const who = document.createElement("div");
+    who.style.fontSize = "12px";
+    who.style.fontWeight = "600";
+    who.style.marginBottom = "4px";
+    who.innerText = `${m.sender_role || "user"} #${m.sender_id || ""}`;
+
+    const body = document.createElement("div");
+    body.style.fontSize = "14px";
+
+    if (m.file_url) {
+      const link = document.createElement("a");
+      link.href = m.file_url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.innerText = m.file_name || "Open file";
+      body.appendChild(link);
+    } else {
+      body.innerText = m.message_text || "";
+    }
+
+    div.appendChild(who);
+    div.appendChild(body);
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  async function loadMessages() {
+    try {
+      const res = await fetch(`/rtc/chat/${bookingId}`);
+      const data = await res.json();
+
+      if (!data.ok) {
+        return;
+      }
+
+      chatBox.innerHTML = "";
+      data.messages.forEach(appendChatMessage);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    } catch (err) {
+      console.error("Failed to load messages:", err);
+    }
+  }
+
+  async function sendMessage() {
+    const message = chatInput.value.trim();
+    if (!message) return;
+
+    try {
+      const res = await fetch(`/rtc/chat/${bookingId}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message })
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        alert(data.error || "Message blocked");
+        return;
+      }
+
+      chatInput.value = "";
+      await loadMessages();
+    } catch (err) {
+      console.error("Failed to send message:", err);
+      alert("Could not send message.");
+    }
+  }
+
+  async function uploadFile() {
+    if (!fileInput.files.length) {
+      alert("Please choose a file first.");
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+
+      const res = await fetch(`/rtc/chat/${bookingId}/upload`, {
+        method: "POST",
+        body: formData
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        alert(data.error || "Upload failed");
+        return;
+      }
+
+      fileInput.value = "";
+      await loadMessages();
+    } catch (err) {
+      console.error("Failed to upload file:", err);
+      alert("Could not upload file.");
+    }
+  }
+
+  function updateParticipantStatus(data) {
+    participantStatusEl.innerHTML =
+      `<strong>Participants:</strong> student ${data.student_joined ? "joined" : "pending"}, tutor ${data.tutor_joined ? "joined" : "pending"}, admin ${data.admin_joined ? "observing" : "not present"}`;
+
+    adminBanner.style.display = data.admin_joined ? "block" : "none";
+  }
+
+  async function checkAdminStatus() {
+    try {
+      const res = await fetch(`/rtc/session-status/${bookingId}`);
+      const data = await res.json();
+
+      if (!data.ok) return;
+
+      bookingStatusEl.innerText = data.is_live ? "live" : bookingStatusEl.innerText;
+      updateParticipantStatus(data);
+    } catch (err) {
+      console.error("Status check failed:", err);
+    }
+  }
+
+  function startAdminPolling() {
+    if (adminPollingStarted) return;
+    adminPollingStarted = true;
+
+    checkAdminStatus();
+    setInterval(checkAdminStatus, 5000);
+  }
+
+  function ensureRemoteBox(uid) {
+    let wrapper = document.getElementById(`remote-wrapper-${uid}`);
+    if (wrapper) return wrapper.querySelector(".remote-video-box");
+
+    wrapper = document.createElement("div");
+    wrapper.id = `remote-wrapper-${uid}`;
+
+    const box = document.createElement("div");
+    box.className = "remote-video-box";
+    box.id = `remote-player-${uid}`;
+    box.style.width = "320px";
+    box.style.height = "220px";
+    box.style.background = "#111";
+    box.style.borderRadius = "12px";
+    box.style.overflow = "hidden";
+    box.style.display = "flex";
+    box.style.alignItems = "center";
+    box.style.justifyContent = "center";
+    box.style.color = "#fff";
+    box.innerText = `Remote user ${uid}`;
+
+    const label = document.createElement("p");
+    label.className = "muted";
+    label.style.marginTop = "6px";
+    label.innerText = `Remote #${uid}`;
+
+    wrapper.appendChild(box);
+    wrapper.appendChild(label);
+    remoteContainer.appendChild(wrapper);
+
+    return box;
+  }
+
+  async function joinSession() {
+    if (joined) return;
+
+    try {
+      const res = await fetch(`/rtc/join/${bookingId}`, { method: "POST" });
+      const data = await res.json();
+
+      if (!data.ok) {
+        alert(data.error || "Unable to join session.");
+        return;
+      }
+
+      const rtc = data.rtc;
+      client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+
+      client.on("user-published", async (user, mediaType) => {
+        await client.subscribe(user, mediaType);
+
+        if (mediaType === "video") {
+          const remoteBox = ensureRemoteBox(user.uid);
+          user.videoTrack.play(remoteBox);
+        }
+
+        if (mediaType === "audio") {
+          user.audioTrack.play();
+        }
+      });
+
+      client.on("user-unpublished", (user, mediaType) => {
+        if (mediaType === "video") {
+          const wrapper = document.getElementById(`remote-wrapper-${user.uid}`);
+          if (wrapper) wrapper.remove();
+        }
+      });
+
+      client.on("user-left", (user) => {
+        const wrapper = document.getElementById(`remote-wrapper-${user.uid}`);
+        if (wrapper) wrapper.remove();
+      });
+
+      await client.join(rtc.appId, rtc.channel, rtc.token, rtc.uid);
+
+      if (rtc.role === "host" || rtc.role === "student") {
+        localTracks.audio = await AgoraRTC.createMicrophoneAudioTrack();
+        localTracks.video = await AgoraRTC.createCameraVideoTrack();
+
+        await client.publish([localTracks.audio, localTracks.video]);
+        localTracks.video.play(localPlayerId);
+      } else {
+        document.getElementById(localPlayerId).innerText = "Admin observer";
+      }
+
+      joined = true;
+      bookingStatusEl.innerText = data.booking_status || "live";
+      if (data.admin_monitoring_active) {
+        adminBanner.style.display = "block";
+      }
+
+      startAdminPolling();
+      await loadMessages();
+      appendSystemMessage("You joined the session.");
+    } catch (err) {
+      console.error("Join failed:", err);
+      alert("Failed to join live session. Check Agora setup and browser permissions.");
+    }
+  }
+
+  async function leaveSession() {
+    try {
+      await fetch(`/rtc/leave/${bookingId}`, { method: "POST" });
+
+      if (localTracks.audio) {
+        localTracks.audio.close();
+        localTracks.audio = null;
+      }
+
+      if (localTracks.video) {
+        localTracks.video.close();
+        localTracks.video = null;
+      }
+
+      if (client) {
+        await client.leave();
+      }
+
+      joined = false;
+      remoteContainer.innerHTML = "";
+      document.getElementById(localPlayerId).innerHTML =
+        currentUserRole === "admin" ? "Admin observer" : "Your video";
+
+      appendSystemMessage("You left the session.");
+      await checkAdminStatus();
+    } catch (err) {
+      console.error("Leave failed:", err);
+      alert("Failed to leave session cleanly.");
+    }
+  }
+
+  async function toggleMute() {
+    if (!localTracks.audio) return;
+    const currentlyEnabled = localTracks.audio.enabled;
+    await localTracks.audio.setEnabled(!currentlyEnabled);
+    document.getElementById("mute-btn").innerText = currentlyEnabled ? "Unmute" : "Mute";
+  }
+
+  async function toggleCamera() {
+    if (!localTracks.video) return;
+    const currentlyEnabled = localTracks.video.enabled;
+    await localTracks.video.setEnabled(!currentlyEnabled);
+    document.getElementById("camera-btn").innerText = currentlyEnabled ? "Camera On" : "Camera Off";
+  }
+
+  document.getElementById("join-btn").addEventListener("click", joinSession);
+  document.getElementById("leave-btn").addEventListener("click", leaveSession);
+  document.getElementById("mute-btn").addEventListener("click", toggleMute);
+  document.getElementById("camera-btn").addEventListener("click", toggleCamera);
+  document.getElementById("send-btn").addEventListener("click", sendMessage);
+  document.getElementById("upload-btn").addEventListener("click", uploadFile);
+
+  chatInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  loadMessages();
+  startAdminPolling();
+
+  window.addEventListener("beforeunload", function () {
+    if (joined) {
+      navigator.sendBeacon(`/rtc/leave/${bookingId}`);
+    }
+  });
+</script>
 {% endblock %}

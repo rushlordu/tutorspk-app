@@ -13,13 +13,46 @@
 </section>
 {% endif %}
 
-{% if current_user.role == 'tutor' and not current_user.is_verified_tutor %}
+{% if current_user.role == 'tutor' %}
+
 <section class="card">
-  <h2>Tutor Application Status</h2>
-  <p class="muted">
-    Your tutor profile is under review or pending activation. Please also check your email for the next required action.
-  </p>
+
+  <h2>Tutor Profile Status</h2>
+
+  {% if not current_user.is_verified_tutor %}
+
+    <p><strong>Status:</strong> {{ current_user.profile_stage }}</p>
+
+    <div class="progress-box">
+      <div>Profile Completion: {{ completion_data.completion }}%</div>
+      <progress max="100" value="{{ completion_data.completion }}"></progress>
+    </div>
+
+    {% if completion_data.missing %}
+      <div style="margin-top:10px;">
+        <strong>Missing:</strong>
+        <ul>
+          {% for item in completion_data.missing %}
+            <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    {% if completion_data.completion == 100 %}
+      <form method="post" action="{{ url_for('submit_tutor_for_review') }}">
+        <button class="btn btn-primary">Submit for Approval</button>
+      </form>
+    {% else %}
+      <p class="muted">Complete your profile to unlock submission.</p>
+    {% endif %}
+
+  {% else %}
+    <p class="success">✅ Your tutor profile is active</p>
+  {% endif %}
+
 </section>
+
 {% endif %}
 
 <section class="grid two">

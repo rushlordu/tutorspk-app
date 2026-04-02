@@ -1798,3 +1798,8 @@ textarea {
   gap: 6px;
   flex-wrap: wrap;
 }
+.tutor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}

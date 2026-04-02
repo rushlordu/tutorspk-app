@@ -350,8 +350,6 @@ google = oauth.register(
 )
 
 db = SQLAlchemy(app)
-from rtc import models_rtc
-models_rtc.db = db
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
@@ -2123,10 +2121,6 @@ def uploaded_file(filename):
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 
-
-from rtc.routes_rtc import rtc_bp
-app.register_blueprint(rtc_bp, url_prefix="/rtc")
-
 @app.route("/seed")
 def seed():
     db.create_all()
@@ -2267,4 +2261,3 @@ if __name__ == "__main__":
     with app.app_context():
         db.create_all()
     app.run(host="0.0.0.0", port=5000, debug=True)
-

@@ -13,6 +13,11 @@
       <span class="admin-status-pill {{ 'is-active' if user.is_active_user else 'is-inactive' }}">
         {{ 'Active User' if user.is_active_user else 'Suspended User' }}
       </span>
+    
+      <div class="detail-row">
+      <span class="detail-label">Profile Stage</span>
+      <span class="detail-value">{{ user.profile_stage }}</span>
+      </div>
 
       <span class="admin-status-pill {{ 'is-verified' if user.is_verified_tutor else 'is-pending' }}">
         {% if user.role == 'tutor' %}
@@ -124,6 +129,21 @@
           <span class="detail-value">{{ 'Yes' if user.demo_video_url else 'No' }}</span>
         </div>
 
+        <div class="detail-row">
+        <span class="detail-label">Degree Uploaded</span>
+        <span class="detail-value">
+          {{ 'Yes' if user.degree_file else 'No' }}
+        </span>
+      </div>
+
+      {% if user.degree_file %}
+        <div class="admin-link-box">
+          <strong>Degree / Certificate</strong>
+          <a href="{{ url_for('uploaded_file', filename=user.degree_file) }}" target="_blank">
+            View uploaded document
+          </a>
+        </div>
+      {% endif %}
 
         <div class="admin-bio-box">
           <strong>Bio</strong>

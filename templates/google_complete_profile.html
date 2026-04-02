@@ -7,7 +7,7 @@
     <h1>Complete Your Signup</h1>
     <p class="auth-sub">Continue with Google and finish your profile in a guided way</p>
 
-    <form method="post" action="{{ url_for('complete_google_signup') }}" enctype="multipart/form-data" id="googleCompleteForm"></form>
+    <form method="post" action="{{ url_for('complete_google_signup') }}" enctype="multipart/form-data" id="googleCompleteForm">
       <input type="hidden" name="role" id="roleHidden" value="student">
 
       <div class="role-toggle refined">
@@ -120,89 +120,207 @@
         </div>
       </div>
 
-     <div id="tutorFields" style="display:none; margin-top:24px;">
-  <h3 class="section-title">Tutor Application</h3>
-  <p class="muted">
-    Applying as a tutor is free. If selected after review, you will be asked to pay a one-time registration fee of PKR 500 to activate your profile.
-  </p>
+      <div id="tutorFields" style="display:none; margin-top:24px;">
+        <h3 class="section-title">Tutor Application</h3>
+        <p class="muted">
+          Applying as a tutor is free. If selected after review, you will be asked to pay a one-time registration fee of PKR 500 to activate your profile.
+        </p>
 
-  <div class="form-grid two-col">
-    <div>
-<select name="qualification" id="google_qualification" onchange="toggleOtherField('google_qualification', 'google_qualification_other_wrap')"></select>
-        <option value="">Highest Qualification</option>
-        <option value="intermediate">Intermediate</option>
-        <option value="bachelors">Bachelor's</option>
-        <option value="masters">Master's</option>
-        <option value="mphil">MPhil</option>
-        <option value="phd">PhD</option>
-        <option value="other">Other</option>
-      </select>
-      <div id="google_qualification_other_wrap" style="display:none; margin-top:8px;">
-        <input name="qualification_other" placeholder="Enter qualification">
+        <div class="form-grid two-col">
+          <div>
+            <select name="qualification" id="google_qualification" onchange="toggleOtherField('google_qualification', 'google_qualification_other_wrap')">
+              <option value="">Highest Qualification</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="bachelors">Bachelor's</option>
+              <option value="masters">Master's</option>
+              <option value="mphil">MPhil</option>
+              <option value="phd">PhD</option>
+              <option value="other">Other</option>
+            </select>
+            <div id="google_qualification_other_wrap" style="display:none; margin-top:8px;">
+              <input name="qualification_other" placeholder="Enter qualification">
+            </div>
+          </div>
+
+          <div>
+            <label class="small-label">Main Subjects (select up to 3)</label>
+            <select name="main_subject" multiple size="6">
+              <option value="mathematics">Mathematics</option>
+              <option value="physics">Physics</option>
+              <option value="chemistry">Chemistry</option>
+              <option value="biology">Biology</option>
+              <option value="english">English</option>
+              <option value="urdu">Urdu</option>
+              <option value="computer_science">Computer Science</option>
+              <option value="pakistan_studies">Pakistan Studies</option>
+              <option value="islamiat">Islamiat</option>
+              <option value="ielts">IELTS</option>
+              <option value="spoken_english">Spoken English</option>
+              <option value="arabic">Arabic</option>
+              <option value="french">French</option>
+              <option value="other">Other</option>
+            </select>
+            <div id="google_main_subject_other_wrap" style="display:none; margin-top:8px;">
+              <input name="main_subject_other" placeholder="Enter other main subject">
+            </div>
+          </div>
+
+          <div>
+            <label class="small-label">Additional Subjects</label>
+            <select name="additional_subjects" multiple size="6">
+              <option value="mathematics">Mathematics</option>
+              <option value="physics">Physics</option>
+              <option value="chemistry">Chemistry</option>
+              <option value="biology">Biology</option>
+              <option value="english">English</option>
+              <option value="urdu">Urdu</option>
+              <option value="computer_science">Computer Science</option>
+              <option value="pakistan_studies">Pakistan Studies</option>
+              <option value="islamiat">Islamiat</option>
+              <option value="ielts">IELTS</option>
+              <option value="spoken_english">Spoken English</option>
+              <option value="arabic">Arabic</option>
+              <option value="french">French</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <select name="class_levels" id="google_class_levels" onchange="toggleOtherField('google_class_levels', 'google_class_levels_other_wrap')">
+              <option value="">Levels You Teach</option>
+
+              <!-- ================= EDUCATION DETAILS ================= -->
+          <div style="grid-column: span 2; margin-top:20px;">
+            <h4 class="section-title">Education Details</h4>
+          </div>
+
+          <!-- Highest Qualification Details -->
+          <div>
+            <label class="small-label">Degree Title</label>
+            <input name="degree_title" placeholder="e.g. BS Computer Science">
+          </div>
+
+          <div>
+            <label class="small-label">Major / Specialization</label>
+            <input name="degree_major" placeholder="e.g. Software Engineering">
+          </div>
+
+          <div>
+            <label class="small-label">Institution</label>
+            <select name="degree_institution">
+              <option value="">Select University</option>
+              <option value="nust">NUST</option>
+              <option value="fast">FAST-NUCES</option>
+              <option value="comsats">COMSATS</option>
+              <option value="air">Air University</option>
+              <option value="bahria">Bahria University</option>
+              <option value="qau">Quaid-i-Azam University</option>
+              <option value="punjab">Punjab University</option>
+              <option value="uet">UET Lahore</option>
+              <option value="lums">LUMS</option>
+              <option value="vu">Virtual University</option>
+              <option value="aiou">AIOU</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="small-label">Year Completed</label>
+            <input name="degree_year" type="number" placeholder="e.g. 2022">
+          </div>
+
+          <div>
+            <label class="small-label">CGPA / Grade</label>
+            <input name="degree_grade" placeholder="e.g. 3.5 / A">
+          </div>
+
+          <!-- Bachelor's -->
+          <div style="grid-column: span 2; margin-top:15px;">
+            <strong>Bachelor's (if applicable)</strong>
+          </div>
+
+          <input name="bachelor_title" placeholder="Degree Title">
+          <input name="bachelor_institution" placeholder="Institution">
+          <input name="bachelor_year" placeholder="Year">
+          <input name="bachelor_grade" placeholder="CGPA / Grade">
+
+          <!-- Intermediate -->
+          <div style="grid-column: span 2; margin-top:15px;">
+            <strong>Intermediate</strong>
+          </div>
+
+          <select name="inter_program">
+            <option value="">Program</option>
+            <option value="fsc_pre_med">FSc Pre-Medical</option>
+            <option value="fsc_pre_eng">FSc Pre-Engineering</option>
+            <option value="ics">ICS</option>
+            <option value="icom">ICom</option>
+            <option value="fa">FA</option>
+            <option value="a_levels">A Levels</option>
+            <option value="other">Other</option>
+          </select>
+
+          <input name="inter_institution" placeholder="College / Board">
+          <input name="inter_grade" placeholder="Marks / %">
+          <input name="inter_year" placeholder="Year">
+
+          <!-- Matric -->
+          <div style="grid-column: span 2; margin-top:15px;">
+            <strong>Matric</strong>
+          </div>
+
+          <select name="matric_program">
+            <option value="">Program</option>
+            <option value="science">Science</option>
+            <option value="arts">Arts</option>
+            <option value="o_levels">O Levels</option>
+            <option value="other">Other</option>
+          </select>
+
+          <input name="matric_institution" placeholder="School / Board">
+          <input name="matric_grade" placeholder="Marks / %">
+          <input name="matric_year" placeholder="Year">
+              <option value="grade_1_5">Grade 1–5</option>
+              <option value="grade_6_8">Grade 6–8</option>
+              <option value="matric">Matric</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="o_level">O Level</option>
+              <option value="a_level">A Level</option>
+              <option value="university">University</option>
+              <option value="language_learning">Language Learning</option>
+              <option value="other">Other</option>
+            </select>
+            <div id="google_class_levels_other_wrap" style="display:none; margin-top:8px;">
+              <input name="class_levels_other" placeholder="Enter levels taught">
+            </div>
+          </div>
+
+          <input name="experience_years" type="number" min="0" placeholder="Experience (years)">
+          <input name="hourly_rate" type="number" min="0" placeholder="Hourly Rate (PKR)">
+
+          <label><input type="checkbox" name="modest_profile"> Modest / Veiled Profile</label>
+          <label><input type="checkbox" name="audio_only"> Audio-first Teaching</label>
+
+          <textarea name="bio" placeholder="Write a short teaching profile"></textarea>
+          <input name="demo_video_url" placeholder="Demo Video URL (2–5 minutes required)">
+
+          <div>
+            <label class="small-label">Upload Degree / Certificate</label>
+            <input type="file" name="degree_file" accept=".pdf,.jpg,.jpeg,.png">
+          </div>
+
+          <label class="checkbox-wide">
+            <input type="checkbox" name="demo_length_confirmed" value="yes">
+            I confirm that my demo video is between 2 and 5 minutes.
+          </label>
+
+          <input type="hidden" name="teaching_mode" value="online">
+        </div>
       </div>
-    </div>
 
-    <div>
-<select name="class_levels" id="google_class_levels" onchange="toggleOtherField('google_class_levels', 'google_class_levels_other_wrap')"></select>
-        <option value="">Main Subject</option>
-        <option value="mathematics">Mathematics</option>
-        <option value="physics">Physics</option>
-        <option value="chemistry">Chemistry</option>
-        <option value="biology">Biology</option>
-        <option value="english">English</option>
-        <option value="urdu">Urdu</option>
-        <option value="computer_science">Computer Science</option>
-        <option value="pakistan_studies">Pakistan Studies</option>
-        <option value="islamiat">Islamiat</option>
-        <option value="ielts">IELTS</option>
-        <option value="spoken_english">Spoken English</option>
-        <option value="arabic">Arabic</option>
-        <option value="french">French</option>
-        <option value="other">Other</option>
-      </select>
-      <div id="google_main_subject_other_wrap" style="display:none; margin-top:8px;">
-        <input name="main_subject_other" placeholder="Enter main subject">
-      </div>
-    </div>
-
-    <input name="additional_subjects" placeholder="Additional Subjects">
-
-    <div>
-      <select name="class_levels" id="google_class_levels" onchange="toggleOtherField('google_class_levels', 'google_class_levels_other_wrap')" required>
-        <option value="">Levels You Teach</option>
-        <option value="grade_1_5">Grade 1–5</option>
-        <option value="grade_6_8">Grade 6–8</option>
-        <option value="matric">Matric</option>
-        <option value="intermediate">Intermediate</option>
-        <option value="o_level">O Level</option>
-        <option value="a_level">A Level</option>
-        <option value="university">University</option>
-        <option value="language_learning">Language Learning</option>
-        <option value="other">Other</option>
-      </select>
-      <div id="google_class_levels_other_wrap" style="display:none; margin-top:8px;">
-        <input name="class_levels_other" placeholder="Enter levels taught">
-      </div>
-    </div>
-
-    <input name="experience_years" type="number" min="0" placeholder="Experience (years)">
-    <input name="hourly_rate" type="number" min="0" placeholder="Hourly Rate (PKR)">
-
-    <label><input type="checkbox" name="modest_profile"> Modest / Veiled Profile</label>
-    <label><input type="checkbox" name="audio_only"> Audio-first Teaching</label>
-
-    <textarea name="bio" placeholder="Write a short teaching profile"></textarea>
-    <input name="demo_video_url" placeholder="Demo Video URL (2–5 minutes required)">
-    <label class="checkbox-wide">
-      <input type="checkbox" name="demo_length_confirmed" value="yes">
-      I confirm that my demo video is between 2 and 5 minutes.
-    </label>
-
-    <input type="hidden" name="teaching_mode" value="online">
-  </div>
-</div>
-      <button class="auth-btn-primary" type="submit" style="margin-top:24px;"></button>
+      <button class="auth-btn-primary" type="submit" style="margin-top:24px;">
         Complete Signup
+      </button>
 
     </form>
   </div>
@@ -263,7 +381,6 @@ document.addEventListener("DOMContentLoaded", function () {
   toggleOtherField("google_student_level", "google_student_level_other_wrap");
   toggleOtherField("google_student_subject_needed", "google_student_subject_other_wrap");
   toggleOtherField("google_qualification", "google_qualification_other_wrap");
-  toggleOtherField("google_main_subject", "google_main_subject_other_wrap");
   toggleOtherField("google_class_levels", "google_class_levels_other_wrap");
 });
 </script>

@@ -229,9 +229,15 @@
   <div class="featured-grid">
     {% for tutor in featured_tutors %}
       <article class="featured-card">
-        <img src="{{ tutor.profile_image or 'https://picsum.photos/seed/default/500/500' }}" alt="{{ tutor.public_name }}">
-        <div class="featured-body">
-          <h3>{{ tutor.public_name }}</h3>
+        <a href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">
+        <img src="{{ tutor.profile_image if tutor.profile_image else 'https://picsum.photos/seed/default/300/300' }}">
+        </a>
+          <div class="featured-body">
+          <h3>
+          <a href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">
+            {{ tutor.public_name }}
+          </a>
+          </h3>
           <p class="featured-qual">{{ tutor.qualification }}</p>
           <p class="featured-subjects">{{ tutor.subjects }}</p>
           <span class="featured-badge">{{ tutor.tutor_category }}</span>
