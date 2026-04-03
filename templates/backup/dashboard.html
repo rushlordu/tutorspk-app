@@ -14,57 +14,45 @@
 {% endif %}
 
 {% if current_user.role == 'tutor' %}
+
 <section class="card">
+
   <h2>Tutor Profile Status</h2>
 
-  {% set stage_name = completion_data.stage_meta[0] if completion_data and completion_data.stage_meta else (current_user.profile_stage or 'Quick profile') %}
-  {% set stage_note = completion_data.stage_meta[1] if completion_data and completion_data.stage_meta else '' %}
+  {% if not current_user.is_verified_tutor %}
 
-  <div class="detail-row" style="margin-bottom:10px;">
-    <span class="detail-label">Current stage</span>
-    <span class="detail-value"><strong>{{ stage_name }}</strong></span>
-  </div>
+    <p><strong>Status:</strong> {{ current_user.profile_stage }}</p>
 
-  {% if stage_note %}
-    <p class="muted">{{ stage_note }}</p>
-  {% endif %}
-
-  {% if current_user.profile_stage != 'approved' %}
     <div class="progress-box">
       <div>Profile Completion: {{ completion_data.completion }}%</div>
       <progress max="100" value="{{ completion_data.completion }}"></progress>
     </div>
-  {% endif %}
 
-  {% if completion_data and completion_data.missing and current_user.profile_stage not in ['under_review', 'fee_pending', 'approved'] %}
-    <div style="margin-top:10px;">
-      <strong>Still missing:</strong>
-      <ul>
-        {% for item in completion_data.missing %}
-          <li>{{ item }}</li>
-        {% endfor %}
-      </ul>
-    </div>
-  {% endif %}
+    {% if completion_data.missing %}
+      <div style="margin-top:10px;">
+        <strong>Missing:</strong>
+        <ul>
+          {% for item in completion_data.missing %}
+            <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
 
-  <div style="margin-top:14px;">
-    {% if current_user.profile_stage == 'under_review' %}
-      <p class="muted">Your profile has been submitted and is awaiting admin review.</p>
-    {% elif current_user.profile_stage == 'fee_pending' %}
-      <p class="muted">You were selected in principle. Fee payment is pending before activation.</p>
-    {% elif current_user.profile_stage == 'approved' and current_user.is_verified_tutor %}
-      <p class="success">✅ Your tutor profile is active and visible publicly.</p>
-    {% elif current_user.profile_stage == 'rejected' %}
-      <p class="muted">Your application is currently marked rejected. You can still review your profile and improve it if admin asks for changes.</p>
-    {% elif completion_data and completion_data.completion == 100 %}
+    {% if completion_data.completion == 100 %}
       <form method="post" action="{{ url_for('submit_tutor_for_review') }}">
-        <button class="btn btn-primary">Submit for Review</button>
+        <button class="btn btn-primary">Submit for Approval</button>
       </form>
     {% else %}
       <p class="muted">Complete your profile to unlock submission.</p>
     {% endif %}
-  </div>
+
+  {% else %}
+    <p class="success">✅ Your tutor profile is active</p>
+  {% endif %}
+
 </section>
+
 {% endif %}
 
 <section class="grid two">
@@ -104,7 +92,7 @@
     {% for booking in bookings %}
     <tr>
       <td>{{ booking.subject }}</td>
-      <td>{{ booking.scheduled_at.strftime('%Y-%m-%d %H:%M') if booking.scheduled_at else '-' }}</td>
+      <td>{{ booking.scheduled_at.strftime('%Y-%m-%d %H:%M') }}</td>
       <td>{{ booking.status }}</td>
       <td><a href="{{ url_for('live_session', booking_id=booking.id) }}">Open session</a></td>
     </tr>

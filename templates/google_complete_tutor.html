@@ -1,0 +1,609 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="auth-section">
+  <div class="auth-card" style="max-width:1080px;">
+    <h1>Complete Google Signup — Tutor</h1>
+    <p class="auth-sub">Finish your tutor profile with education, teaching details, and verification.</p>
+
+    <form method="post" enctype="multipart/form-data" id="tutorApplicationForm">
+      <input type="hidden" name="role" value="tutor">
+      <input type="hidden" name="active_step" id="active_step" value="{{ form_data.get('active_step','1') }}">
+
+      <div class="step-nav">
+        <span class="step active" id="step1Tab">1. Basic</span>
+        <span class="step" id="step2Tab">2. Education</span>
+        <span class="step" id="step3Tab">3. Teaching</span>
+        <span class="step" id="step4Tab">4. Verification</span>
+      </div>
+
+      <div class="step-content" id="step1">
+        <h3 class="section-title">Basic Profile</h3>
+        <div class="form-grid two-col">
+          <div>
+            <label class="small-label">Full Name <span style="color:#cc2b2b;">* required</span></label>
+            <input name="full_name" value="{{ form_data.get('full_name','') }}" required>
+          </div>
+          <div>
+            <label class="small-label">Display Name <span style="color:#cc2b2b;">* required</span></label>
+            <input name="public_name" value="{{ form_data.get('public_name','') }}" required>
+          </div>
+          <div>
+            <label class="small-label">Email <span style="color:#cc2b2b;">* required</span></label>
+            <input type="email" name="email" value="{{ google_email }}" readonly>
+          </div>
+          <div>
+            <label class="small-label">Password <span style="color:#cc2b2b;">* required</span></label>
+            <input type="hidden" name="password" value="google_oauth_user">
+          </div>
+          <div>
+            <label class="small-label">Mobile number <span style="color:#cc2b2b;">* required</span></label>
+            <input name="mobile_number" value="{{ form_data.get('mobile_number','') }}" required>
+          </div>
+          <div>
+            <label class="small-label">CNIC number <span style="color:#cc2b2b;">* required</span></label>
+            <input name="cnic_number" value="{{ form_data.get('cnic_number','') }}" required>
+          </div>
+          <div>
+            <label class="small-label">Gender</label>
+            <select name="gender" id="gender_tutor" onchange="toggleOtherField('gender_tutor','gender_tutor_other_wrap')">
+              <option value="">Select gender</option>
+              {% for value,label in [('male','Male'),('female','Female'),('prefer_not_to_say','Prefer not to say'),('other','Other')] %}
+              <option value="{{ value }}" {% if form_data.get('gender') == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <div id="gender_tutor_other_wrap" style="display:{% if form_data.get('gender')=='other' %}block{% else %}none{% endif %}; margin-top:8px;">
+              <input name="gender_other" value="{{ form_data.get('gender_other','') }}" placeholder="Enter gender">
+            </div>
+          </div>
+          <div>
+            <label class="small-label">City</label>
+            <select name="city" id="city_tutor" onchange="toggleOtherField('city_tutor','city_tutor_other_wrap')">
+              <option value="">Select city</option>
+              {% for value,label in [('islamabad','Islamabad'),('rawalpindi','Rawalpindi'),('lahore','Lahore'),('karachi','Karachi'),('peshawar','Peshawar'),('quetta','Quetta'),('online_only','Online Only'),('other','Other')] %}
+              <option value="{{ value }}" {% if form_data.get('city') == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <div id="city_tutor_other_wrap" style="display:{% if form_data.get('city')=='other' %}block{% else %}none{% endif %}; margin-top:8px;">
+              <input name="city_other" value="{{ form_data.get('city_other','') }}" placeholder="Enter city">
+            </div>
+          </div>
+          <div>
+            <label class="small-label">Profile picture</label>
+            <input type="file" name="profile_image_file" accept="image/*">
+          </div>
+        </div>
+        <div class="step-actions">
+          <a class="btn btn-light" href="{{ url_for('register') }}">← Back</a>
+          <button class="btn btn-primary" type="button" onclick="goToStep(2)">Next →</button>
+        </div>
+      </div>
+
+      <div class="step-content" id="step2" style="display:none;">
+        <h3 class="section-title">Education & Qualification</h3>
+        <div class="form-grid two-col">
+          <div>
+            <label class="small-label">Highest qualification <span style="color:#cc2b2b;">* required</span></label>
+            <select name="qualification" id="qualification" onchange="syncEducationFlow(); syncAllowedLevels();" required>
+              {% for value,label in [
+                ('','Select qualification'),
+                ('intermediate','Intermediate'),
+                ('bachelors',"Bachelor's"),
+                ('masters',"Master's"),
+                ('mphil','MPhil'),
+                ('phd','PhD'),
+                ('other','Other')
+              ] %}
+              <option value="{{ value }}" {% if form_data.get('qualification') == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div id="previousPathChoiceWrap" style="display:none;">
+            <label class="small-label">Qualification before highest <span style="color:#cc2b2b;">* required</span></label>
+            <select name="previous_path_choice" id="previous_path_choice" onchange="syncEducationFlow()">
+              <option value="">Select previous qualification</option>
+              <option value="mphil" {% if form_data.get('previous_path_choice') == 'mphil' %}selected{% endif %}>MPhil</option>
+              <option value="masters" {% if form_data.get('previous_path_choice') == 'masters' %}selected{% endif %}>Master's</option>
+            </select>
+          </div>
+
+          <div style="grid-column:1/-1;">
+            <div class="inline-note-card">
+              <strong>Education flow</strong>
+              <p>The form adjusts according to the tutor’s highest qualification. All education fields use dropdowns with an <strong>Other</strong> option for custom entry.</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="highestQualificationBlock" class="card" style="margin-top:14px;">
+          <h4 style="margin-top:0;">Highest Qualification Details</h4>
+          <div class="form-grid two-col">
+            <div>
+              <label class="small-label">Degree title <span style="color:#cc2b2b;">* required</span></label>
+              <select name="degree_title" id="degree_title" onchange="toggleOtherField('degree_title','degree_title_other_wrap')" required>
+                <option value="">Select degree title</option>
+              </select>
+              <div id="degree_title_other_wrap" style="display:none; margin-top:8px;">
+                <input name="degree_title_other" value="{{ form_data.get('degree_title_other','') }}" placeholder="Enter degree title">
+              </div>
+            </div>
+            <div>
+              <label class="small-label">Major / subject <span style="color:#cc2b2b;">* required</span></label>
+              <select name="degree_major" id="degree_major" onchange="toggleOtherField('degree_major','degree_major_other_wrap')" required>
+                <option value="">Select subject</option>
+              </select>
+              <div id="degree_major_other_wrap" style="display:none; margin-top:8px;">
+                <input name="degree_major_other" value="{{ form_data.get('degree_major_other','') }}" placeholder="Enter subject">
+              </div>
+            </div>
+            <div>
+              <label class="small-label">Institution / university <span style="color:#cc2b2b;">* required</span></label>
+              <select name="degree_institution" id="degree_institution" onchange="toggleOtherField('degree_institution','degree_institution_other_wrap')" required>
+                <option value="">Select institution</option>
+              </select>
+              <div id="degree_institution_other_wrap" style="display:none; margin-top:8px;">
+                <input name="degree_institution_other" value="{{ form_data.get('degree_institution_other','') }}" placeholder="Enter institution">
+              </div>
+            </div>
+            <div>
+              <label class="small-label">Year <span style="color:#cc2b2b;">* required</span></label>
+              <input name="degree_year" value="{{ form_data.get('degree_year','') }}" required>
+            </div>
+            <div>
+              <label class="small-label">Grade / CGPA <span style="color:#cc2b2b;">* required</span></label>
+              <input name="degree_grade" value="{{ form_data.get('degree_grade','') }}" required>
+            </div>
+          </div>
+        </div>
+
+        {% for prefix, title in [('mphil','MPhil Details'), ('masters',"Master's Details"), ('bachelor',"Bachelor's Details")] %}
+        <div id="{{ prefix }}Block" class="card qualification-block" style="display:none; margin-top:14px;">
+          <h4 style="margin-top:0;">{{ title }}</h4>
+          <div class="form-grid two-col">
+            <div>
+              <label class="small-label">Degree title <span class="dynamic-required" style="color:#cc2b2b; display:none;">* required</span></label>
+              <select name="{{ prefix }}_title" id="{{ prefix }}_title" onchange="toggleOtherField('{{ prefix }}_title','{{ prefix }}_title_other_wrap')">
+                <option value="">Select degree title</option>
+              </select>
+              <div id="{{ prefix }}_title_other_wrap" style="display:none; margin-top:8px;">
+                <input name="{{ prefix }}_title_other" value="{{ form_data.get(prefix ~ '_title_other','') }}" placeholder="Enter degree title">
+              </div>
+            </div>
+            <div>
+              <label class="small-label">Major / subject <span class="dynamic-required" style="color:#cc2b2b; display:none;">* required</span></label>
+              <select name="{{ prefix }}_major" id="{{ prefix }}_major" onchange="toggleOtherField('{{ prefix }}_major','{{ prefix }}_major_other_wrap')">
+                <option value="">Select subject</option>
+              </select>
+              <div id="{{ prefix }}_major_other_wrap" style="display:none; margin-top:8px;">
+                <input name="{{ prefix }}_major_other" value="{{ form_data.get(prefix ~ '_major_other','') }}" placeholder="Enter subject">
+              </div>
+            </div>
+            <div>
+              <label class="small-label">Institution / university <span class="dynamic-required" style="color:#cc2b2b; display:none;">* required</span></label>
+              <select name="{{ prefix }}_institution" id="{{ prefix }}_institution" onchange="toggleOtherField('{{ prefix }}_institution','{{ prefix }}_institution_other_wrap')">
+                <option value="">Select institution</option>
+              </select>
+              <div id="{{ prefix }}_institution_other_wrap" style="display:none; margin-top:8px;">
+                <input name="{{ prefix }}_institution_other" value="{{ form_data.get(prefix ~ '_institution_other','') }}" placeholder="Enter institution">
+              </div>
+            </div>
+            <div><label class="small-label">Year <span class="dynamic-required" style="color:#cc2b2b; display:none;">* required</span></label><input name="{{ prefix }}_year" value="{{ form_data.get(prefix ~ '_year','') }}"></div>
+            <div><label class="small-label">Grade / CGPA <span class="dynamic-required" style="color:#cc2b2b; display:none;">* required</span></label><input name="{{ prefix }}_grade" value="{{ form_data.get(prefix ~ '_grade','') }}"></div>
+            <div><label class="small-label">Additional note</label><input name="{{ prefix }}_additional_note" value="{{ form_data.get(prefix ~ '_additional_note','') }}"></div>
+          </div>
+        </div>
+        {% endfor %}
+
+        <div id="interBlock" class="card qualification-block" style="margin-top:14px;">
+          <h4 style="margin-top:0;">Intermediate Details</h4>
+          <div class="form-grid two-col">
+            <div>
+              <label class="small-label">Program <span style="color:#cc2b2b;">* required</span></label>
+              <select name="inter_program" id="inter_program" onchange="toggleOtherField('inter_program','inter_program_other_wrap')" required>
+                <option value="">Select intermediate program</option>
+                {% for value,label in [('fsc_pre_medical','FSc Pre-Medical'),('fsc_pre_engineering','FSc Pre-Engineering'),('ics','ICS'),('icom','ICom'),('fa','FA'),('a_level','A Level'),('other','Other')] %}
+                <option value="{{ value }}" {% if form_data.get('inter_program') == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              <div id="inter_program_other_wrap" style="display:{% if form_data.get('inter_program')=='other' %}block{% else %}none{% endif %}; margin-top:8px;">
+                <input name="inter_program_other" value="{{ form_data.get('inter_program_other','') }}" placeholder="Enter intermediate program">
+              </div>
+            </div>
+            <div>
+              <label class="small-label">Institution / college <span style="color:#cc2b2b;">* required</span></label>
+              <select name="inter_institution" id="inter_institution" onchange="toggleOtherField('inter_institution','inter_institution_other_wrap')" required>
+                <option value="">Select college</option>
+              </select>
+              <div id="inter_institution_other_wrap" style="display:none; margin-top:8px;">
+                <input name="inter_institution_other" value="{{ form_data.get('inter_institution_other','') }}" placeholder="Enter college">
+              </div>
+            </div>
+            <div><label class="small-label">Year <span style="color:#cc2b2b;">* required</span></label><input name="inter_year" value="{{ form_data.get('inter_year','') }}" required></div>
+            <div><label class="small-label">Grade <span style="color:#cc2b2b;">* required</span></label><input name="inter_grade" value="{{ form_data.get('inter_grade','') }}" required></div>
+          </div>
+        </div>
+
+        <div id="matricBlock" class="card qualification-block" style="margin-top:14px;">
+          <h4 style="margin-top:0;">Matric Details</h4>
+          <div class="form-grid two-col">
+            <div>
+              <label class="small-label">Program <span style="color:#cc2b2b;">* required</span></label>
+              <select name="matric_program" id="matric_program" onchange="toggleOtherField('matric_program','matric_program_other_wrap')" required>
+                <option value="">Select matric program</option>
+                {% for value,label in [('science','Science'),('arts','Arts'),('o_level','O Level'),('other','Other')] %}
+                <option value="{{ value }}" {% if form_data.get('matric_program') == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              <div id="matric_program_other_wrap" style="display:{% if form_data.get('matric_program')=='other' %}block{% else %}none{% endif %}; margin-top:8px;">
+                <input name="matric_program_other" value="{{ form_data.get('matric_program_other','') }}" placeholder="Enter matric program">
+              </div>
+            </div>
+            <div>
+              <label class="small-label">Institution / school <span style="color:#cc2b2b;">* required</span></label>
+              <select name="matric_institution" id="matric_institution" onchange="toggleOtherField('matric_institution','matric_institution_other_wrap')" required>
+                <option value="">Select school</option>
+              </select>
+              <div id="matric_institution_other_wrap" style="display:none; margin-top:8px;">
+                <input name="matric_institution_other" value="{{ form_data.get('matric_institution_other','') }}" placeholder="Enter school">
+              </div>
+            </div>
+            <div><label class="small-label">Year <span style="color:#cc2b2b;">* required</span></label><input name="matric_year" value="{{ form_data.get('matric_year','') }}" required></div>
+            <div><label class="small-label">Grade <span style="color:#cc2b2b;">* required</span></label><input name="matric_grade" value="{{ form_data.get('matric_grade','') }}" required></div>
+          </div>
+        </div>
+
+        <div class="step-actions">
+          <button class="btn btn-light" type="button" onclick="goToStep(1)">← Previous</button>
+          <button class="btn btn-primary" type="button" onclick="goToStep(3)">Next →</button>
+        </div>
+      </div>
+
+      <div class="step-content" id="step3" style="display:none;">
+        <h3 class="section-title">Teaching Profile</h3>
+
+        <div class="form-grid two-col">
+          <div style="grid-column:1/-1;">
+            <label class="small-label">Subjects you can teach <span style="color:#cc2b2b;">* required</span></label>
+            <div class="multiselect-shell">
+              <button class="multiselect-trigger" type="button" onclick="toggleMultiSelect('subjectsDropdown')">
+                <span id="subjectsDropdownLabel">Select subjects</span>
+                <span>⌄</span>
+              </button>
+              <div class="multiselect-dropdown" id="subjectsDropdown" style="display:none;">
+                <div class="multiselect-list" id="subjectsCheckboxWrap"></div>
+              </div>
+            </div>
+            <p class="muted">Choose up to 5 total subjects. This control works well on mobile.</p>
+          </div>
+
+          {% for i in range(1,4) %}
+          <div>
+            <label class="small-label">Other subject {{ i }} (optional)</label>
+            <input name="additional_subject_{{ i }}" value="{{ form_data.get('additional_subject_' ~ i,'') }}" placeholder="Type custom subject">
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="card" style="margin:14px 0;">
+          <strong>Levels you can teach <span style="color:#cc2b2b;">* required</span></strong>
+          <div class="multiselect-shell" style="margin-top:10px;">
+            <button class="multiselect-trigger" type="button" onclick="toggleMultiSelect('levelsDropdown')">
+              <span id="levelsDropdownLabel">Select levels</span>
+              <span>⌄</span>
+            </button>
+            <div class="multiselect-dropdown" id="levelsDropdown" style="display:none;">
+              <div class="multiselect-list" id="levelsCheckboxWrap"></div>
+            </div>
+          </div>
+          <p class="muted" style="margin:10px 0 0;">Allowed levels adjust automatically according to the tutor’s qualification.</p>
+        </div>
+
+        <div class="form-grid two-col">
+          <div>
+            <label class="small-label">Experience in years <span style="color:#cc2b2b;">* required</span></label>
+            <input type="number" name="experience_years" min="0" value="{{ form_data.get('experience_years','') }}" required>
+          </div>
+          <div>
+            <label class="small-label">Hourly rate (PKR) <span style="color:#cc2b2b;">* required</span></label>
+            <input type="number" name="hourly_rate" min="0" value="{{ form_data.get('hourly_rate','') }}" required>
+          </div>
+          <div style="grid-column:1/-1;">
+            <label class="small-label">Short teaching profile <span style="color:#cc2b2b;">* required</span></label>
+            <textarea name="bio" rows="5" required>{{ form_data.get('bio','') }}</textarea>
+          </div>
+          <div>
+            <label class="small-label">Modest / veiled profile</label>
+            <label><input type="checkbox" name="modest_profile" value="yes" {% if form_data.get('modest_profile') in ['yes','on','true'] %}checked{% endif %}> Yes</label>
+          </div>
+          <div>
+            <label class="small-label">Audio-first teaching</label>
+            <label><input type="checkbox" name="audio_only" value="yes" {% if form_data.get('audio_only') in ['yes','on','true'] %}checked{% endif %}> Yes</label>
+          </div>
+        </div>
+
+        <div class="step-actions">
+          <button class="btn btn-light" type="button" onclick="goToStep(2)">← Previous</button>
+          <button class="btn btn-primary" type="button" onclick="goToStep(4)">Next →</button>
+        </div>
+      </div>
+
+      <div class="step-content" id="step4" style="display:none;">
+        <h3 class="section-title">Verification & Demo</h3>
+        <div class="inline-note-card">
+          <strong>Demo video instructions</strong>
+          <p>Record a clear 2–5 minute teaching sample with good lighting, clear audio, a stable camera angle, and visible teaching aids if used.</p>
+        </div>
+        <div class="form-grid two-col">
+          <div>
+            <label class="small-label">Degree / qualification document <span style="color:#cc2b2b;">* required</span></label>
+            <input type="file" name="degree_file" accept=".pdf,.jpg,.jpeg,.png,.webp" required>
+          </div>
+          <div>
+            <label class="small-label">Demo video URL <span style="color:#cc2b2b;">* required</span></label>
+            <input name="demo_video_url" value="{{ form_data.get('demo_video_url','') }}" placeholder="Drive / YouTube / Dropbox link" required>
+          </div>
+          <label style="grid-column:1/-1; display:flex; gap:10px; align-items:flex-start;">
+            <input type="checkbox" name="demo_length_confirmed" value="yes" {% if form_data.get('demo_length_confirmed') == 'yes' %}checked{% endif %} required>
+            <span>I confirm the demo video is between 2 and 5 minutes. <span style="color:#cc2b2b;">* required</span></span>
+          </label>
+          <label style="grid-column:1/-1; display:flex; gap:10px; align-items:flex-start;">
+            <input type="checkbox" name="accept_privacy" value="yes" {% if form_data.get('accept_privacy') == 'yes' %}checked{% endif %} required>
+            <span>I agree to the <a href="{{ url_for('privacy') }}" target="_blank">Privacy Policy</a> and platform terms. <span style="color:#cc2b2b;">* required</span></span>
+          </label>
+        </div>
+
+        <div class="step-actions">
+          <button class="btn btn-light" type="button" onclick="goToStep(3)">← Previous</button>
+          <button class="btn btn-primary" type="submit">Complete Tutor Signup</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>
+
+<style>
+.multiselect-shell { position: relative; }
+.multiselect-trigger {
+  width: 100%; border: 1px solid #d8dee9; border-radius: 10px; padding: 12px 14px;
+  background: #fff; display: flex; justify-content: space-between; align-items: center;
+  font-size: 15px; cursor: pointer;
+}
+.multiselect-dropdown {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 20;
+  background: #fff; border: 1px solid #d8dee9; border-radius: 12px; box-shadow: 0 10px 28px rgba(0,0,0,0.08);
+  max-height: 300px; overflow: auto; padding: 8px;
+}
+.multiselect-list { display: grid; gap: 8px; }
+.multiselect-item {
+  border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; display: flex; gap: 8px; align-items: flex-start;
+}
+.multiselect-item input { margin-top: 3px; }
+@media (max-width: 768px) {
+  .multiselect-dropdown { position: static; margin-top: 8px; box-shadow: none; }
+}
+</style>
+
+<script>
+const degreeTitles = [
+  "MBBS","BDS","Pharm-D","BS","BSc","BA","BBA","BCom","LLB","BE","B.E.","B.Ed","MSc","MA","MBA","MCom","M.Ed","MPhil","PhD","MS","LLM","CA","ACCA","CMA","Other"
+];
+const subjectCatalog = [
+  "Mathematics","Physics","Chemistry","Biology","English","Urdu","Computer Science","Pakistan Studies","Islamiat",
+  "IELTS","Spoken English","Arabic","French","Quran","Computer Course","AI Courses","Content Creation",
+  "Accounting","Economics","Business Studies","Statistics","General Science","Social Studies","History","Geography","Other"
+];
+const institutions = [
+  "NUST","COMSATS University Islamabad","FAST-NUCES","Punjab University","University of Karachi","University of the Punjab",
+  "LUMS","Aga Khan University","Bahria University","Air University","IIUI","QAU","GIKI","UET Lahore","UET Taxila","NED University",
+  "Allama Iqbal Open University","Virtual University","Institute of Business Administration Karachi","SZABIST","National University of Medical Sciences",
+  "Kinnaird College","Government College University Lahore","Bahauddin Zakariya University","University of Peshawar","University of Balochistan",
+  "The Islamia University of Bahawalpur","Abdul Wali Khan University","Riphah International University","Iqra University","University of Central Punjab","Other"
+];
+const collegeOptions = [
+  "Punjab Group of Colleges","Superior College","Government College","FG Degree College","Cadet College","KIPS College","APSACS College","Other"
+];
+const schoolOptions = [
+  "APSACS","Beaconhouse","City School","Roots","Allied School","The Educators","Government High School","FG Public School","Other"
+];
+
+const qualificationLevelMap = {
+  intermediate: ["grade_1_5","grade_6_8","matric"],
+  bachelors: ["grade_1_5","grade_6_8","matric","intermediate"],
+  masters: ["grade_1_5","grade_6_8","matric","intermediate","o_level","a_level","university"],
+  mphil: ["grade_1_5","grade_6_8","matric","intermediate","o_level","a_level","university"],
+  phd: ["grade_1_5","grade_6_8","matric","intermediate","o_level","a_level","university"],
+  other: ["grade_1_5","grade_6_8","matric","intermediate"]
+};
+const levelLabels = {
+  grade_1_5: "Grade 1–5",
+  grade_6_8: "Grade 6–8",
+  matric: "Matric",
+  intermediate: "Intermediate",
+  o_level: "O Level",
+  a_level: "A Level",
+  university: "University"
+};
+
+const preselectedSubjects = {{ selected_tutor_subjects|tojson }};
+const preselectedLevels = {{ selected_tutor_levels|tojson }};
+
+function populateSelect(selectId, options, selectedValue, includeOther=true) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const first = select.querySelector('option') ? select.querySelector('option').outerHTML : '<option value="">Select</option>';
+  select.innerHTML = first;
+  const list = includeOther ? options : options.filter(v => v !== 'Other' && v !== 'other');
+  list.forEach(item => {
+    const opt = document.createElement('option');
+    const value = item.toLowerCase() === 'other' ? 'other' : item;
+    opt.value = value;
+    opt.textContent = item;
+    if (selectedValue === value || selectedValue === item) opt.selected = true;
+    select.appendChild(opt);
+  });
+  if (selectedValue && !Array.from(select.options).some(o => o.value === selectedValue)) {
+    const extra = document.createElement('option');
+    extra.value = 'other';
+    extra.textContent = 'Other';
+    extra.selected = true;
+    select.appendChild(extra);
+  }
+}
+
+function toggleOtherField(selectId, wrapId) {
+  const el = document.getElementById(selectId);
+  const wrap = document.getElementById(wrapId);
+  if (!el || !wrap) return;
+  wrap.style.display = el.value === 'other' ? 'block' : 'none';
+}
+
+function setRequiredState(blockId, isRequired) {
+  const block = document.getElementById(blockId);
+  if (!block) return;
+  block.style.display = isRequired ? 'block' : 'none';
+  block.querySelectorAll('input, select').forEach(input => {
+    if (input.name && input.name.endsWith('_additional_note')) {
+      input.required = false;
+    } else if (input.name) {
+      input.required = isRequired;
+    }
+  });
+  block.querySelectorAll('.dynamic-required').forEach(el => {
+    el.style.display = isRequired ? 'inline' : 'none';
+  });
+}
+
+function syncEducationFlow() {
+  const highest = (document.getElementById('qualification')?.value || '').toLowerCase();
+  const previousChoiceWrap = document.getElementById('previousPathChoiceWrap');
+  const previousChoice = (document.getElementById('previous_path_choice')?.value || '').toLowerCase();
+
+  if (previousChoiceWrap) previousChoiceWrap.style.display = highest === 'phd' ? 'block' : 'none';
+
+  setRequiredState('mphilBlock', highest === 'phd' && previousChoice === 'mphil');
+  setRequiredState('mastersBlock',
+    (highest === 'phd' && (previousChoice === 'mphil' || previousChoice === 'masters')) ||
+    highest === 'mphil'
+  );
+  setRequiredState('bachelorBlock',
+    (highest === 'phd' && (previousChoice === 'mphil' || previousChoice === 'masters')) ||
+    highest === 'mphil' ||
+    highest === 'masters'
+  );
+}
+
+function buildMultiSelect(containerId, values, selectedValues, fieldName, labelId, maxAllowed=null) {
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  values.forEach(value => {
+    const row = document.createElement('label');
+    row.className = 'multiselect-item';
+
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.name = fieldName;
+    input.value = value;
+    if (selectedValues.includes(value)) input.checked = true;
+
+    input.addEventListener('change', function() {
+      if (maxAllowed) {
+        const checked = wrap.querySelectorAll('input:checked');
+        if (checked.length > maxAllowed) {
+          input.checked = false;
+          alert('You can select up to ' + maxAllowed + ' subjects.');
+        }
+      }
+      updateMultiSelectLabel(containerId, labelId, fieldName);
+    });
+
+    const span = document.createElement('span');
+    span.textContent = value;
+
+    row.appendChild(input);
+    row.appendChild(span);
+    wrap.appendChild(row);
+  });
+  updateMultiSelectLabel(containerId, labelId, fieldName);
+}
+
+function updateMultiSelectLabel(containerId, labelId, fieldName) {
+  const wrap = document.getElementById(containerId);
+  const label = document.getElementById(labelId);
+  if (!wrap || !label) return;
+  const checked = Array.from(wrap.querySelectorAll('input[name="' + fieldName + '"]:checked')).map(el => el.value);
+  if (!checked.length) {
+    label.textContent = fieldName === 'main_subject' ? 'Select subjects' : 'Select levels';
+  } else if (checked.length <= 3) {
+    label.textContent = checked.join(', ');
+  } else {
+    label.textContent = checked.length + ' selected';
+  }
+}
+
+function toggleMultiSelect(dropdownId) {
+  const dd = document.getElementById(dropdownId);
+  if (!dd) return;
+  dd.style.display = dd.style.display === 'none' || !dd.style.display ? 'block' : 'none';
+}
+
+function syncAllowedLevels() {
+  const qualification = (document.getElementById('qualification')?.value || 'intermediate').toLowerCase();
+  const allowed = qualificationLevelMap[qualification] || qualificationLevelMap['intermediate'];
+  const current = Array.from(document.querySelectorAll('#levelsCheckboxWrap input:checked')).map(el => el.value);
+  const chosen = Array.from(new Set([...current, ...preselectedLevels])).filter(v => allowed.includes(v));
+  buildMultiSelect('levelsCheckboxWrap', allowed.map(v => levelLabels[v] ? v : v), chosen, 'class_levels', 'levelsDropdownLabel', null);
+  const wrap = document.getElementById('levelsCheckboxWrap');
+  wrap.querySelectorAll('input').forEach(input => {
+    const text = levelLabels[input.value] || input.value;
+    input.parentElement.querySelector('span').textContent = text;
+  });
+}
+
+function goToStep(stepNo) {
+  document.querySelectorAll('.step-content').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.step-nav .step').forEach(el => el.classList.remove('active'));
+  document.getElementById('step' + stepNo).style.display = 'block';
+  document.getElementById('step' + stepNo + 'Tab').classList.add('active');
+  document.getElementById('active_step').value = String(stepNo);
+}
+
+document.addEventListener('click', function(event) {
+  document.querySelectorAll('.multiselect-dropdown').forEach(dd => {
+    const shell = dd.closest('.multiselect-shell');
+    if (shell && !shell.contains(event.target)) {
+      dd.style.display = 'none';
+    }
+  });
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+  [
+    ['degree_title', degreeTitles, "{{ form_data.get('degree_title','') }}"],
+    ['degree_major', subjectCatalog, "{{ form_data.get('degree_major','') }}"],
+    ['degree_institution', institutions, "{{ form_data.get('degree_institution','') }}"],
+    ['mphil_title', degreeTitles, "{{ form_data.get('mphil_title','') }}"],
+    ['mphil_major', subjectCatalog, "{{ form_data.get('mphil_major','') }}"],
+    ['mphil_institution', institutions, "{{ form_data.get('mphil_institution','') }}"],
+    ['masters_title', degreeTitles, "{{ form_data.get('masters_title','') }}"],
+    ['masters_major', subjectCatalog, "{{ form_data.get('masters_major','') }}"],
+    ['masters_institution', institutions, "{{ form_data.get('masters_institution','') }}"],
+    ['bachelor_title', degreeTitles, "{{ form_data.get('bachelor_title','') }}"],
+    ['bachelor_major', subjectCatalog, "{{ form_data.get('bachelor_major','') }}"],
+    ['bachelor_institution', institutions, "{{ form_data.get('bachelor_institution','') }}"],
+    ['inter_institution', collegeOptions, "{{ form_data.get('inter_institution','') }}"],
+    ['matric_institution', schoolOptions, "{{ form_data.get('matric_institution','') }}"]
+  ].forEach(([id, opts, val]) => {
+    populateSelect(id, opts, val, true);
+    toggleOtherField(id, id + '_other_wrap');
+  });
+
+  buildMultiSelect('subjectsCheckboxWrap', subjectCatalog.filter(v => v !== 'Other'), preselectedSubjects, 'main_subject', 'subjectsDropdownLabel', 5);
+  syncEducationFlow();
+  syncAllowedLevels();
+
+  const lastStep = parseInt("{{ form_data.get('active_step','1') }}", 10) || 1;
+  goToStep(lastStep);
+});
+</script>
+{% endblock %}

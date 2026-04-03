@@ -1,0 +1,28 @@
+Demo seeding complete
+Password for all demo users: Demo@12345
+
+Tutors:
+- zoya.ahmed.tutor766@example.com | Zoya A. | physics | Peshawar
+- saad.sheikh.tutor982@example.com | Saad S. | french | Online Only
+- zain.farooq.tutor717@example.com | Zain F. | mathematics | Quetta
+- iqra.butt.tutor342@example.com | Iqra B. | urdu | Quetta
+- areeb.ahmed.tutor815@example.com | Areeb A. | spoken_english | Online Only
+- iqra.sheikh.tutor960@example.com | Iqra S. | ielts | Rawalpindi
+- noor.siddiqui.tutor978@example.com | Noor S. | arabic | Islamabad
+- zoya.malik.tutor963@example.com | Zoya M. | computer_science | Islamabad
+- ayesha.ahmed.tutor659@example.com | Ayesha A. | mathematics | Lahore
+- maham.siddiqui.tutor865@example.com | Maham S. | biology | Islamabad
+
+Students:
+- ayesha.khan.student247@example.com | Ayesha K. | biology | Peshawar
+- hassan.farooq.student403@example.com | Hassan F. | french | Lahore
+- hassan.chaudhry.student953@example.com | Hassan C. | spoken_english | Online Only
+- iqra.qureshi.student666@example.com | Iqra Q. | biology | Rawalpindi
+- noor.raza.student407@example.com | Noor R. | ielts | Rawalpindi
+- zoya.ahmed.student654@example.com | Zoya A. | arabic | Quetta
+- ayesha.ahmed.student661@example.com | Ayesha A. | computer_science | Quetta
+- noor.khan.student986@example.com | Noor K. | arabic | Quetta
+- noor.chaudhry.student951@example.com | Noor C. | arabic | Peshawar
+- zain.chaudhry.student297@example.com | Zain C. | ielts | Quetta
+
+password for all is Demo@12345

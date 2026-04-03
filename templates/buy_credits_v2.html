@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="auth-section">
+  <div class="auth-card" style="max-width:860px;">
+    <h1>Buy Credits</h1>
+    <p class="auth-sub">Manual credit purchase via EasyPaisa.</p>
+
+    <div class="inline-note-card">
+      <strong>EasyPaisa Account</strong>
+      <p><strong>030012345678</strong></p>
+      <p>1 credit = PKR {{ credit_rate }}. Minimum purchase is 10 credits.</p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" id="creditsForm">
+      <div class="form-grid two-col">
+        <div>
+          <label class="small-label">Credits to purchase <span style="color:#cc2b2b;">* required</span></label>
+          <select name="credits_requested" id="credits_requested" onchange="syncAmount()" required>
+            <option value="">Select credits</option>
+            {% for credits in [10,20,30,50,75,100,150,200,300,500] %}
+            <option value="{{ credits }}" {% if form_data.get('credits_requested') == credits|string %}selected{% endif %}>{{ credits }} credits</option>
+            {% endfor %}
+            <option value="other" {% if form_data.get('credits_requested') == 'other' %}selected{% endif %}>Other</option>
+          </select>
+        </div>
+        <div id="otherCreditsWrap" style="display:{% if form_data.get('credits_requested') == 'other' %}block{% else %}none{% endif %};">
+          <label class="small-label">Other credits (minimum 10)</label>
+          <input type="number" min="10" name="credits_requested_other" id="credits_requested_other" value="{{ form_data.get('credits_requested_other','') }}" oninput="syncAmount()">
+        </div>
+
+        <div style="grid-column:1/-1;" class="inline-note-card">
+          <strong>Transfer summary</strong>
+          <p id="transferSummary">Please transfer the required amount into the EasyPaisa account above, then upload your screenshot below.</p>
+        </div>
+
+        <div>
+          <label class="small-label">Sender name <span style="color:#cc2b2b;">* required</span></label>
+          <input name="sender_name" value="{{ form_data.get('sender_name','') }}" required>
+        </div>
+        <div>
+          <label class="small-label">Sender account / mobile number <span style="color:#cc2b2b;">* required</span></label>
+          <input name="sender_account" value="{{ form_data.get('sender_account','') }}" required>
+        </div>
+        <div>
+          <label class="small-label">Transfer method <span style="color:#cc2b2b;">* required</span></label>
+          <select name="transfer_method" required>
+            <option value="easypaisa" selected>EasyPaisa</option>
+            <option value="bank" {% if form_data.get('transfer_method') == 'bank' %}selected{% endif %}>Bank</option>
+          </select>
+        </div>
+        <div>
+          <label class="small-label">Screenshot of transfer <span style="color:#cc2b2b;">* required</span></label>
+          <input type="file" name="screenshot" accept="image/*,.pdf" required>
+        </div>
+
+        <div style="grid-column:1/-1;">
+          <label class="small-label">Optional note</label>
+          <textarea name="note" rows="4">{{ form_data.get('note','') }}</textarea>
+        </div>
+
+        <label style="grid-column:1/-1; display:flex; gap:10px; align-items:flex-start;">
+          <input type="checkbox" name="payment_confirmed" value="yes" {% if form_data.get('payment_confirmed') == 'yes' %}checked{% endif %} required>
+          <span>I confirm that I have transferred the required amount to the mentioned account. <span style="color:#cc2b2b;">* required</span></span>
+        </label>
+      </div>
+
+      <div class="step-actions" style="margin-top:22px;">
+        <a class="btn btn-light" href="{{ url_for('dashboard') }}">← Back</a>
+        <button class="btn btn-primary" type="submit" onclick="return confirmFinalSubmission()">Confirm Transfer</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<script>
+const creditRate = {{ credit_rate|int }};
+function getSelectedCredits() {
+  const select = document.getElementById('credits_requested');
+  if (!select) return 0;
+  if (select.value === 'other') {
+    return parseInt(document.getElementById('credits_requested_other').value || '0', 10);
+  }
+  return parseInt(select.value || '0', 10);
+}
+function syncAmount() {
+  const select = document.getElementById('credits_requested');
+  const otherWrap = document.getElementById('otherCreditsWrap');
+  if (select && otherWrap) otherWrap.style.display = select.value === 'other' ? 'block' : 'none';
+  const credits = getSelectedCredits();
+  const amount = credits * creditRate;
+  const summary = document.getElementById('transferSummary');
+  if (!summary) return;
+  if (!credits || credits < 10) {
+    summary.textContent = 'Please select at least 10 credits. The amount will be shown automatically.';
+    return;
+  }
+  summary.textContent = `Please transfer PKR ${amount} to EasyPaisa Account 030012345678 to purchase ${credits} credits. Please attach a screenshot; otherwise the credit purchase will not succeed.`;
+}
+function confirmFinalSubmission() {
+  const credits = getSelectedCredits();
+  if (!credits || credits < 10) {
+    alert('Minimum purchase is 10 credits.');
+    return false;
+  }
+  const amount = credits * creditRate;
+  return confirm(`Do you confirm that you have transferred PKR ${amount} for ${credits} credits?`);
+}
+document.addEventListener('DOMContentLoaded', syncAmount);
+</script>
+{% endblock %}

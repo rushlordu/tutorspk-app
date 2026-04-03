@@ -7,7 +7,6 @@ from uuid import uuid4
 from dotenv import load_dotenv
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from sqlalchemy import text
 
 from flask import (
     Flask,
@@ -28,6 +27,7 @@ from flask_login import (
     logout_user,
 )
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 from authlib.integrations.flask_client import OAuth
@@ -216,7 +216,7 @@ def get_tutor_completion_status(user):
     missing = tutor_missing_requirements_from_user(user)
     total_items = 14
     highest = (user.qualification or "").strip().lower()
-    next_choice = (getattr(user, "previous_path_choice", "") or "").strip().lower()
+    next_choice = (user.previous_path_choice or "").strip().lower()
     if highest == "phd" and next_choice in {"mphil", "masters"}:
         total_items += 8
     elif highest == "mphil":
@@ -356,10 +356,6 @@ SUBJECT_OPTIONS = [
     ("spoken_english", "Spoken English"),
     ("arabic", "Arabic"),
     ("french", "French"),
-    ("quran", "Quran"),
-    ("computer_course", "Computer Course"),
-    ("ai_courses", "AI Courses"),
-    ("content_creation", "Content Creation"),
     ("other", "Other"),
 ]
 
@@ -437,8 +433,6 @@ class User(UserMixin, db.Model):
     learning_mode = db.Column(db.String(50), default="")
     teaching_mode = db.Column(db.String(50), default="")
     hourly_rate = db.Column(db.Integer, default=0)
-    mobile_number = db.Column(db.String(40), default="")
-    cnic_number = db.Column(db.String(40), default="")
     
     profile_image = db.Column(db.String(255), default="")
     degree_file = db.Column(db.String(255), default="")
@@ -721,8 +715,208 @@ def add_credits(user: User, credits: int, tx_type: str, note: str = "", rupees: 
     )
 
 
+def tutor_missing_requirements_from_form(form):
+    missing = []
+
+    if not pick_with_other(form, "qualification"):
+        missing.append("highest qualification")
+    if not collect_subjects_from_form(form):
+        missing.append("main subject")
+    if not collect_levels_from_form(form):
+        missing.append("teaching level")
+    if not (form.get("experience_years", "").strip()):
+        missing.append("experience")
+    if not form.get("bio", "").strip():
+        missing.append("bio")
+    if not form.get("demo_video_url", "").strip():
+        missing.append("demo video")
+    if not form.get("degree_title", "").strip():
+        missing.append("highest qualification title")
+    if not form.get("degree_institution", "").strip():
+        missing.append("highest qualification institution")
+    if not form.get("degree_year", "").strip():
+        missing.append("highest qualification year")
+    if not form.get("degree_grade", "").strip():
+        missing.append("highest qualification grade")
+
+    highest = pick_with_other(form, "qualification")
+    next_choice = form.get("previous_path_choice", "").strip()
+
+    def require_if_visible(prefix, label):
+        title = form.get(f"{prefix}_title", "").strip()
+        institution = form.get(f"{prefix}_institution", "").strip()
+        year = form.get(f"{prefix}_year", "").strip()
+        grade = form.get(f"{prefix}_grade", "").strip()
+        if not title:
+            missing.append(f"{label} title")
+        if not institution:
+            missing.append(f"{label} institution")
+        if not year:
+            missing.append(f"{label} year")
+        if not grade:
+            missing.append(f"{label} grade")
+
+    if highest == "phd" and next_choice == "mphil":
+        require_if_visible("mphil", "MPhil")
+        require_if_visible("masters", "Master's")
+        require_if_visible("bachelor", "Bachelor's")
+    elif highest == "phd" and next_choice == "masters":
+        require_if_visible("masters", "Master's")
+        require_if_visible("bachelor", "Bachelor's")
+    elif highest == "mphil":
+        require_if_visible("masters", "Master's")
+        require_if_visible("bachelor", "Bachelor's")
+    elif highest == "masters":
+        require_if_visible("bachelor", "Bachelor's")
+
+    if highest in {"phd", "mphil", "masters", "bachelors", "intermediate", "other"}:
+        if not form.get("inter_program", "").strip():
+            missing.append("intermediate")
+        if not form.get("matric_program", "").strip():
+            missing.append("matric")
+
+    seen = []
+    for item in missing:
+        if item not in seen:
+            seen.append(item)
+    return seen
+
+
+def tutor_missing_requirements_from_user(user):
+    missing = []
+    if not user.qualification:
+        missing.append("highest qualification")
+    if not user.main_subject:
+        missing.append("main subject")
+    if not user.class_levels:
+        missing.append("teaching level")
+    if not user.experience_years:
+        missing.append("experience")
+    if not user.bio:
+        missing.append("bio")
+    if not user.demo_video_url:
+        missing.append("demo video")
+    if not user.degree_title:
+        missing.append("highest qualification title")
+    if not user.degree_institution:
+        missing.append("highest qualification institution")
+    if not user.degree_year:
+        missing.append("highest qualification year")
+    if not user.degree_grade:
+        missing.append("highest qualification grade")
+
+    highest = (user.qualification or "").strip().lower()
+    next_choice = (user.previous_path_choice or "").strip().lower()
+
+    def require_if_visible(title, institution, year, grade, label):
+        if not title:
+            missing.append(f"{label} title")
+        if not institution:
+            missing.append(f"{label} institution")
+        if not year:
+            missing.append(f"{label} year")
+        if not grade:
+            missing.append(f"{label} grade")
+
+    if highest == "phd" and next_choice == "mphil":
+        require_if_visible(user.mphil_title, user.mphil_institution, user.mphil_year, user.mphil_grade, "MPhil")
+        require_if_visible(user.masters_title, user.masters_institution, user.masters_year, user.masters_grade, "Master's")
+        require_if_visible(user.bachelor_title, user.bachelor_institution, user.bachelor_year, user.bachelor_grade, "Bachelor's")
+    elif highest == "phd" and next_choice == "masters":
+        require_if_visible(user.masters_title, user.masters_institution, user.masters_year, user.masters_grade, "Master's")
+        require_if_visible(user.bachelor_title, user.bachelor_institution, user.bachelor_year, user.bachelor_grade, "Bachelor's")
+    elif highest == "mphil":
+        require_if_visible(user.masters_title, user.masters_institution, user.masters_year, user.masters_grade, "Master's")
+        require_if_visible(user.bachelor_title, user.bachelor_institution, user.bachelor_year, user.bachelor_grade, "Bachelor's")
+    elif highest == "masters":
+        require_if_visible(user.bachelor_title, user.bachelor_institution, user.bachelor_year, user.bachelor_grade, "Bachelor's")
+
+    if highest in {"phd", "mphil", "masters", "bachelors", "intermediate", "other"} and not user.inter_program:
+        missing.append("intermediate")
+    if highest in {"phd", "mphil", "masters", "bachelors", "intermediate", "other"} and not user.matric_program:
+        missing.append("matric")
+
+    seen = []
+    for item in missing:
+        if item not in seen:
+            seen.append(item)
+    return seen
+
+
+def get_stage_badge(stage: str):
+    stage = (stage or "quick_profile").strip().lower()
+    mapping = {
+        "quick_profile": ("Quick profile", "Fill teaching and education details to continue."),
+        "basic_complete": ("Quick profile complete", "You can now finish verification and submit for review."),
+        "verification_incomplete": ("Complete verification", "Add the missing verification details below."),
+        "under_review": ("Under review", "Your application is with admin review."),
+        "fee_pending": ("Fee pending", "You were selected. Registration fee is pending."),
+        "approved": ("Approved", "Your tutor profile is live."),
+        "rejected": ("Rejected", "Your application was not approved at this time."),
+    }
+    return mapping.get(stage, (stage.replace('_', ' ').title(), ""))
+
+
+def compute_tutor_profile_stage(user):
+    if user.role != "tutor":
+        return user.profile_stage or "basic_complete"
+    if user.is_verified_tutor or (user.profile_stage == "approved"):
+        return "approved"
+    if user.profile_stage in {"under_review", "fee_pending", "rejected"}:
+        return user.profile_stage
+    if tutor_missing_requirements_from_user(user):
+        return "verification_incomplete"
+    return "basic_complete"
+
+
+def sync_tutor_stage(user):
+    if user.role == "tutor":
+        user.profile_stage = compute_tutor_profile_stage(user)
+    return user.profile_stage
+
+
+def ensure_user_columns():
+    engine = db.engine
+    if engine.url.get_backend_name() != "sqlite":
+        return
+    wanted = {
+        "previous_path_choice": "VARCHAR(50) DEFAULT ''",
+        "mphil_title": "VARCHAR(255) DEFAULT ''",
+        "mphil_major": "VARCHAR(255) DEFAULT ''",
+        "mphil_institution": "VARCHAR(255) DEFAULT ''",
+        "mphil_year": "VARCHAR(50) DEFAULT ''",
+        "mphil_grade": "VARCHAR(50) DEFAULT ''",
+        "mphil_additional_note": "VARCHAR(255) DEFAULT ''",
+        "masters_title": "VARCHAR(255) DEFAULT ''",
+        "masters_major": "VARCHAR(255) DEFAULT ''",
+        "masters_institution": "VARCHAR(255) DEFAULT ''",
+        "masters_year": "VARCHAR(50) DEFAULT ''",
+        "masters_grade": "VARCHAR(50) DEFAULT ''",
+        "masters_additional_note": "VARCHAR(255) DEFAULT ''",
+        "bachelor_major": "VARCHAR(255) DEFAULT ''",
+        "bachelor_additional_note": "VARCHAR(255) DEFAULT ''",
+        "additional_qualification_level": "VARCHAR(80) DEFAULT ''",
+        "additional_qualification_title": "VARCHAR(255) DEFAULT ''",
+        "additional_qualification_major": "VARCHAR(255) DEFAULT ''",
+        "additional_qualification_institution": "VARCHAR(255) DEFAULT ''",
+        "additional_qualification_year": "VARCHAR(50) DEFAULT ''",
+        "additional_qualification_grade": "VARCHAR(50) DEFAULT ''",
+        "additional_qualification_file": "VARCHAR(255) DEFAULT ''",
+    }
+    with engine.begin() as conn:
+        existing = {row[1] for row in conn.execute(text("PRAGMA table_info(user)"))}
+        for name, ddl in wanted.items():
+            if name not in existing:
+                conn.execute(text(f"ALTER TABLE user ADD COLUMN {name} {ddl}"))
+
+
 def validate_tutor_application_form(form):
     missing = tutor_missing_requirements_from_form(form)
+
+    qualification = pick_with_other(form, "qualification")
+    invalid_levels = invalid_levels_for_qualification(qualification, collect_levels_from_form(form))
+    if invalid_levels:
+        return "Selected teaching levels exceed the tutor's qualification. Please choose only the allowed levels."
 
     demo_length_confirmed = form.get("demo_length_confirmed", "").strip()
     if demo_length_confirmed != "yes":
@@ -778,428 +972,341 @@ def pick_with_other(form, field_name: str) -> str:
         return other_value
     return value
 
+LEVEL_SEQUENCE = [
+    "grade_1_5",
+    "grade_6_8",
+    "matric",
+    "o_level",
+    "intermediate",
+    "a_level",
+    "bachelors",
+    "university",
+    "masters",
+    "language_learning",
+]
+
+QUALIFICATION_LEVEL_CAP = {
+    "intermediate": {"grade_1_5", "grade_6_8", "matric", "o_level", "intermediate", "language_learning"},
+    "bachelors": {"grade_1_5", "grade_6_8", "matric", "o_level", "intermediate", "a_level", "bachelors", "university", "language_learning"},
+    "masters": {"grade_1_5", "grade_6_8", "matric", "o_level", "intermediate", "a_level", "bachelors", "university", "masters", "language_learning"},
+    "mphil": {"grade_1_5", "grade_6_8", "matric", "o_level", "intermediate", "a_level", "bachelors", "university", "masters", "language_learning"},
+    "phd": {"grade_1_5", "grade_6_8", "matric", "o_level", "intermediate", "a_level", "bachelors", "university", "masters", "language_learning"},
+    "other": set(LEVEL_SEQUENCE),
+}
 
 
+def _getlist(form, field_name: str):
+    if hasattr(form, "getlist"):
+        return [v.strip() for v in form.getlist(field_name) if str(v).strip()]
+    value = form.get(field_name, "")
+    if isinstance(value, list):
+        return [str(v).strip() for v in value if str(v).strip()]
+    return [str(value).strip()] if str(value).strip() else []
 
-def get_multi_values(form, field_name: str):
-    values = []
-    getter = getattr(form, "getlist", None)
-    if getter:
-        values.extend([v.strip() for v in getter(field_name) if v and v.strip()])
-    single = form.get(field_name, "").strip()
-    if single and single not in values:
-        values.append(single)
-    return values
 
-def normalize_subjects(form, role="tutor"):
-    if role == "student":
-        selected = get_multi_values(form, "student_subject_needed")
-        manual = [form.get(f"student_other_subject_{i}", "").strip() for i in range(1, 4)]
-    else:
-        selected = get_multi_values(form, "main_subject")
-        manual = [form.get(f"additional_subject_{i}", "").strip() for i in range(1, 4)]
-    merged = []
-    for item in selected + manual:
-        if item and item not in merged:
-            merged.append(item)
-    return merged
+def _dedupe_keep_order(items):
+    result = []
+    seen = set()
+    for item in items:
+        cleaned = str(item).strip()
+        if not cleaned:
+            continue
+        key = cleaned.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(cleaned)
+    return result
 
-def normalize_levels(form):
-    levels = get_multi_values(form, "class_levels")
+
+def collect_subjects_from_form(form):
+    subjects = _getlist(form, "subjects_catalog")
+    for idx in range(1, 4):
+        custom = form.get(f"custom_subject_{idx}", "").strip()
+        if custom:
+            subjects.append(custom)
+    if not subjects:
+        subjects.extend([
+            pick_with_other(form, "main_subject"),
+            pick_with_other(form, "main_subject_2"),
+            pick_with_other(form, "main_subject_3"),
+            pick_with_other(form, "additional_subject_1"),
+            pick_with_other(form, "additional_subject_2"),
+        ])
+    return _dedupe_keep_order(subjects)
+
+
+def collect_levels_from_form(form):
+    levels = _getlist(form, "class_levels_multi")
     if not levels:
-        single = pick_with_other(form, "class_levels")
-        if single:
-            levels = [single]
-    unique = []
-    for item in levels:
-        if item and item not in unique:
-            unique.append(item)
-    return unique
+        legacy = pick_with_other(form, "class_levels")
+        if legacy:
+            levels = [part.strip() for part in legacy.split(",") if part.strip()]
+    normalized = []
+    for level in levels:
+        normalized.append("bachelors" if level == "university" else level)
+    return _dedupe_keep_order(normalized)
 
-def qualification_allowed_levels(qualification: str):
-    qualification = (qualification or "").strip().lower()
-    if qualification == "intermediate":
-        return {"grade_1_5", "grade_6_8", "matric"}
-    if qualification == "bachelors":
-        return {"grade_1_5", "grade_6_8", "matric", "intermediate"}
-    if qualification in {"masters", "mphil", "phd"}:
-        return {"grade_1_5", "grade_6_8", "matric", "intermediate", "o_level", "a_level", "university"}
-    return {"grade_1_5", "grade_6_8", "matric", "intermediate"}
 
-def tutor_missing_requirements_from_form(form):
-    missing = []
+def invalid_levels_for_qualification(qualification: str, levels):
+    q = (qualification or "").strip().lower()
+    allowed = QUALIFICATION_LEVEL_CAP.get(q)
+    if not allowed:
+        return []
+    return [lvl for lvl in levels if lvl not in allowed]
 
-    if not pick_with_other(form, "qualification"):
-        missing.append("highest qualification")
-    if not normalize_subjects(form, "tutor"):
-        missing.append("subjects")
-    if not normalize_levels(form):
-        missing.append("teaching level")
-    if not form.get("experience_years", "").strip():
-        missing.append("experience")
-    if not form.get("bio", "").strip():
-        missing.append("bio")
-    if not form.get("demo_video_url", "").strip():
-        missing.append("demo video")
-    if not form.get("degree_title", "").strip():
-        missing.append("highest qualification title")
-    if not form.get("degree_institution", "").strip():
-        missing.append("highest qualification institution")
-    if not form.get("degree_year", "").strip():
-        missing.append("highest qualification year")
-    if not form.get("degree_grade", "").strip():
-        missing.append("highest qualification grade")
-    if not form.get("mobile_number", "").strip():
-        missing.append("mobile number")
-    if not form.get("cnic_number", "").strip():
-        missing.append("CNIC number")
 
-    highest = pick_with_other(form, "qualification")
-    next_choice = form.get("previous_path_choice", "").strip()
+def build_tutor_subject_fields(form):
+    selected_subjects = collect_subjects_from_form(form)
+    main_subject = ", ".join(selected_subjects[:3])
+    additional_subjects = ", ".join(selected_subjects[3:])
+    subjects = ", ".join(selected_subjects)
+    return selected_subjects, main_subject, additional_subjects, subjects
 
-    def require_if_visible(prefix, label):
-        if not form.get(f"{prefix}_title", "").strip():
-            missing.append(f"{label} title")
-        if not form.get(f"{prefix}_institution", "").strip():
-            missing.append(f"{label} institution")
-        if not form.get(f"{prefix}_year", "").strip():
-            missing.append(f"{label} year")
-        if not form.get(f"{prefix}_grade", "").strip():
-            missing.append(f"{label} grade")
 
-    if highest == "phd" and next_choice == "mphil":
-        require_if_visible("mphil", "MPhil")
-        require_if_visible("masters", "Master's")
-        require_if_visible("bachelor", "Bachelor's")
-    elif highest == "phd" and next_choice == "masters":
-        require_if_visible("masters", "Master's")
-        require_if_visible("bachelor", "Bachelor's")
-    elif highest == "mphil":
-        require_if_visible("masters", "Master's")
-        require_if_visible("bachelor", "Bachelor's")
-    elif highest == "masters":
-        require_if_visible("bachelor", "Bachelor's")
+def build_tutor_level_field(form, qualification: str):
+    selected_levels = collect_levels_from_form(form)
+    valid_levels = [lvl for lvl in selected_levels if lvl not in invalid_levels_for_qualification(qualification, selected_levels)]
+    return valid_levels, ", ".join(valid_levels)
 
-    if highest in {"phd", "mphil", "masters", "bachelors", "intermediate", "other"}:
-        if not form.get("inter_program", "").strip():
-            missing.append("intermediate")
-        if not form.get("matric_program", "").strip():
-            missing.append("matric")
 
-    return list(dict.fromkeys(missing))
+def build_google_user_from_form(form, email: str, fallback_name: str) -> User:
+    role = form.get("role", "student").strip()
 
-def tutor_missing_requirements_from_user(user):
-    missing = []
-    if not user.qualification:
-        missing.append("highest qualification")
-    if not user.main_subject:
-        missing.append("main subject")
-    if not user.class_levels:
-        missing.append("teaching level")
-    if not user.experience_years:
-        missing.append("experience")
-    if not user.bio:
-        missing.append("bio")
-    if not user.demo_video_url:
-        missing.append("demo video")
-    if not user.degree_title:
-        missing.append("highest qualification title")
-    if not user.degree_institution:
-        missing.append("highest qualification institution")
-    if not user.degree_year:
-        missing.append("highest qualification year")
-    if not user.degree_grade:
-        missing.append("highest qualification grade")
-    if not getattr(user, "mobile_number", ""):
-        missing.append("mobile number")
-    if not getattr(user, "cnic_number", ""):
-        missing.append("CNIC number")
-
-    highest = (user.qualification or "").strip().lower()
-    next_choice = (getattr(user, "previous_path_choice", "") or "").strip().lower()
-
-    def require_if_visible(title, institution, year, grade, label):
-        if not title:
-            missing.append(f"{label} title")
-        if not institution:
-            missing.append(f"{label} institution")
-        if not year:
-            missing.append(f"{label} year")
-        if not grade:
-            missing.append(f"{label} grade")
-
-    if highest == "phd" and next_choice == "mphil":
-        require_if_visible(getattr(user, "mphil_title", ""), getattr(user, "mphil_institution", ""), getattr(user, "mphil_year", ""), getattr(user, "mphil_grade", ""), "MPhil")
-        require_if_visible(getattr(user, "masters_title", ""), getattr(user, "masters_institution", ""), getattr(user, "masters_year", ""), getattr(user, "masters_grade", ""), "Master's")
-        require_if_visible(getattr(user, "bachelor_title", ""), getattr(user, "bachelor_institution", ""), getattr(user, "bachelor_year", ""), getattr(user, "bachelor_grade", ""), "Bachelor's")
-    elif highest == "phd" and next_choice == "masters":
-        require_if_visible(getattr(user, "masters_title", ""), getattr(user, "masters_institution", ""), getattr(user, "masters_year", ""), getattr(user, "masters_grade", ""), "Master's")
-        require_if_visible(getattr(user, "bachelor_title", ""), getattr(user, "bachelor_institution", ""), getattr(user, "bachelor_year", ""), getattr(user, "bachelor_grade", ""), "Bachelor's")
-    elif highest == "mphil":
-        require_if_visible(getattr(user, "masters_title", ""), getattr(user, "masters_institution", ""), getattr(user, "masters_year", ""), getattr(user, "masters_grade", ""), "Master's")
-        require_if_visible(getattr(user, "bachelor_title", ""), getattr(user, "bachelor_institution", ""), getattr(user, "bachelor_year", ""), getattr(user, "bachelor_grade", ""), "Bachelor's")
-    elif highest == "masters":
-        require_if_visible(getattr(user, "bachelor_title", ""), getattr(user, "bachelor_institution", ""), getattr(user, "bachelor_year", ""), getattr(user, "bachelor_grade", ""), "Bachelor's")
-
-    if highest in {"phd", "mphil", "masters", "bachelors", "intermediate", "other"} and not user.inter_program:
-        missing.append("intermediate")
-    if highest in {"phd", "mphil", "masters", "bachelors", "intermediate", "other"} and not user.matric_program:
-        missing.append("matric")
-
-    return list(dict.fromkeys(missing))
-
-def validate_tutor_application_form(form):
-    missing = tutor_missing_requirements_from_form(form)
-    if form.get("demo_length_confirmed", "").strip() != "yes":
-        missing.append("demo length confirmation")
-    if form.get("accept_privacy", "").strip() != "yes":
-        missing.append("privacy acceptance")
-    qualification = pick_with_other(form, "qualification")
-    levels = normalize_levels(form)
-    allowed = qualification_allowed_levels(qualification)
-    if levels and any(level not in allowed for level in levels):
-        return "Selected teaching level is above the tutor's qualification allowance."
-    if len(normalize_subjects(form, "tutor")) > 5:
-        return "Please select up to 5 subjects total."
-    if missing:
-        return "Please complete: " + ", ".join(list(dict.fromkeys(missing))) + "."
-    return None
-
-def validate_option_a_student_form(form):
-    missing = []
-    for field, label in [
-        ("full_name", "full name"),
-        ("public_name", "display name"),
-        ("email", "email"),
-        ("password", "password"),
-        ("student_level", "level"),
-    ]:
-        if not form.get(field, "").strip():
-            missing.append(label)
-    if not normalize_subjects(form, "student"):
-        missing.append("subjects you want to study")
-    if form.get("accept_privacy", "").strip() != "yes":
-        missing.append("privacy acceptance")
-    if missing:
-        return "Please complete: " + ", ".join(missing) + "."
-    return None
-
-def get_stage_badge(stage: str):
-    stage = (stage or "quick_profile").strip().lower()
-    mapping = {
-        "quick_profile": ("Quick profile", "Fill teaching and education details to continue."),
-        "basic_complete": ("Quick profile complete", "You can now finish verification and submit for review."),
-        "verification_incomplete": ("Complete verification", "Add the missing verification details below."),
-        "under_review": ("Under review", "Your application is with admin review."),
-        "fee_pending": ("Fee pending", "You were selected. Registration fee is pending."),
-        "approved": ("Approved", "Your tutor profile is live."),
-        "rejected": ("Rejected", "Your application was not approved at this time."),
-    }
-    return mapping.get(stage, (stage.replace("_", " ").title(), ""))
-
-def compute_tutor_profile_stage(user):
-    if user.role != "tutor":
-        return user.profile_stage or "basic_complete"
-    if user.is_verified_tutor or (user.profile_stage == "approved"):
-        return "approved"
-    if user.profile_stage in {"under_review", "fee_pending", "rejected"}:
-        return user.profile_stage
-    if tutor_missing_requirements_from_user(user):
-        return "verification_incomplete"
-    return "basic_complete"
-
-def sync_tutor_stage(user):
-    if user.role == "tutor":
-        user.profile_stage = compute_tutor_profile_stage(user)
-    return user.profile_stage
-
-def build_user_from_option_a_form(form, files, google_email=None, google_name=None):
-    role = form.get("role", "").strip().lower()
-    email = (google_email or form.get("email", "")).strip().lower()
-    full_name = form.get("full_name", google_name or "").strip() or (google_name or "")
-    public_name = form.get("public_name", full_name).strip() or full_name
     gender = pick_with_other(form, "gender")
     city = pick_with_other(form, "city")
-    password_value = form.get("password") or uuid4().hex
+
+    qualification = ""
+    subjects = ""
+    class_levels = ""
+    experience_years = 0
+    bio = ""
+    modest_profile = bool(form.get("modest_profile"))
+    audio_only = bool(form.get("audio_only"))
+    main_subject = ""
+    additional_subjects = ""
+    student_level = ""
+    student_subject_needed = ""
+    preferred_tutor_gender = ""
+    learning_mode = ""
+    teaching_mode = ""
+    hourly_rate = 0
+    demo_video_url = form.get("demo_video_url", "").strip()
+
+    degree_title = ""
+    degree_major = ""
+    degree_institution = ""
+    degree_year = ""
+    degree_grade = ""
+    previous_path_choice = ""
+
+    mphil_title = ""
+    mphil_major = ""
+    mphil_institution = ""
+    mphil_year = ""
+    mphil_grade = ""
+    mphil_additional_note = ""
+
+    masters_title = ""
+    masters_major = ""
+    masters_institution = ""
+    masters_year = ""
+    masters_grade = ""
+    masters_additional_note = ""
+
+    bachelor_title = ""
+    bachelor_major = ""
+    bachelor_institution = ""
+    bachelor_year = ""
+    bachelor_grade = ""
+    bachelor_additional_note = ""
+
+    inter_program = ""
+    inter_institution = ""
+    inter_grade = ""
+    inter_year = ""
+
+    matric_program = ""
+    matric_institution = ""
+    matric_grade = ""
+    matric_year = ""
+
+    additional_qualification_level = ""
+    additional_qualification_title = ""
+    additional_qualification_major = ""
+    additional_qualification_institution = ""
+    additional_qualification_year = ""
+    additional_qualification_grade = ""
+
+    full_name = form.get("full_name", fallback_name).strip() or fallback_name
+    public_name = form.get("public_name", full_name).strip() or full_name
 
     if role == "student":
         student_level = pick_with_other(form, "student_level")
-        student_subjects = normalize_subjects(form, "student")
-        user = User(
-            email=email,
-            role="student",
-            full_name=full_name,
-            public_name=public_name,
-            gender=gender,
-            city=city,
-            student_level=student_level,
-            student_subject_needed=", ".join(student_subjects),
-            preferred_tutor_gender=form.get("preferred_tutor_gender", "").strip(),
-            learning_mode="online",
-            teaching_mode="online",
-            bio="Student account",
-            subjects=", ".join(student_subjects),
-            class_levels=student_level,
-        )
-    else:
-        tutor_subjects = normalize_subjects(form, "tutor")
-        levels = normalize_levels(form)
-        user = User(
-            email=email,
-            role="tutor",
-            full_name=full_name,
-            public_name=public_name,
-            qualification=pick_with_other(form, "qualification"),
-            subjects=", ".join(tutor_subjects),
-            class_levels=", ".join(levels),
-            experience_years=int(form.get("experience_years") or 0),
-            bio=form.get("bio", "").strip(),
-            modest_profile=bool(form.get("modest_profile")),
-            audio_only=bool(form.get("audio_only")),
-            gender=gender,
-            city=city,
-            main_subject=", ".join(tutor_subjects[:3]),
-            additional_subjects=", ".join(tutor_subjects[3:]),
-            learning_mode="online",
-            teaching_mode="online",
-            hourly_rate=int(form.get("hourly_rate") or 0),
-            demo_video_url=form.get("demo_video_url", "").strip(),
-            degree_title=form.get("degree_title", ""),
-            degree_major=form.get("degree_major", ""),
-            degree_institution=form.get("degree_institution", ""),
-            degree_year=form.get("degree_year", ""),
-            degree_grade=form.get("degree_grade", ""),
-            previous_path_choice=form.get("previous_path_choice", ""),
-            mphil_title=form.get("mphil_title", ""),
-            mphil_major=form.get("mphil_major", ""),
-            mphil_institution=form.get("mphil_institution", ""),
-            mphil_year=form.get("mphil_year", ""),
-            mphil_grade=form.get("mphil_grade", ""),
-            mphil_additional_note=form.get("mphil_additional_note", ""),
-            masters_title=form.get("masters_title", ""),
-            masters_major=form.get("masters_major", ""),
-            masters_institution=form.get("masters_institution", ""),
-            masters_year=form.get("masters_year", ""),
-            masters_grade=form.get("masters_grade", ""),
-            masters_additional_note=form.get("masters_additional_note", ""),
-            bachelor_title=form.get("bachelor_title", ""),
-            bachelor_major=form.get("bachelor_major", ""),
-            bachelor_institution=form.get("bachelor_institution", ""),
-            bachelor_year=form.get("bachelor_year", ""),
-            bachelor_grade=form.get("bachelor_grade", ""),
-            bachelor_additional_note=form.get("bachelor_additional_note", ""),
-            inter_program=form.get("inter_program", ""),
-            inter_institution=form.get("inter_institution", ""),
-            inter_grade=form.get("inter_grade", ""),
-            inter_year=form.get("inter_year", ""),
-            matric_program=form.get("matric_program", ""),
-            matric_institution=form.get("matric_institution", ""),
-            matric_grade=form.get("matric_grade", ""),
-            matric_year=form.get("matric_year", ""),
-            mobile_number=form.get("mobile_number", "").strip(),
-            cnic_number=form.get("cnic_number", "").strip(),
-        )
+        student_subject_needed = pick_with_other(form, "student_subject_needed")
+        preferred_tutor_gender = form.get("preferred_tutor_gender", "").strip()
+        learning_mode = "online"
+        subjects = student_subject_needed
+        class_levels = student_level
+        bio = "Signed up via Google"
+    elif role == "tutor":
+        qualification = pick_with_other(form, "qualification")
+
+        ms1 = pick_with_other(form, "main_subject")
+        ms2 = pick_with_other(form, "main_subject_2")
+        ms3 = pick_with_other(form, "main_subject_3")
+        main_subject_list = [s for s in [ms1, ms2, ms3] if s]
+        main_subject = ", ".join(main_subject_list)
+
+        as1 = pick_with_other(form, "additional_subject_1")
+        as2 = pick_with_other(form, "additional_subject_2")
+        additional_subject_list = [s for s in [as1, as2] if s]
+        additional_subjects = ", ".join(additional_subject_list)
+        subjects = ", ".join(main_subject_list + additional_subject_list)
+
+        class_levels = pick_with_other(form, "class_levels")
+        experience_years = int(form.get("experience_years") or 0)
+        teaching_mode = "online"
+        hourly_rate = int(form.get("hourly_rate") or 0)
+        bio = form.get("bio", "").strip() or "Signed up via Google"
+
+        degree_title = form.get("degree_title", "").strip()
+        degree_major = form.get("degree_major", "").strip()
+        degree_institution = form.get("degree_institution", "").strip()
+        degree_year = form.get("degree_year", "").strip()
+        degree_grade = form.get("degree_grade", "").strip()
+        previous_path_choice = form.get("previous_path_choice", "").strip()
+
+        mphil_title = form.get("mphil_title", "").strip()
+        mphil_major = form.get("mphil_major", "").strip()
+        mphil_institution = form.get("mphil_institution", "").strip()
+        mphil_year = form.get("mphil_year", "").strip()
+        mphil_grade = form.get("mphil_grade", "").strip()
+        mphil_additional_note = form.get("mphil_additional_note", "").strip()
+
+        masters_title = form.get("masters_title", "").strip()
+        masters_major = form.get("masters_major", "").strip()
+        masters_institution = form.get("masters_institution", "").strip()
+        masters_year = form.get("masters_year", "").strip()
+        masters_grade = form.get("masters_grade", "").strip()
+        masters_additional_note = form.get("masters_additional_note", "").strip()
+
+        bachelor_title = form.get("bachelor_title", "").strip()
+        bachelor_major = form.get("bachelor_major", "").strip()
+        bachelor_institution = form.get("bachelor_institution", "").strip()
+        bachelor_year = form.get("bachelor_year", "").strip()
+        bachelor_grade = form.get("bachelor_grade", "").strip()
+        bachelor_additional_note = form.get("bachelor_additional_note", "").strip()
+
+        inter_program = form.get("inter_program", "").strip()
+        inter_institution = form.get("inter_institution", "").strip()
+        inter_grade = form.get("inter_grade", "").strip()
+        inter_year = form.get("inter_year", "").strip()
+
+        matric_program = form.get("matric_program", "").strip()
+        matric_institution = form.get("matric_institution", "").strip()
+        matric_grade = form.get("matric_grade", "").strip()
+        matric_year = form.get("matric_year", "").strip()
+
+        additional_qualification_level = form.get("additional_qualification_level", "").strip()
+        additional_qualification_title = form.get("additional_qualification_title", "").strip()
+        additional_qualification_major = form.get("additional_qualification_major", "").strip()
+        additional_qualification_institution = form.get("additional_qualification_institution", "").strip()
+        additional_qualification_year = form.get("additional_qualification_year", "").strip()
+        additional_qualification_grade = form.get("additional_qualification_grade", "").strip()
+
+    user = User(
+        email=email,
+        role=role,
+        full_name=full_name,
+        public_name=public_name,
+        qualification=qualification,
+        subjects=subjects,
+        class_levels=class_levels,
+        experience_years=experience_years,
+        bio=bio,
+        modest_profile=modest_profile,
+        audio_only=audio_only,
+        gender=gender,
+        city=city,
+        main_subject=main_subject,
+        additional_subjects=additional_subjects,
+        student_level=student_level,
+        student_subject_needed=student_subject_needed,
+        preferred_tutor_gender=preferred_tutor_gender,
+        learning_mode=learning_mode,
+        teaching_mode=teaching_mode,
+        hourly_rate=hourly_rate,
+        demo_video_url=demo_video_url,
+        degree_title=degree_title,
+        degree_major=degree_major,
+        degree_institution=degree_institution,
+        degree_year=degree_year,
+        degree_grade=degree_grade,
+        previous_path_choice=previous_path_choice,
+        mphil_title=mphil_title,
+        mphil_major=mphil_major,
+        mphil_institution=mphil_institution,
+        mphil_year=mphil_year,
+        mphil_grade=mphil_grade,
+        mphil_additional_note=mphil_additional_note,
+        masters_title=masters_title,
+        masters_major=masters_major,
+        masters_institution=masters_institution,
+        masters_year=masters_year,
+        masters_grade=masters_grade,
+        masters_additional_note=masters_additional_note,
+        bachelor_title=bachelor_title,
+        bachelor_major=bachelor_major,
+        bachelor_institution=bachelor_institution,
+        bachelor_year=bachelor_year,
+        bachelor_grade=bachelor_grade,
+        bachelor_additional_note=bachelor_additional_note,
+        inter_program=inter_program,
+        inter_institution=inter_institution,
+        inter_grade=inter_grade,
+        inter_year=inter_year,
+        matric_program=matric_program,
+        matric_institution=matric_institution,
+        matric_grade=matric_grade,
+        matric_year=matric_year,
+        additional_qualification_level=additional_qualification_level,
+        additional_qualification_title=additional_qualification_title,
+        additional_qualification_major=additional_qualification_major,
+        additional_qualification_institution=additional_qualification_institution,
+        additional_qualification_year=additional_qualification_year,
+        additional_qualification_grade=additional_qualification_grade,
+    )
+
+    user.tutor_category = classify_teacher(user.subjects, user.class_levels)
+    user.set_password(uuid4().hex)
+
+    if role == "tutor":
         user.is_verified_tutor = False
-        user.profile_stage = "verification_incomplete" if tutor_missing_requirements_from_user(user) else "basic_complete"
-        user.is_public_tutor = False
+        sync_tutor_stage(user)
+    else:
+        user.profile_stage = "basic_complete"
+    user.is_public_tutor = False
 
-    user.tutor_category = classify_teacher(user.subjects or "", user.class_levels or "")
-    user.set_password(password_value)
-
-    image_file = files.get("profile_image_file")
+    image_file = request.files.get("profile_image_file")
     if image_file and image_file.filename:
         filename = f"{uuid4().hex}_{secure_filename(image_file.filename)}"
         image_file.save(Path(app.config["UPLOAD_FOLDER"]) / filename)
         user.profile_image = filename
 
-    degree_file = files.get("degree_file")
+    degree_file = request.files.get("degree_file")
     if degree_file and degree_file.filename:
         degree_filename = f"degree_{uuid4().hex}_{secure_filename(degree_file.filename)}"
         degree_file.save(Path(app.config["UPLOAD_FOLDER"]) / degree_filename)
         user.degree_file = degree_filename
 
-    extra_file = files.get("additional_qualification_file")
-    if extra_file and extra_file.filename and hasattr(user, "additional_qualification_file"):
-        extra_filename = f"extra_{uuid4().hex}_{secure_filename(extra_file.filename)}"
-        extra_file.save(Path(app.config["UPLOAD_FOLDER"]) / extra_filename)
-        user.additional_qualification_file = extra_filename
+    additional_file = request.files.get("additional_qualification_file")
+    if additional_file and additional_file.filename:
+        add_filename = f"additional_{uuid4().hex}_{secure_filename(additional_file.filename)}"
+        additional_file.save(Path(app.config["UPLOAD_FOLDER"]) / add_filename)
+        user.additional_qualification_file = add_filename
 
     return user
-
-def dashboard_notifications_for(user):
-    notes = []
-    if user.role == "student":
-        for notice in PaymentNotice.query.filter_by(student_id=user.id, status="pending").order_by(PaymentNotice.created_at.desc()).limit(5).all():
-            notes.append(f"Your credit purchase notice for PKR {notice.amount_sent_pkr} is under review.")
-    if user.role == "tutor":
-        if user.profile_stage == "fee_pending":
-            notes.append("You have a pending activation fee action. Please follow the dashboard instructions.")
-        elif user.profile_stage == "under_review":
-            notes.append("Your tutor profile is under admin review.")
-        elif user.profile_stage == "rejected":
-            notes.append("Your tutor profile was not approved yet. Please review the admin note.")
-    return notes
-
-def ensure_user_columns():
-    engine = db.engine
-    if engine.url.get_backend_name() != "sqlite":
-        return
-    wanted = {
-        "previous_path_choice": "VARCHAR(50) DEFAULT ''",
-        "mphil_title": "VARCHAR(255) DEFAULT ''",
-        "mphil_major": "VARCHAR(255) DEFAULT ''",
-        "mphil_institution": "VARCHAR(255) DEFAULT ''",
-        "mphil_year": "VARCHAR(50) DEFAULT ''",
-        "mphil_grade": "VARCHAR(50) DEFAULT ''",
-        "mphil_additional_note": "VARCHAR(255) DEFAULT ''",
-        "masters_title": "VARCHAR(255) DEFAULT ''",
-        "masters_major": "VARCHAR(255) DEFAULT ''",
-        "masters_institution": "VARCHAR(255) DEFAULT ''",
-        "masters_year": "VARCHAR(50) DEFAULT ''",
-        "masters_grade": "VARCHAR(50) DEFAULT ''",
-        "masters_additional_note": "VARCHAR(255) DEFAULT ''",
-        "bachelor_major": "VARCHAR(255) DEFAULT ''",
-        "bachelor_additional_note": "VARCHAR(255) DEFAULT ''",
-        "mobile_number": "VARCHAR(40) DEFAULT ''",
-        "cnic_number": "VARCHAR(40) DEFAULT ''",
-        "additional_qualification_level": "VARCHAR(80) DEFAULT ''",
-        "additional_qualification_title": "VARCHAR(255) DEFAULT ''",
-        "additional_qualification_major": "VARCHAR(255) DEFAULT ''",
-        "additional_qualification_institution": "VARCHAR(255) DEFAULT ''",
-        "additional_qualification_year": "VARCHAR(50) DEFAULT ''",
-        "additional_qualification_grade": "VARCHAR(50) DEFAULT ''",
-        "additional_qualification_file": "VARCHAR(255) DEFAULT ''",
-        "admin_review_note": "TEXT DEFAULT ''",
-    }
-    with engine.begin() as conn:
-        existing = {row[1] for row in conn.execute(text("PRAGMA table_info(user)"))}
-        for name, ddl in wanted.items():
-            if name not in existing:
-                conn.execute(text(f"ALTER TABLE user ADD COLUMN {name} {ddl}"))
-
-def ensure_default_admin():
-    email = os.getenv("DEFAULT_ADMIN_EMAIL", "admin@tutorsonline.pk").strip().lower()
-    password = os.getenv("DEFAULT_ADMIN_PASSWORD", "Admin@12345")
-    name = os.getenv("DEFAULT_ADMIN_NAME", "Super Admin").strip()
-    admin = User.query.filter_by(email=email).first()
-    if admin:
-        admin.role = "admin"
-        admin.full_name = admin.full_name or name
-        admin.public_name = admin.public_name or name
-        admin.is_active_user = True
-        admin.set_password(password)
-    else:
-        admin = User(
-            email=email,
-            role="admin",
-            full_name=name,
-            public_name=name,
-            bio="System admin",
-            is_active_user=True,
-        )
-        admin.set_password(password)
-        db.session.add(admin)
-    db.session.commit()
 
 @app.route("/")
 def index():
@@ -1262,74 +1369,276 @@ def select_tutor(tutor_id):
         level_options=LEVEL_OPTIONS
     )
 
-@app.route("/register")
+@app.route("/register", methods=["GET", "POST"])
 def register():
-    return render_template("register_choice.html")
-
-@app.route("/register/student", methods=["GET", "POST"])
-def register_student():
-    form_data = request.form.to_dict(flat=True) if request.method == "POST" else {}
-    selected_student_subjects = request.form.getlist("student_subject_needed") if request.method == "POST" else []
     if request.method == "POST":
         email = request.form["email"].strip().lower()
         if User.query.filter_by(email=email).first():
             flash("Email already registered.", "danger")
-        else:
-            error = validate_option_a_student_form(request.form)
-            if error:
-                flash(error, "danger")
-            else:
-                user = build_user_from_option_a_form(request.form, request.files)
-                db.session.add(user)
-                db.session.commit()
-                send_signup_emails(user)
-                flash("Registration completed successfully. Please log in.", "success")
-                return redirect(url_for("login"))
-    return render_template(
-        "register_student.html",
-        form_data=form_data,
-        selected_student_subjects=selected_student_subjects,
-        subject_options=SUBJECT_OPTIONS,
-        level_options=LEVEL_OPTIONS,
-    )
+            return render_template(
+                "register.html",
+                prefill_data=request.form.to_dict(),
+                prefill_role=request.form.get("role", "student"),
+                prefill_step=1,
+            )
 
-@app.route("/register/tutor", methods=["GET", "POST"])
-def register_tutor():
-    form_data = request.form.to_dict(flat=True) if request.method == "POST" else {}
-    selected_tutor_subjects = request.form.getlist("main_subject") if request.method == "POST" else []
-    selected_tutor_levels = request.form.getlist("class_levels") if request.method == "POST" else []
-    form_data.setdefault("active_step", request.args.get("step", "1"))
-    if request.method == "POST":
-        email = request.form["email"].strip().lower()
-        if User.query.filter_by(email=email).first():
-            flash("Email already registered.", "danger")
+        role = request.form["role"]
+        if role == "tutor":
+            tutor_error = validate_tutor_application_form(request.form)
+            if tutor_error:
+                flash(tutor_error, "danger")
+                return render_template(
+                    "register.html",
+                    prefill_data=request.form.to_dict(),
+                    prefill_role="tutor",
+                    prefill_step=3,
+                )
+
+        gender = pick_with_other(request.form, "gender")
+        city = pick_with_other(request.form, "city")
+
+        degree_title = ""
+        degree_major = ""
+        degree_institution = ""
+        degree_year = ""
+        degree_grade = ""
+        previous_path_choice = ""
+
+        mphil_title = ""
+        mphil_major = ""
+        mphil_institution = ""
+        mphil_year = ""
+        mphil_grade = ""
+        mphil_additional_note = ""
+
+        masters_title = ""
+        masters_major = ""
+        masters_institution = ""
+        masters_year = ""
+        masters_grade = ""
+        masters_additional_note = ""
+
+        bachelor_title = ""
+        bachelor_major = ""
+        bachelor_institution = ""
+        bachelor_year = ""
+        bachelor_grade = ""
+        bachelor_additional_note = ""
+
+        inter_program = ""
+        inter_institution = ""
+        inter_grade = ""
+        inter_year = ""
+
+        matric_program = ""
+        matric_institution = ""
+        matric_grade = ""
+        matric_year = ""
+
+        additional_qualification_level = ""
+        additional_qualification_title = ""
+        additional_qualification_major = ""
+        additional_qualification_institution = ""
+        additional_qualification_year = ""
+        additional_qualification_grade = ""
+
+        qualification = ""
+        subjects = ""
+        class_levels = ""
+        experience_years = 0
+        bio = ""
+        modest_profile = bool(request.form.get("modest_profile"))
+        audio_only = bool(request.form.get("audio_only"))
+        main_subject = ""
+        additional_subjects = ""
+        student_level = ""
+        student_subject_needed = ""
+        preferred_tutor_gender = ""
+        learning_mode = ""
+        teaching_mode = ""
+        hourly_rate = 0
+        demo_video_url = request.form.get("demo_video_url", "").strip()
+
+        if role == "student":
+            student_level = pick_with_other(request.form, "student_level")
+            student_subject_needed = pick_with_other(request.form, "student_subject_needed")
+            preferred_tutor_gender = request.form.get("preferred_tutor_gender", "").strip()
+            learning_mode = request.form.get("learning_mode", "").strip()
+            subjects = student_subject_needed
+            class_levels = student_level
+            bio = "Student account"
+
+        elif role == "tutor":
+            qualification = pick_with_other(request.form, "qualification")
+            selected_subjects, main_subject, additional_subjects, subjects = build_tutor_subject_fields(request.form)
+            selected_levels, class_levels = build_tutor_level_field(request.form, qualification)
+
+            degree_title = request.form.get("degree_title", "").strip()
+            degree_major = request.form.get("degree_major", "").strip()
+            degree_institution = request.form.get("degree_institution", "").strip()
+            degree_year = request.form.get("degree_year", "").strip()
+            degree_grade = request.form.get("degree_grade", "").strip()
+            previous_path_choice = request.form.get("previous_path_choice", "").strip()
+
+            mphil_title = request.form.get("mphil_title", "").strip()
+            mphil_major = request.form.get("mphil_major", "").strip()
+            mphil_institution = request.form.get("mphil_institution", "").strip()
+            mphil_year = request.form.get("mphil_year", "").strip()
+            mphil_grade = request.form.get("mphil_grade", "").strip()
+            mphil_additional_note = request.form.get("mphil_additional_note", "").strip()
+
+            masters_title = request.form.get("masters_title", "").strip()
+            masters_major = request.form.get("masters_major", "").strip()
+            masters_institution = request.form.get("masters_institution", "").strip()
+            masters_year = request.form.get("masters_year", "").strip()
+            masters_grade = request.form.get("masters_grade", "").strip()
+            masters_additional_note = request.form.get("masters_additional_note", "").strip()
+
+            bachelor_title = request.form.get("bachelor_title", "").strip()
+            bachelor_major = request.form.get("bachelor_major", "").strip()
+            bachelor_institution = request.form.get("bachelor_institution", "").strip()
+            bachelor_year = request.form.get("bachelor_year", "").strip()
+            bachelor_grade = request.form.get("bachelor_grade", "").strip()
+            bachelor_additional_note = request.form.get("bachelor_additional_note", "").strip()
+
+            inter_program = request.form.get("inter_program", "").strip()
+            inter_institution = request.form.get("inter_institution", "").strip()
+            inter_grade = request.form.get("inter_grade", "").strip()
+            inter_year = request.form.get("inter_year", "").strip()
+
+            matric_program = request.form.get("matric_program", "").strip()
+            matric_institution = request.form.get("matric_institution", "").strip()
+            matric_grade = request.form.get("matric_grade", "").strip()
+            matric_year = request.form.get("matric_year", "").strip()
+
+            additional_qualification_level = request.form.get("additional_qualification_level", "").strip()
+            additional_qualification_title = request.form.get("additional_qualification_title", "").strip()
+            additional_qualification_major = request.form.get("additional_qualification_major", "").strip()
+            additional_qualification_institution = request.form.get("additional_qualification_institution", "").strip()
+            additional_qualification_year = request.form.get("additional_qualification_year", "").strip()
+            additional_qualification_grade = request.form.get("additional_qualification_grade", "").strip()
+
+            experience_years = int(request.form.get("experience_years") or 0)
+            teaching_mode = request.form.get("teaching_mode", "").strip()
+            hourly_rate = int(request.form.get("hourly_rate") or 0)
+            bio = request.form.get("bio", "").strip()
+
+        user = User(
+            email=email,
+            role=role,
+            full_name=request.form["full_name"].strip(),
+            public_name=request.form.get("public_name", request.form["full_name"]).strip(),
+            qualification=qualification,
+            subjects=subjects,
+            class_levels=class_levels,
+            experience_years=experience_years,
+            bio=bio,
+            modest_profile=modest_profile,
+            audio_only=audio_only,
+            gender=gender,
+            city=city,
+            main_subject=main_subject,
+            additional_subjects=additional_subjects,
+            student_level=student_level,
+            student_subject_needed=student_subject_needed,
+            preferred_tutor_gender=preferred_tutor_gender,
+            learning_mode=learning_mode,
+            teaching_mode=teaching_mode,
+            hourly_rate=hourly_rate,
+            demo_video_url=demo_video_url,
+            degree_title=degree_title,
+            degree_major=degree_major,
+            degree_institution=degree_institution,
+            degree_year=degree_year,
+            degree_grade=degree_grade,
+            previous_path_choice=previous_path_choice,
+            mphil_title=mphil_title,
+            mphil_major=mphil_major,
+            mphil_institution=mphil_institution,
+            mphil_year=mphil_year,
+            mphil_grade=mphil_grade,
+            mphil_additional_note=mphil_additional_note,
+            masters_title=masters_title,
+            masters_major=masters_major,
+            masters_institution=masters_institution,
+            masters_year=masters_year,
+            masters_grade=masters_grade,
+            masters_additional_note=masters_additional_note,
+            bachelor_title=bachelor_title,
+            bachelor_major=bachelor_major,
+            bachelor_institution=bachelor_institution,
+            bachelor_year=bachelor_year,
+            bachelor_grade=bachelor_grade,
+            bachelor_additional_note=bachelor_additional_note,
+            inter_program=inter_program,
+            inter_institution=inter_institution,
+            inter_grade=inter_grade,
+            inter_year=inter_year,
+            matric_program=matric_program,
+            matric_institution=matric_institution,
+            matric_grade=matric_grade,
+            matric_year=matric_year,
+            additional_qualification_level=additional_qualification_level,
+            additional_qualification_title=additional_qualification_title,
+            additional_qualification_major=additional_qualification_major,
+            additional_qualification_institution=additional_qualification_institution,
+            additional_qualification_year=additional_qualification_year,
+            additional_qualification_grade=additional_qualification_grade,
+        )
+
+        user.tutor_category = classify_teacher(user.subjects, user.class_levels)
+        user.set_password(request.form["password"])
+
+        image_file = request.files.get("profile_image_file")
+        if image_file and image_file.filename:
+            filename = f"{uuid4().hex}_{secure_filename(image_file.filename)}"
+            image_file.save(Path(app.config["UPLOAD_FOLDER"]) / filename)
+            user.profile_image = filename
+
+        degree_file = request.files.get("degree_file")
+        if degree_file and degree_file.filename:
+            degree_filename = f"degree_{uuid4().hex}_{secure_filename(degree_file.filename)}"
+            degree_file.save(Path(app.config["UPLOAD_FOLDER"]) / degree_filename)
+            user.degree_file = degree_filename
+
+        additional_file = request.files.get("additional_qualification_file")
+        if additional_file and additional_file.filename:
+            add_filename = f"additional_{uuid4().hex}_{secure_filename(additional_file.filename)}"
+            additional_file.save(Path(app.config["UPLOAD_FOLDER"]) / add_filename)
+            user.additional_qualification_file = add_filename
+
+        if role == "tutor":
+            user.is_verified_tutor = False
+            sync_tutor_stage(user)
         else:
-            error = validate_tutor_application_form(request.form)
-            if error:
-                flash(error, "danger")
-                form_data["active_step"] = request.form.get("active_step", "4")
-            else:
-                user = build_user_from_option_a_form(request.form, request.files)
-                db.session.add(user)
-                db.session.commit()
-                send_signup_emails(user)
-                flash("Tutor application submitted. If selected after review, you will be asked to pay PKR 500 to activate your profile.", "success")
-                return redirect(url_for("login"))
-    return render_template(
-        "register_tutor.html",
-        form_data=form_data,
-        selected_tutor_subjects=selected_tutor_subjects,
-        selected_tutor_levels=selected_tutor_levels,
-        subject_options=SUBJECT_OPTIONS,
-        level_options=LEVEL_OPTIONS,
-    )
+            user.profile_stage = "basic_complete"
+        user.is_public_tutor = False
+
+        db.session.add(user)
+        db.session.commit()
+
+        send_signup_emails(user)
+
+        if role == "tutor":
+            flash(
+                "Tutor application submitted free of cost. If selected after review, you will be asked to pay PKR 500 to activate your profile.",
+                "success",
+            )
+        else:
+            flash("Registration completed successfully. Please log in.", "success")
+        return redirect(url_for("login"))
+
+    return render_template("register.html", prefill_data={}, prefill_role="student", prefill_step=1)
+
+
 
 @app.route("/google-login")
 def google_login():
     if not app.config["GOOGLE_CLIENT_ID"]:
         flash("Google login not configured.", "danger")
         return redirect(url_for("login"))
-    redirect_uri = app.config["GOOGLE_REDIRECT_URI"] or url_for("google_callback", _external=True)
+
+    redirect_uri = app.config["GOOGLE_REDIRECT_URI"].strip() or url_for("google_callback", _external=True)
     return google.authorize_redirect(redirect_uri)
 
 @app.route("/login/google/callback")
@@ -1348,22 +1657,27 @@ def google_callback():
     if user:
         login_user(user)
         flash("Logged in with Google.", "success")
-        next_page = request.args.get("next")
         if user.role == "admin":
             return redirect(url_for("admin_dashboard"))
-        return redirect(next_page or url_for("dashboard"))
+        return redirect(url_for("dashboard"))
 
     session["google_signup"] = {"email": email, "name": name}
     return redirect(url_for("complete_google_signup"))
 
-@app.route("/complete-google-signup")
+
+@app.route("/complete-google-signup", methods=["GET", "POST"])
 def complete_google_signup():
     google_signup = session.get("google_signup")
+    
+ 
     if not google_signup:
         flash("Your Google signup session expired. Please try again.", "warning")
         return redirect(url_for("login"))
 
-    existing_user = User.query.filter_by(email=google_signup["email"]).first()
+    email = google_signup["email"]
+    fallback_name = google_signup["name"]
+
+    existing_user = User.query.filter_by(email=email).first()
     if existing_user:
         login_user(existing_user)
         flash("Account already exists. Logged in successfully.", "success")
@@ -1371,86 +1685,48 @@ def complete_google_signup():
             return redirect(url_for("admin_dashboard"))
         return redirect(url_for("dashboard"))
 
-    return render_template("register_choice.html", google_signup=True)
-
-@app.route("/complete-google-signup/student", methods=["GET", "POST"])
-def complete_google_signup_student():
-    google_signup = session.get("google_signup")
-    if not google_signup:
-        flash("Your Google signup session expired. Please try again.", "warning")
-        return redirect(url_for("login"))
-
-    form_data = request.form.to_dict(flat=True) if request.method == "POST" else {}
-    selected_student_subjects = request.form.getlist("student_subject_needed") if request.method == "POST" else []
-    email = google_signup["email"]
-    fallback_name = google_signup["name"]
-
+    
     if request.method == "POST":
-        error = validate_option_a_student_form(request.form)
-        if error:
-            flash(error, "danger")
-        else:
-            user = build_user_from_option_a_form(request.form, request.files, google_email=email, google_name=fallback_name)
-            db.session.add(user)
-            db.session.commit()
-            send_signup_emails(user)
-            session.pop("google_signup", None)
-            login_user(user)
-            flash("Google signup completed successfully.", "success")
-            return redirect(url_for("dashboard"))
+        role = request.form.get("role", "student").strip().lower()
 
-    return render_template(
-        "google_complete_student.html",
-        form_data=form_data,
-        selected_student_subjects=selected_student_subjects,
-        subject_options=SUBJECT_OPTIONS,
-        level_options=LEVEL_OPTIONS,
-        google_email=email,
-        google_name=fallback_name,
-    )
+        if role == "tutor":
+            tutor_error = validate_tutor_application_form(request.form)
+            if tutor_error:
+                flash(tutor_error, "danger")
+                return render_template(
+                    "google_complete_profile.html",
+                    google_email=email,
+                    google_name=fallback_name,
+                    prefill_data=request.form.to_dict(),
+                    prefill_role="tutor",
+                    prefill_step=3,
+                )
 
-@app.route("/complete-google-signup/tutor", methods=["GET", "POST"])
-def complete_google_signup_tutor():
-    google_signup = session.get("google_signup")
-    if not google_signup:
-        flash("Your Google signup session expired. Please try again.", "warning")
-        return redirect(url_for("login"))
+        user = build_google_user_from_form(request.form, email=email, fallback_name=fallback_name)
+        db.session.add(user)
+        db.session.commit()
 
-    form_data = request.form.to_dict(flat=True) if request.method == "POST" else {}
-    selected_tutor_subjects = request.form.getlist("main_subject") if request.method == "POST" else []
-    selected_tutor_levels = request.form.getlist("class_levels") if request.method == "POST" else []
-    form_data.setdefault("active_step", request.args.get("step", "1"))
-    email = google_signup["email"]
-    fallback_name = google_signup["name"]
+        send_signup_emails(user)
 
-    if request.method == "POST":
-        error = validate_tutor_application_form(request.form)
-        if error:
-            flash(error, "danger")
-            form_data["active_step"] = request.form.get("active_step", "4")
-        else:
-            user = build_user_from_option_a_form(request.form, request.files, google_email=email, google_name=fallback_name)
-            db.session.add(user)
-            db.session.commit()
-            send_signup_emails(user)
-            session.pop("google_signup", None)
-            login_user(user)
+        session.pop("google_signup", None)
+        login_user(user)
+        if user.role == "tutor":
             flash("Google signup completed. Tutor profile created and sent for review.", "success")
-            return redirect(url_for("dashboard"))
+        else:
+            flash("Google signup completed successfully.", "success")
+        return redirect(url_for("dashboard"))
 
     return render_template(
-        "google_complete_tutor.html",
-        form_data=form_data,
-        selected_tutor_subjects=selected_tutor_subjects,
-        selected_tutor_levels=selected_tutor_levels,
-        subject_options=SUBJECT_OPTIONS,
-        level_options=LEVEL_OPTIONS,
+        "google_complete_profile.html",
         google_email=email,
         google_name=fallback_name,
+        prefill_data={},
+        prefill_role="student",
+        prefill_step=1,
     )
+
 
 @app.route("/login", methods=["GET", "POST"])
-
 
 def login():
     if request.method == "POST":
@@ -1461,8 +1737,7 @@ def login():
             flash("Logged in successfully.", "success")
             if user.role == "admin":
                 return redirect(url_for("admin_dashboard"))
-            next_page = request.args.get("next")
-            return redirect(next_page or url_for("dashboard"))
+            return redirect(url_for("dashboard"))
         flash("Invalid credentials.", "danger")
         next_page = request.args.get("next")
         return redirect(next_page or url_for("dashboard"))
@@ -1493,30 +1768,27 @@ def dashboard():
     )
     pending_notices = []
     if current_user.role == "student":
-        pending_notices = (
-            PaymentNotice.query.filter_by(student_id=current_user.id, status="pending")
-            .order_by(PaymentNotice.created_at.desc())
-            .all()
-        )
+        pending_notices = PaymentNotice.query.filter_by(
+            student_id=current_user.id,
+            status="pending"
+        ).order_by(PaymentNotice.created_at.desc()).all()
 
     completion_data = None
     if current_user.role == "tutor":
         sync_tutor_stage(current_user)
+        db.session.commit()
         completion_data = get_tutor_completion_status(current_user)
-
-    notifications = dashboard_notifications_for(current_user)
 
     return render_template(
         "dashboard.html",
         bookings=bookings,
         pending_notices=pending_notices,
         completion_data=completion_data,
-        notifications=notifications,
-        tutor_fee_instructions="Deposit PKR 500 to the instructed account and wait for admin confirmation.",
+        stage_meta=get_stage_badge(current_user.profile_stage) if current_user.role == "tutor" else None,
     )
 
-@app.route("/tutors")
 
+@app.route("/tutors")
 def tutors():
     level = request.args.get("level", "").strip()
     subject = request.args.get("subject", "").strip()
@@ -1627,6 +1899,22 @@ def submit_tutor_for_review():
     if current_user.role != "tutor":
         return redirect(url_for("dashboard"))
 
+    sync_tutor_stage(current_user)
+    data = get_tutor_completion_status(current_user)
+
+    if data["completion"] < 100:
+        flash("Complete your profile before submission", "error")
+        db.session.commit()
+        return redirect(url_for("dashboard"))
+
+    current_user.profile_stage = "under_review"
+    current_user.verification_submitted_at = datetime.utcnow()
+
+    db.session.commit()
+
+    flash("Submitted for admin review", "success")
+    return redirect(url_for("dashboard"))
+
     data = get_tutor_completion_status(current_user)
 
     if data["completion"] < 100:
@@ -1703,9 +1991,9 @@ def book_tutor(tutor_id):
 def terms():
     return render_template("terms.html")
 
-@app.route("/privacy", endpoint="privacy")
-@app.route("/privacy-policy", endpoint="privacy_policy")
-def privacy_policy():
+
+@app.route("/privacy")
+def privacy():
     return render_template("privacy.html")
 
 
@@ -1725,32 +2013,19 @@ def buy_credits():
         flash("Only students can buy credits.", "danger")
         return redirect(url_for("dashboard"))
 
-    form_data = request.form.to_dict(flat=True) if request.method == "POST" else {}
-    credit_rate = app.config.get("CREDIT_RATE", 10)
-
     if request.method == "POST":
-        selected = request.form.get("credits_requested", "").strip()
-        if selected == "other":
-            credits = int(request.form.get("credits_requested_other") or 0)
-        else:
-            credits = int(selected or 0)
-
-        if credits < 10:
+        credits_requested = int(request.form.get("amount_sent_pkr", 0)) // app.config["CREDIT_RATE"]
+        if credits_requested < 10:
             flash("Minimum purchase is 10 credits.", "danger")
-            return render_template("buy_credits_v2.html", form_data=form_data, credit_rate=credit_rate)
-
-        if request.form.get("payment_confirmed", "").strip() != "yes":
-            flash("Please confirm the transfer before submitting.", "danger")
-            return render_template("buy_credits_v2.html", form_data=form_data, credit_rate=credit_rate)
-
-        amount = credits * credit_rate
+            return redirect(url_for("buy_credits"))
+        amount = int(request.form["amount_sent_pkr"])
+        credits = amount // app.config["CREDIT_RATE"]
         screenshot = request.files.get("screenshot")
-        if not screenshot or not screenshot.filename:
-            flash("Please attach transfer screenshot.", "danger")
-            return render_template("buy_credits_v2.html", form_data=form_data, credit_rate=credit_rate)
+        filename = ""
 
-        filename = f"payment_{uuid4().hex}_{secure_filename(screenshot.filename)}"
-        screenshot.save(Path(app.config["UPLOAD_FOLDER"]) / filename)
+        if screenshot and screenshot.filename:
+            filename = f"{uuid4().hex}_{secure_filename(screenshot.filename)}"
+            screenshot.save(Path(app.config["UPLOAD_FOLDER"]) / filename)
 
         notice = PaymentNotice(
             student_id=current_user.id,
@@ -1758,32 +2033,34 @@ def buy_credits():
             claimed_credits=credits,
             sender_name=request.form.get("sender_name", ""),
             sender_account=request.form.get("sender_account", ""),
-            transfer_method=request.form.get("transfer_method", "easypaisa"),
+            transfer_method=request.form.get("transfer_method", "bank"),
             screenshot_filename=filename,
             note=request.form.get("note", ""),
         )
         db.session.add(notice)
         db.session.commit()
 
-        safe_send_email(
-            "superadmin@tutorsonline.pk",
-            "TutorsOnline.pk Credit Purchase Notice",
-            f"""Student: {current_user.full_name} ({current_user.email})
-Requested credits: {credits}
-Amount: PKR {amount}
-Sender: {notice.sender_name}
-Account: {notice.sender_account}
-Method: {notice.transfer_method}
-Screenshot: {filename}""",
+        fallback = send_notification_email(
+            "TutorsOnline.pk Payment Notice",
+            f"Student: {current_user.full_name} ({current_user.email})\n"
+            f"Amount: PKR {amount}\n"
+            f"Claimed credits: {credits}\n"
+            f"Sender account: {notice.sender_account}\n"
+            f"Method: {notice.transfer_method}",
         )
+        if fallback:
+            flash(
+                "Notice saved. SMTP not configured; email logged to email_outbox.log",
+                "warning",
+            )
+        else:
+            flash("Payment notice submitted and admin notified.", "success")
+        return redirect(url_for("student_wallet"))
 
-        flash("Payment notice submitted successfully. Admin will review it shortly.", "success")
-        return redirect(url_for("dashboard"))
+    return render_template("buy_credits.html")
 
-    return render_template("buy_credits_v2.html", form_data=form_data, credit_rate=credit_rate)
 
 @app.route("/wallet")
-
 @login_required
 def student_wallet():
     if current_user.role == "student":
@@ -2074,29 +2351,31 @@ def admin_review_user(user_id):
     if action == "request_fee":
         if user.role == "tutor":
             user.is_verified_tutor = False
-            user.profile_stage = "fee_pending"
+            user.is_public_tutor = False
+        user.profile_stage = "fee_pending"
         flash("Tutor selected. Registration fee request email sent.", "success")
 
     elif action == "activate":
         if user.role == "tutor":
             user.is_verified_tutor = True
-            user.profile_stage = "approved"
             user.is_public_tutor = True
-            user.approved_at = datetime.utcnow()
+        user.profile_stage = "approved"
+        user.approved_at = datetime.utcnow()
         flash("Tutor activated successfully.", "success")
 
     elif action == "reject":
         if user.role == "tutor":
             user.is_verified_tutor = False
-            user.profile_stage = "rejected"
             user.is_public_tutor = False
-            user.rejected_at = datetime.utcnow()
+        user.profile_stage = "rejected"
+        user.rejected_at = datetime.utcnow()
         flash(f"User marked rejected.{f' Reason: {reason}' if reason else ''}", "warning")
 
     elif action == "pend":
         if user.role == "tutor":
             user.is_verified_tutor = False
-            user.profile_stage = "under_review"
+            user.is_public_tutor = False
+        user.profile_stage = "under_review"
         flash("User marked pending review.", "info")
 
     else:
@@ -2104,12 +2383,32 @@ def admin_review_user(user_id):
         return redirect(url_for("admin_user_detail", user_id=user.id))
 
     db.session.commit()
-    if user.role == "tutor":
-        send_tutor_review_email(user, action, reason)
+    send_tutor_review_email(user, action, reason)
+
+    return redirect(url_for("admin_user_detail", user_id=user.id))
+
+    if action == "request_fee":
+        user.profile_stage = "fee_pending"
+
+    elif action == "activate":
+        user.profile_stage = "approved"
+        user.is_verified_tutor = True
+        user.is_public_tutor = True
+        user.approved_at = datetime.utcnow()
+
+    elif action == "reject":
+        user.profile_stage = "rejected"
+        user.rejected_at = datetime.utcnow()
+
+    elif action == "pend":
+        user.profile_stage = "under_review"
+
+    db.session.commit()
+    send_tutor_review_email(user, action, reason)
+
     return redirect(url_for("admin_user_detail", user_id=user.id))
 
 @app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
-
 @login_required
 def admin_delete_user(user_id):
     if current_user.role != "admin":
@@ -2306,9 +2605,58 @@ def uploaded_file(filename):
 from rtc.routes_rtc import rtc_bp
 app.register_blueprint(rtc_bp, url_prefix="/rtc")
 
+def ensure_default_admin():
+    admin_email = os.getenv("DEFAULT_ADMIN_EMAIL", "admin@tutorsonline.pk").strip().lower()
+    admin_password = os.getenv("DEFAULT_ADMIN_PASSWORD", "Admin@12345").strip()
+    admin_name = os.getenv("DEFAULT_ADMIN_NAME", "TutorsOnline.pk Admin").strip()
+
+    if not admin_email or not admin_password:
+        return None
+
+    admin = User.query.filter_by(email=admin_email).first()
+    created = False
+    if not admin:
+        admin = User(
+            email=admin_email,
+            role="admin",
+            full_name=admin_name,
+            public_name=admin_name,
+            qualification="Platform Manager",
+            bio="Administrative control account for TutorsOnline.pk",
+            is_active_user=True,
+            is_public_tutor=False,
+            is_verified_tutor=False,
+            profile_stage="basic_complete",
+        )
+        created = True
+
+    admin.role = "admin"
+    admin.is_active_user = True
+    admin.is_public_tutor = False
+    admin.is_verified_tutor = False
+    admin.set_password(admin_password)
+
+    db.session.add(admin)
+    db.session.commit()
+    return created, admin_email
+
+
+@app.route("/seed-admin")
+def seed_admin():
+    db.create_all()
+    ensure_user_columns()
+    created, admin_email = ensure_default_admin()
+    if created:
+        flash(f"Admin account created: {admin_email}", "success")
+    else:
+        flash(f"Admin account refreshed: {admin_email}", "success")
+    return redirect(url_for("login"))
+
+
 @app.route("/seed")
 def seed():
     db.create_all()
+    ensure_user_columns()
 
     if User.query.count() > 0:
         flash("Database already seeded.", "info")
@@ -2441,13 +2789,6 @@ def seed():
     flash("Database seeded successfully.", "success")
     return redirect(url_for("index"))
 
-@app.route("/seed-admin")
-def seed_admin():
-    with app.app_context():
-        db.create_all()
-        ensure_user_columns()
-        ensure_default_admin()
-    return "Default admin ensured."
 
 if __name__ == "__main__":
     with app.app_context():

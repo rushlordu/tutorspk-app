@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% block content %}
+
+{% if current_user.role == 'student' and pending_notices %}
+<section class="card">
+  <h2>Pending Credit Top-Up</h2>
+  <p class="muted">Your payment notice is under review.</p>
+  <ul class="clean-list">
+    {% for notice in pending_notices %}
+      <li>Notice #{{ notice.id }} · PKR {{ notice.amount_sent_pkr }} · {{ notice.claimed_credits }} credits · {{ notice.status|title }}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if current_user.role == 'tutor' %}
+<section class="card">
+  <h2>Tutor Profile Status</h2>
+  <p><strong>Status:</strong> {{ current_user.profile_stage }}</p>
+
+  {% if current_user.profile_stage == 'fee_pending' %}
+    <div class="inline-note-card">
+      <strong>Pending action</strong>
+      <p>Your application has been selected in principle. Please deposit PKR 500 as activation fee and wait for admin confirmation.</p>
+      <p><strong>EasyPaisa / fee instructions:</strong> {{ tutor_fee_instructions or 'Please follow the email / admin instructions shared with you.' }}</p>
+      {% if current_user.admin_review_note %}
+      <p><strong>Admin note:</strong> {{ current_user.admin_review_note }}</p>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% if not current_user.is_verified_tutor %}
+    <div class="progress-box">
+      <div>Profile Completion: {{ completion_data.completion }}%</div>
+      <progress max="100" value="{{ completion_data.completion }}"></progress>
+    </div>
+    {% if completion_data.missing %}
+      <div style="margin-top:10px;">
+        <strong>Missing:</strong>
+        <ul>
+          {% for item in completion_data.missing %}
+            <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+    {% if completion_data.completion == 100 and current_user.profile_stage not in ['under_review','fee_pending','approved'] %}
+      <form method="post" action="{{ url_for('submit_tutor_for_review') }}">
+        <button class="btn btn-primary">Submit for Approval</button>
+      </form>
+    {% endif %}
+  {% else %}
+    <p class="success">✅ Your tutor profile is active</p>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="grid two">
+  <div class="card">
+    <h2>Welcome, {{ current_user.public_name }}</h2>
+    <p><strong>Role:</strong> {{ current_user.role|title }}</p>
+    <p><strong>Credits:</strong> {{ current_user.credits_balance }}</p>
+    {% if current_user.role == 'student' %}
+      <a class="btn" href="{{ url_for('buy_credits') }}">Buy credits</a>
+      <a class="btn btn-light" href="{{ url_for('tutors') }}">Find tutors</a>
+    {% endif %}
+    {% if current_user.role == 'tutor' %}
+      <p><strong>Pending payout:</strong> PKR {{ current_user.pending_payout_pkr }}</p>
+      <p><strong>Total earnings:</strong> PKR {{ current_user.total_earnings_pkr }}</p>
+      <p><strong>Bonus credits:</strong> {{ current_user.bonus_credits }}</p>
+    {% endif %}
+  </div>
+  <div class="card">
+    <h2>Notifications</h2>
+    <ul class="clean-list">
+      {% if notifications %}
+        {% for note in notifications %}
+        <li>{{ note }}</li>
+        {% endfor %}
+      {% else %}
+        <li>No new notifications.</li>
+      {% endif %}
+    </ul>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Recent bookings</h2>
+  <table class="table">
+    <tr><th>Subject</th><th>When</th><th>Status</th><th>Room</th></tr>
+    {% for booking in bookings %}
+    <tr>
+      <td>{{ booking.subject }}</td>
+      <td>{{ booking.scheduled_at.strftime('%Y-%m-%d %H:%M') if booking.scheduled_at else '-' }}</td>
+      <td>{{ booking.status }}</td>
+      <td><a href="{{ url_for('live_session', booking_id=booking.id) }}">Open session</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">No bookings yet.</td></tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}

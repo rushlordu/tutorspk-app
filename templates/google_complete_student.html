@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="auth-section">
+  <div class="auth-card" style="max-width:920px;">
+    <h1>Complete Google Signup — Student</h1>
+    <p class="auth-sub">Create your student account and add the subjects you want to study.</p>
+
+    <form method="post" enctype="multipart/form-data">
+      <input type="hidden" name="role" value="student">
+
+      <h3 class="section-title">Basic Information</h3>
+      <div class="form-grid two-col">
+        <div>
+          <label class="small-label">Full Name <span style="color:#cc2b2b;">* required</span></label>
+          <input name="full_name" value="{{ form_data.get('full_name', google_name) }}" required>
+        </div>
+        <div>
+          <label class="small-label">Display Name <span style="color:#cc2b2b;">* required</span></label>
+          <input name="public_name" value="{{ form_data.get('public_name', google_name) }}" required>
+        </div>
+        <div>
+          <label class="small-label">Email <span style="color:#cc2b2b;">* required</span></label>
+          <input type="email" name="email" value="{{ google_email }}" readonly>
+        </div>
+        <div>
+          <label class="small-label">Password <span style="color:#cc2b2b;">* required</span></label>
+          <input type="hidden" name="password" value="google_oauth_user">
+        </div>
+        <div>
+          <label class="small-label">Gender</label>
+          <select name="gender" id="gender" onchange="toggleOtherField('gender','gender_other_wrap')">
+            <option value="">Select gender</option>
+            {% for value,label in [('male','Male'),('female','Female'),('prefer_not_to_say','Prefer not to say'),('other','Other')] %}
+            <option value="{{ value }}" {% if form_data.get('gender') == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <div id="gender_other_wrap" style="display:{% if form_data.get('gender')=='other' %}block{% else %}none{% endif %}; margin-top:8px;">
+            <input name="gender_other" value="{{ form_data.get('gender_other','') }}" placeholder="Enter gender">
+          </div>
+        </div>
+        <div>
+          <label class="small-label">City</label>
+          <select name="city" id="city" onchange="toggleOtherField('city','city_other_wrap')">
+            <option value="">Select city</option>
+            {% for value,label in [('islamabad','Islamabad'),('rawalpindi','Rawalpindi'),('lahore','Lahore'),('karachi','Karachi'),('peshawar','Peshawar'),('quetta','Quetta'),('online_only','Online Only'),('other','Other')] %}
+            <option value="{{ value }}" {% if form_data.get('city') == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <div id="city_other_wrap" style="display:{% if form_data.get('city')=='other' %}block{% else %}none{% endif %}; margin-top:8px;">
+            <input name="city_other" value="{{ form_data.get('city_other','') }}" placeholder="Enter city">
+          </div>
+        </div>
+        <div>
+          <label class="small-label">Profile picture</label>
+          <input type="file" name="profile_image_file" accept="image/*">
+        </div>
+      </div>
+
+      <h3 class="section-title" style="margin-top:24px;">Study Preferences</h3>
+      <div class="form-grid two-col">
+        <div>
+          <label class="small-label">Current level <span style="color:#cc2b2b;">* required</span></label>
+          <select name="student_level" id="student_level" onchange="toggleOtherField('student_level','student_level_other_wrap')" required>
+            <option value="">Select level</option>
+            {% for value,label in level_options %}
+            <option value="{{ value }}" {% if form_data.get('student_level') == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <div id="student_level_other_wrap" style="display:{% if form_data.get('student_level')=='other' %}block{% else %}none{% endif %}; margin-top:8px;">
+            <input name="student_level_other" value="{{ form_data.get('student_level_other','') }}" placeholder="Enter level">
+          </div>
+        </div>
+
+        <div>
+          <label class="small-label">Preferred tutor gender</label>
+          <select name="preferred_tutor_gender">
+            <option value="">No preference</option>
+            <option value="female" {% if form_data.get('preferred_tutor_gender') == 'female' %}selected{% endif %}>Female</option>
+            <option value="male" {% if form_data.get('preferred_tutor_gender') == 'male' %}selected{% endif %}>Male</option>
+            <option value="no_preference" {% if form_data.get('preferred_tutor_gender') == 'no_preference' %}selected{% endif %}>No preference</option>
+          </select>
+        </div>
+
+        <div style="grid-column:1/-1;">
+          <label class="small-label">Subjects you want to study <span style="color:#cc2b2b;">* required</span></label>
+          <select name="student_subject_needed" multiple size="8" required>
+            {% for value,label in subject_options %}
+            <option value="{{ value }}" {% if value in selected_student_subjects %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <p class="muted">Hold Ctrl (or Cmd on Mac) to choose multiple subjects.</p>
+        </div>
+
+        {% for i in range(1,4) %}
+        <div>
+          <label class="small-label">Other subject {{ i }} (optional)</label>
+          <input name="student_other_subject_{{ i }}" value="{{ form_data.get('student_other_subject_' ~ i, '') }}" placeholder="Type another subject">
+        </div>
+        {% endfor %}
+
+        <div class="inline-note-card" style="grid-column:1/-1;">
+          <strong>Online learning</strong>
+          <p>All sessions are conducted online. You can update your subjects later from your account.</p>
+        </div>
+
+        <label style="grid-column:1/-1; display:flex; gap:10px; align-items:flex-start;">
+          <input type="checkbox" name="accept_privacy" value="yes" {% if form_data.get('accept_privacy') == 'yes' %}checked{% endif %} required>
+          <span>I agree to the <a href="{{ url_for('privacy_policy') }}" target="_blank">Privacy Policy</a> and platform terms. <span style="color:#cc2b2b;">* required</span></span>
+        </label>
+      </div>
+
+      <div class="step-actions" style="margin-top:22px;">
+        <a class="btn btn-light" href="{{ url_for('register') }}">← Back</a>
+        <button class="btn btn-primary" type="submit">Complete Student Signup</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<script>
+function toggleOtherField(selectId, wrapId) {
+  const el = document.getElementById(selectId);
+  const wrap = document.getElementById(wrapId);
+  if (!el || !wrap) return;
+  wrap.style.display = el.value === 'other' ? 'block' : 'none';
+}
+</script>
+{% endblock %}

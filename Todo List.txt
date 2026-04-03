@@ -1,0 +1,63 @@
+
+compare with all the website in the field list the negative and positive things 
+
+take interviews of the users 
+
+do not irritate the user but always re confirm before use of money ie credits or deposit withdrawal etc 
+
+connect student with donner, make it transparent, donner should know that his payment has gone where and to this student, the student does not take money rather doner is only charged for tuition fee, title can be make ur donations work 
+
+tutors to apply docus free, 500 rs enrolment charges, demo video mandatory, teaching experience, CNIC and qualification details mandatory, easy form 
+
+
+yearly plans, monthly payments
+clear prices mentioned subject wise which tutors will have to agree to it
+
+class room option cheaper 
+
+one to one 
+
+the students who miss the daily lecture, should get the link automatically mention that we are sorry you missed the lecture today here is the lecture link
+
+reviews should appear in the home pages
+
+point system for referals, if a student brings 10 friends and they buy atleast one package each, the student gets x number of hours free turtoring(website stays in profit) referral code system should be generated 
+
+tutors should get badges silver, platinum golden and should also get certificates based on reviews plus number of successful hours taught 
+
+while registering tutors, main subjs etc should be drop down menus with other options to maintain uniformity 
+and allow multiple subject selection in all drop down menus
+a teacher can select upto 5 subjects including main and secondary, (max 3 in main) 
+a student can select as many subject he wants to study multiple selection allowed 
+can we have option to record demo video and save on the platform for review, the video can be downloaded by the admin on local drive during review to conserve server space, how many video can a server save at minimal package 
+demo video URL is complicated for such users, and also there should be a separate set of instructions regarding lighting, use of training aids, camera angles, background noise, use to training aids for the tutors while they record demo videos
+include mobile number and CNIC number for tutors
+once selected and asked to deposit 500 rs via email (this part works), the tutor once logs into the portal, there is no notification for him that he has a pending action, plus method to pay is also not visible 
+
+once we search at the home page for tutors, for example English, the website takes us to find a tutor page irrespective of our choice, it should instead open the list of English tutors of the selected level as per the choice at the main page 
+
+while seeing available tutors, in tutor search etc, when u click on the tutor profile or picture, nothing happens, 
+
+when a student clicks buy credits, nothing happens, we need to develop buy credits mechanism, we should discuss how to do it, initially, it has to be manual, through easy paisa, there should be an easy paisa account mentioned on that page EasyPaisa Account: 03334431313, if a student wants to buy 100 credits, he has to pay 1000 rupees, accordingly the rates can be adjusted, he can select number of credits from drop down, or select other value below 10 credits should not be allowed. 
+
+when a student sees the tutors, there should be a button to select tutor, then it should take the student to a page where options for finalizing the session etc be available, this also needs to be discussed  
+
+
+uploading of degrees by tutor for website for authenticity
+on the index the feautired tutors should also be clickable, if a non members sees a tutor, he should also be given option to book the tutor, once clicked he should be taken to signup page and once signed in, he should be taken to the same tutors profile 
+on the featured tutors page, profile pictures of custom added tutors (not demo) do not appear 
+
+add quran as well 
+computer course 
+AI courses 
+content creation 
+Arabic language 
+
+make a privacy policy make people click on that while making an account, include all the related terms that can be applicable 
+
+
+on the main page, when user clicks explore tutor, it should direct the user to a page with list of all available tutors, where he can search for tutors basing upon subject, gender, experience and rate per hour etc
+
+agora needs to be setup so we can have live sessions 
+
+credit system needs to be setup, if user wants to buy credits, he should be taken to the payment pages instead of tutors page, and there should be an easypaisa account number visible to the user, for now set that account number : 030012345678, column to buy credits should be available, starting from 10 credits (minimum), once he selects for instance 100 credits, as we know 1 credit = 10 Rs, so the amount he has to transfer should appear ahead, and the message saying Please transfer Rs --- into the following account to purchase --- credits: then the easy paisa account should be mentioned, a caution should be shown below, please attach screen shot of your transferred money otherwise the credit purchase will now succeed or something like that. then a field to browse for the screen shot and attaching it should be available, below that the confirmation check box should be there, please confirm that you have transferred --- rs to the given account, and below should be confirm transfer button, once pressed it should again asked, do u confirm that u have transered the money etc. once done, system should email the details of the student along with the screen shot to superadmin@tutorsonline.pk, basically its an email from the superadmin to himself, we will figure that out later when we have more admins, each user should also have a notifications option when they sign in, if there is a pending session, acceptance of their profile, confirmation of session timings, all should appear in the notifications section, similarly for teh admin, once he logs in, nitifications about credit purchases, etc should appear. ok once the student has confirmed payment, the admin gets the email and also the notification when he signs into the platform, he can go to credits section or simply click on the nitification, from there he can confirm the transfer of credits to the user, the system should know already that the user opted for purchase of eg 100 credits, so the admin should not have the power to change that figure, but if the admin declines, he should mention the reason

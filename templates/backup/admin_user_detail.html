@@ -1,0 +1,226 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<section class="admin-review-shell">
+  <div class="admin-review-top">
+    <div>
+      <div class="admin-page-kicker">Admin Review</div>
+      <h1>User Review</h1>
+      <p class="muted">Review account details, tutor profile information, and take an action.</p>
+    </div>
+
+    <div class="admin-status-cluster">
+      <span class="admin-status-pill {{ 'is-active' if user.is_active_user else 'is-inactive' }}">
+        {{ 'Active User' if user.is_active_user else 'Suspended User' }}
+      </span>
+    
+      <div class="detail-row">
+      <span class="detail-label">Profile Stage</span>
+      <span class="detail-value">{{ user.profile_stage }}</span>
+      </div>
+
+      <span class="admin-status-pill {{ 'is-verified' if user.is_verified_tutor else 'is-pending' }}">
+        {% if user.role == 'tutor' %}
+          {{ 'Verified Tutor' if user.is_verified_tutor else 'Tutor Pending Review' }}
+        {% else %}
+          Student Account
+        {% endif %}
+      </span>
+    </div>
+  </div>
+
+  <div class="grid two admin-review-grid">
+    <section class="card admin-review-card">
+  <h2>Admin Review Action</h2>
+  <p class="muted">
+    Tutor application is submitted free of cost. If selected after review, request PKR 500 registration fee. Activate the tutor only after payment is received.
+  </p>
+
+  <form method="post" action="{{ url_for('admin_review_user', user_id=user.id) }}" class="form-grid admin-review-form">
+    <div>
+      <label class="small-label">Decision</label>
+      <select name="action" id="review_action" required>
+        <option value="">Select decision</option>
+        <option value="request_fee">Select &amp; Request PKR 500</option>
+        <option value="activate">Activate After Fee Received</option>
+        <option value="reject">Reject</option>
+        <option value="pend">Pend</option>
+      </select>
+    </div>
+
+    <div class="admin-review-note-wrap">
+      <label class="small-label" for="review_reason">Reason / note</label>
+      <textarea
+        id="review_reason"
+        name="reason"
+        placeholder="Add note for tutor, rejection reason, or fee instructions"
+      ></textarea>
+      <p class="admin-help-note">
+        This note is used in the outgoing review email, but it is not yet stored as permanent review history in the database.
+      </p>
+    </div>
+
+    <div class="admin-action-buttons">
+      <button class="btn" type="submit">Submit Decision</button>
+      <a class="btn btn-light" href="{{ url_for('admin_users') }}">Back to Users</a>
+    </div>
+  </form>
+</section>
+
+    <section class="card admin-review-card">
+      <h2>Profile Summary</h2>
+
+      {% if user.profile_image %}
+        <img
+          src="{{ url_for('uploaded_file', filename=user.profile_image) }}"
+          alt="{{ user.public_name }}"
+          class="admin-profile-image"
+        >
+      {% else %}
+        <div class="admin-image-placeholder">No profile image uploaded</div>
+      {% endif %}
+
+      {% if user.role == 'tutor' %}
+        <div class="detail-list">
+          <div class="detail-row">
+            <span class="detail-label">Qualification</span>
+            <span class="detail-value">{{ user.qualification or '-' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Subjects</span>
+            <span class="detail-value">{{ user.subjects or '-' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Levels</span>
+            <span class="detail-value">{{ user.class_levels or '-' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Experience</span>
+            <span class="detail-value">{{ user.experience_years or 0 }} years</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Hourly rate</span>
+            <span class="detail-value">PKR {{ user.hourly_rate or 0 }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Modest profile</span>
+            <span class="detail-value">{{ 'Yes' if user.modest_profile else 'No' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Audio-first</span>
+            <span class="detail-value">{{ 'Yes' if user.audio_only else 'No' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Rating</span>
+            <span class="detail-value">⭐ {{ '%.1f'|format(user.rating_avg or 0) }} ({{ user.rating_count or 0 }} reviews)</span>
+          </div>
+        </div>
+
+        <div class="detail-row">
+          <span class="detail-label">Qualification submitted</span>
+          <span class="detail-value">{{ 'Yes' if user.qualification else 'No' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Experience submitted</span>
+          <span class="detail-value">{{ 'Yes' if user.experience_years else 'No' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Demo video submitted</span>
+          <span class="detail-value">{{ 'Yes' if user.demo_video_url else 'No' }}</span>
+        </div>
+
+        <div class="detail-row">
+        <span class="detail-label">Degree Uploaded</span>
+        <span class="detail-value">
+          {{ 'Yes' if user.degree_file else 'No' }}
+        </span>
+      </div>
+
+      {% if user.degree_file %}
+        <div class="admin-link-box">
+          <strong>Degree / Certificate</strong>
+          <a href="{{ url_for('uploaded_file', filename=user.degree_file) }}" target="_blank">
+            View uploaded document
+          </a>
+        </div>
+      {% endif %}
+
+        <div class="admin-bio-box">
+          <strong>Bio</strong>
+          <p>{{ user.bio or 'No bio added.' }}</p>
+        </div>
+
+        {% if user.demo_video_url %}
+          <div class="admin-link-box">
+            <strong>Demo video</strong>
+            <a href="{{ user.demo_video_url }}" target="_blank" rel="noopener">Open demo video</a>
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="detail-list">
+          <div class="detail-row">
+            <span class="detail-label">Student level</span>
+            <span class="detail-value">{{ user.student_level or '-' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Subject needed</span>
+            <span class="detail-value">{{ user.student_subject_needed or '-' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Preferred tutor gender</span>
+            <span class="detail-value">{{ user.preferred_tutor_gender or '-' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Learning mode</span>
+            <span class="detail-value">{{ user.learning_mode or '-' }}</span>
+          </div>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="card admin-review-card">
+    <h2>Admin Review Action</h2>
+    <p class="muted">
+      Tutor application is submitted free of cost. If selected after review, request PKR 500 registration fee. Activate only after payment is received.
+    </p>
+
+    <form method="post" action="{{ url_for('admin_review_user', user_id=user.id) }}" class="form-grid admin-review-form">
+      <div>
+        <label class="small-label">Decision</label>
+        <select name="action" id="review_action" required>
+          <option value="">Select decision</option>
+          <option value="request_fee">Select &amp; Request PKR 500</option>
+          <option value="activate">Activate After Fee Received</option>
+          <option value="reject">Reject</option>
+          <option value="pend">Pend</option>
+        </select>
+      </div>
+
+      <div class="admin-review-note-wrap">
+        <label class="small-label" for="review_reason">Reason / note</label>
+        <textarea
+          id="review_reason"
+          name="reason"
+          placeholder="Add rejection reason or pending note"
+        ></textarea>
+        <p class="admin-help-note">
+          Current backend accepts this note in the review submission, but it is not stored as permanent review history yet.
+        </p>
+      </div>
+
+    <div class="admin-action-buttons">
+  <button class="btn" type="submit">Submit Decision</button>
+  <a class="btn btn-light" href="{{ url_for('admin_users') }}">Back to Users</a>
+</div>
+
+</form>
+
+<form method="post" action="{{ url_for('admin_delete_user', user_id=user.id) }}" onsubmit="return confirm('Are you sure you want to delete this user? This cannot be undone.');" style="margin-top:12px;">
+  <button class="btn btn-danger" type="submit">Delete User</button>
+</form>
+
+  </section>
+</section>
+
+{% endblock %}
