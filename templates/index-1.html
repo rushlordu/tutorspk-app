@@ -1,0 +1,344 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<section class="hero-media-section">
+  <div class="hero-media-shell">
+    <img
+      src="{{ url_for('static', filename='images/hero-girl.png') }}"
+      alt="Student learning online"
+      class="hero-bg-image"
+    >
+
+    <div class="hero-overlay"></div>
+
+    <div class="hero-media-content">
+      <div class="hero-media-copy">
+        <div class="hero-eyebrow hero-eyebrow-on-media">Online tutoring made simple</div>
+
+        <h1>Trusted online tutors for every learner</h1>
+
+        <p>
+          Simple, guided online tutoring for school subjects,
+          exam preparation, English language learning, and more.
+        </p>
+      </div>
+
+      <div class="hero-intent-card hero-intent-card-overlay">
+        <h3>Choose what you want to do</h3>
+        <p class="hero-intent-sub">
+          We’ll guide you to the right next step.
+        </p>
+
+        <div class="intent-toggle">
+          <button type="button" id="studyBtn" class="intent-btn active" onclick="setIntent('study')">
+            I want to study
+          </button>
+          <button type="button" id="teachBtn" class="intent-btn" onclick="setIntent('teach')">
+            I want to teach
+          </button>
+        </div>
+
+        <div class="intent-panel" id="studyPanel">
+          <label for="studySubject">What do you want to study?</label>
+          <select id="studySubject">
+            <option value="">Select a subject</option>
+            <option value="mathematics">Mathematics</option>
+            <option value="physics">Physics</option>
+            <option value="chemistry">Chemistry</option>
+            <option value="biology">Biology</option>
+            <option value="english">English</option>
+            <option value="urdu">Urdu</option>
+            <option value="computer_science">Computer Science</option>
+            <option value="pakistan_studies">Pakistan Studies</option>
+            <option value="islamiat">Islamiat</option>
+            <option value="ielts">IELTS</option>
+            <option value="spoken_english">Spoken English</option>
+            <option value="arabic">Arabic</option>
+            <option value="french">French</option>
+            <option value="other">Other</option>
+          </select>
+
+          <label for="studyLevel" class="intent-label-gap">What level are you at?</label>
+          <select id="studyLevel">
+            <option value="">Select a level</option>
+            <option value="grade_1_5">Grade 1–5</option>
+            <option value="grade_6_8">Grade 6–8</option>
+            <option value="matric">Matric</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="o_level">O Level</option>
+            <option value="a_level">A Level</option>
+            <option value="university">University</option>
+            <option value="language_learning">Language Learning</option>
+            <option value="other">Other</option>
+          </select>
+
+          <a class="hero-btn hero-btn-primary hero-btn-wide" href="{{ url_for('tutors') }}">
+            <button type="button" class="hero-btn hero-btn-primary hero-btn-wide" onclick="goStudySearch()">
+            Find a Tutor
+            </button>
+          </a>
+        </div>
+
+        <div class="intent-panel" id="teachPanel" style="display:none;">
+          <label for="teachSubject">What do you want to teach?</label>
+          <select id="teachSubject">
+            <option value="">Select a subject</option>
+            <option value="mathematics">Mathematics</option>
+            <option value="physics">Physics</option>
+            <option value="chemistry">Chemistry</option>
+            <option value="biology">Biology</option>
+            <option value="english">English</option>
+            <option value="urdu">Urdu</option>
+            <option value="computer_science">Computer Science</option>
+            <option value="pakistan_studies">Pakistan Studies</option>
+            <option value="islamiat">Islamiat</option>
+            <option value="ielts">IELTS</option>
+            <option value="spoken_english">Spoken English</option>
+            <option value="arabic">Arabic</option>
+            <option value="french">French</option>
+            <option value="other">Other</option>
+          </select>
+
+          <label for="teachLevel" class="intent-label-gap">What levels do you teach?</label>
+          <select id="teachLevel">
+            <option value="">Select a level</option>
+            <option value="grade_1_5">Grade 1–5</option>
+            <option value="grade_6_8">Grade 6–8</option>
+            <option value="matric">Matric</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="o_level">O Level</option>
+            <option value="a_level">A Level</option>
+            <option value="university">University</option>
+            <option value="language_learning">Language Learning</option>
+            <option value="other">Other</option>
+          </select>
+
+          <a class="hero-btn hero-btn-primary hero-btn-wide" href="{{ url_for('register') }}">
+            Start Teaching
+          </a>
+        </div>
+
+        {% if google_configured %}
+        <div class="hero-secondary-link">
+          <a href="{{ url_for('google_login') }}">Continue with Google</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="reassurance-section home-reassurance">
+  <div class="reassurance-grid">
+    <div class="reassurance-card">
+      <div class="reassurance-icon">✓</div>
+      <div>
+        <h3>Verified Tutors</h3>
+        <p>Qualified and reviewed tutors you can trust.</p>
+      </div>
+    </div>
+
+    <div class="reassurance-card">
+      <div class="reassurance-icon">👩</div>
+      <div>
+        <h3>Female Tutor Options</h3>
+        <p>Comfortable learning choices for families.</p>
+      </div>
+    </div>
+
+    <div class="reassurance-card">
+      <div class="reassurance-icon">💻</div>
+      <div>
+        <h3>Online-Only Learning</h3>
+        <p>Simple, flexible sessions from home.</p>
+      </div>
+    </div>
+
+    <div class="reassurance-card">
+      <div class="reassurance-icon">💳</div>
+      <div>
+        <h3>Transparent Pricing</h3>
+        <p>Clear packages and simple payment understanding.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="pricing-plans" class="pricing-section">
+  <div class="section-head section-head-stack">
+    <div>
+      <h2>Pricing Plans</h2>
+      <p class="section-subtext">
+        Clear options for students, tutors, and families.
+      </p>
+    </div>
+  </div>
+
+  <div class="pricing-grid">
+    <article class="pricing-card">
+      <div class="pricing-badge">For Students</div>
+      <h3>Pay Per Lesson</h3>
+      <p class="pricing-text">
+        Book online sessions one by one with the tutor that fits your subject and level.
+      </p>
+      <ul class="pricing-list">
+        <li>Simple online booking flow</li>
+        <li>Suitable for flexible learning</li>
+        <li>Good for trying a tutor first</li>
+      </ul>
+    </article>
+
+    <article class="pricing-card featured-plan">
+      <div class="pricing-badge">Most Practical</div>
+      <h3>Monthly Packages</h3>
+      <p class="pricing-text">
+        Lower-cost structured learning with regular weekly sessions and clearer progress.
+      </p>
+      <ul class="pricing-list">
+        <li>Better value than single sessions</li>
+        <li>Useful for exam preparation</li>
+        <li>Good for consistent learning routines</li>
+      </ul>
+    </article>
+
+    <article class="pricing-card">
+      <div class="pricing-badge">For Tutors</div>
+      <h3>Free to Join</h3>
+      <p class="pricing-text">
+        Create your profile, teach online, and grow through the platform’s earning and bonus model.
+      </p>
+      <ul class="pricing-list">
+        <li>Simple tutor onboarding</li>
+        <li>Transparent platform model</li>
+        <li>Bonus and growth structure later</li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+<section class="featured-section compact-featured">
+  <div class="section-head">
+    <div>
+      <h2>Featured Tutors</h2>
+      <p class="section-subtext">Trusted tutors available on the platform</p>
+    </div>
+    <a href="{{ url_for('tutors') }}">View all</a>
+  </div>
+
+  <div class="featured-grid">
+    {% for tutor in featured_tutors %}
+      <article class="featured-card">
+        <a href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">
+        <img src="{{ tutor.profile_image if tutor.profile_image else 'https://picsum.photos/seed/default/300/300' }}">
+        </a>
+          <div class="featured-body">
+          <h3>
+          <a href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">
+            {{ tutor.public_name }}
+          </a>
+          </h3>
+          <p class="featured-qual">{{ tutor.qualification }}</p>
+          <p class="featured-subjects">{{ tutor.subjects }}</p>
+          <span class="featured-badge">{{ tutor.tutor_category }}</span>
+          <p class="featured-rating">⭐ {{ '%.1f'|format(tutor.rating_avg) }} · {{ tutor.sessions_completed }} sessions</p>
+          <a class="small-cta" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">View profile</a>
+        </div>
+      </article>
+    {% else %}
+      <div class="empty-card">
+        <p>No featured tutors yet.</p>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="featured-section reviews-home-section">
+  <div class="section-head">
+    <div>
+      <h2>What students are saying</h2>
+      <p class="section-subtext">Recent public feedback from the platform</p>
+    </div>
+  </div>
+
+  <div class="featured-grid">
+    {% for review in recent_reviews %}
+      <article class="featured-card review-card">
+        <div class="featured-body">
+          <h3>{{ review.student.public_name }}</h3>
+          <p class="featured-rating">⭐ {{ review.rating }} · {{ review.tutor.public_name }}</p>
+          <p>{{ review.comment or 'Positive learning experience.' }}</p>
+        </div>
+      </article>
+    {% else %}
+      <div class="empty-card">
+        <p>No public reviews yet.</p>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="featured-section reviews-home-section">
+  <div class="section-head">
+    <div>
+      <h2>What students are saying</h2>
+      <p class="section-subtext">Recent public feedback from the platform</p>
+    </div>
+  </div>
+
+  <div class="featured-grid">
+    {% for review in recent_reviews %}
+      <article class="featured-card review-card">
+        <div class="featured-body">
+          <h3>{{ review.student.public_name }}</h3>
+          <p class="featured-rating">⭐ {{ review.rating }} · {{ review.tutor.public_name }}</p>
+          <p>{{ review.comment or 'Positive learning experience.' }}</p>
+        </div>
+      </article>
+    {% else %}
+      <div class="empty-card">
+        <p>No public reviews yet.</p>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+<script>
+function setIntent(intent) {
+  const studyBtn = document.getElementById('studyBtn');
+  const teachBtn = document.getElementById('teachBtn');
+  const studyPanel = document.getElementById('studyPanel');
+  const teachPanel = document.getElementById('teachPanel');
+
+  studyBtn.classList.remove('active');
+  teachBtn.classList.remove('active');
+
+  if (intent === 'study') {
+    studyBtn.classList.add('active');
+    studyPanel.style.display = 'block';
+    teachPanel.style.display = 'none';
+  } else {
+    teachBtn.classList.add('active');
+    studyPanel.style.display = 'none';
+    teachPanel.style.display = 'block';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  setIntent('study');
+});
+
+function goStudySearch() {
+  const subject = document.getElementById("studySubject")?.value || "";
+  const level = document.getElementById("studyLevel")?.value || "";
+
+  const params = new URLSearchParams();
+  if (subject) params.append("subject", subject);
+  if (level) params.append("level", level);
+
+  window.location.href = "{{ url_for('tutors') }}" + (params.toString() ? "?" + params.toString() : "");
+}
+
+</script>
+
+{% endblock %}

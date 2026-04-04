@@ -1,35 +1,914 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<section class="hero-media-section">
-  <div class="hero-media-shell">
-    <img
-      src="{{ url_for('static', filename='images/hero-girl.png') }}"
-      alt="Student learning online"
-      class="hero-bg-image"
-    >
+<style>
+  .ai-home {
+    --bg: #0b1020;
+    --bg-2: #111936;
+    --panel: rgba(255,255,255,0.08);
+    --panel-strong: rgba(255,255,255,0.12);
+    --line: rgba(255,255,255,0.12);
+    --text: #ecf2ff;
+    --muted: rgba(236,242,255,0.72);
+    --dark-text: #152033;
+    --dark-muted: #5f6d83;
+    --brand-a: #5b8cff;
+    --brand-b: #22c55e;
+    --brand-c: #8b5cf6;
+    --surface: #ffffff;
+    --surface-soft: #f5f8ff;
+    --shadow: 0 24px 60px rgba(8, 15, 35, 0.22);
+    --radius-xl: 34px;
+    --radius-lg: 26px;
+    --radius-md: 20px;
+    --radius-sm: 14px;
+  }
 
-    <div class="hero-overlay"></div>
+  .ai-home {
+    padding: 18px 0 48px;
+  }
 
-    <div class="hero-media-content">
-      <div class="hero-media-copy">
-        <div class="hero-eyebrow hero-eyebrow-on-media">Online tutoring made simple</div>
+  .ai-shell {
+    position: relative;
+    overflow: hidden;
+    border-radius: 38px;
+    background:
+      radial-gradient(circle at 12% 18%, rgba(91, 140, 255, 0.28), transparent 20%),
+      radial-gradient(circle at 86% 16%, rgba(34, 197, 94, 0.16), transparent 18%),
+      radial-gradient(circle at 76% 82%, rgba(139, 92, 246, 0.18), transparent 20%),
+      linear-gradient(135deg, #09101f 0%, #111936 48%, #09101f 100%);
+    color: var(--text);
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(255,255,255,0.08);
+    isolation: isolate;
+  }
 
-        <h1>Trusted online tutors for every learner</h1>
+  .ai-shell::before,
+  .ai-shell::after {
+    content: "";
+    position: absolute;
+    border-radius: 999px;
+    filter: blur(8px);
+    pointer-events: none;
+  }
 
+  .ai-shell::before {
+    width: 360px;
+    height: 360px;
+    top: -120px;
+    left: -120px;
+    background: radial-gradient(circle, rgba(91,140,255,0.18), transparent 68%);
+  }
+
+  .ai-shell::after {
+    width: 320px;
+    height: 320px;
+    bottom: -120px;
+    right: -120px;
+    background: radial-gradient(circle, rgba(34,197,94,0.12), transparent 68%);
+  }
+
+  .hero-neo {
+    position: relative;
+    padding: 34px 34px 110px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.18fr) minmax(320px, 420px);
+    gap: 26px;
+    min-height: 560px;
+  }
+
+  .hero-copy-neo {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    max-width: 760px;
+  }
+
+  .eyebrow-neo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    width: fit-content;
+    padding: 10px 14px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    margin-bottom: 18px;
+  }
+
+  .eyebrow-neo::before {
+    content: "";
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--brand-a), var(--brand-b));
+    box-shadow: 0 0 0 6px rgba(255,255,255,0.06);
+  }
+
+  .hero-copy-neo h1 {
+    margin: 0 0 16px;
+    font-size: clamp(2.8rem, 6vw, 5.6rem);
+    line-height: 0.95;
+    letter-spacing: -0.06em;
+    max-width: 9.5ch;
+    text-wrap: balance;
+    color: #ffffff;
+  }
+
+  .hero-copy-neo .accent {
+    background: linear-gradient(135deg, #ffffff 0%, #cfe0ff 38%, #9ad6b1 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .hero-copy-neo p {
+    margin: 0;
+    max-width: 620px;
+    color: var(--muted);
+    font-size: clamp(1rem, 1.45vw, 1.1rem);
+    line-height: 1.75;
+  }
+
+  .hero-mini-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 22px;
+    max-width: 640px;
+  }
+
+  .mini-stat {
+    padding: 14px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(10px);
+  }
+
+  .mini-stat strong {
+    display: block;
+    font-size: 1.1rem;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+
+  .mini-stat span {
+    font-size: 0.84rem;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+
+  .hero-art {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: 54%;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.94;
+  }
+
+  .hero-orbit {
+    position: absolute;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .hero-orbit.one {
+    width: 440px;
+    height: 440px;
+    right: 10%;
+    top: 8%;
+  }
+
+  .hero-orbit.two {
+    width: 300px;
+    height: 300px;
+    right: 2%;
+    top: 22%;
+  }
+
+  .hero-girl-cutout {
+    position: absolute;
+    right: 5%;
+    bottom: 0;
+    width: min(520px, 92%);
+    height: 94%;
+    object-fit: cover;
+    object-position: center 20%;
+    border-radius: 28px 28px 0 0;
+    mix-blend-mode: screen;
+    opacity: 0.78;
+    filter: saturate(0.95) contrast(1.04);
+    -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1), rgba(0,0,0,0.95) 65%, rgba(0,0,0,0.2));
+    mask-image: linear-gradient(to top, rgba(0,0,0,1), rgba(0,0,0,0.95) 65%, rgba(0,0,0,0.2));
+  }
+
+  .intent-card-neo {
+    position: relative;
+    z-index: 3;
+    align-self: center;
+    border-radius: 28px;
+    padding: 18px;
+    background: rgba(255,255,255,0.9);
+    color: var(--dark-text);
+    border: 1px solid rgba(255,255,255,0.6);
+    box-shadow: 0 26px 50px rgba(8, 15, 35, 0.22);
+    backdrop-filter: blur(16px);
+  }
+
+  .intent-card-neo h3 {
+    margin: 0 0 6px;
+    font-size: 1.25rem;
+    letter-spacing: -0.03em;
+  }
+
+  .intent-card-neo p {
+    margin: 0 0 14px;
+    color: var(--dark-muted);
+    line-height: 1.55;
+    font-size: 0.92rem;
+  }
+
+  .intent-toggle-neo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding: 5px;
+    background: #eaf0fb;
+    border-radius: 16px;
+    margin-bottom: 14px;
+  }
+
+  .intent-btn {
+    min-height: 40px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: #304056;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+
+  .intent-btn.active {
+    background: linear-gradient(135deg, var(--brand-a), var(--brand-b));
+    color: #fff;
+    box-shadow: 0 10px 20px rgba(91,140,255,0.2);
+  }
+
+  .intent-panel label {
+    display: block;
+    margin: 0 0 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #314158;
+  }
+
+  .intent-label-gap {
+    margin-top: 2px;
+  }
+
+  .intent-panel select {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 40px 10px 12px;
+    margin: 0 0 10px;
+    border: 1px solid #d7e0ee;
+    border-radius: 13px;
+    background-color: #fff;
+    color: #1b2840;
+    font: inherit;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 20 20' fill='none'><path d='M5 7.5L10 12.5L15 7.5' stroke='%235f6b7a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 18px 18px;
+    outline: none;
+  }
+
+  .intent-panel select:focus {
+    border-color: var(--brand-a);
+    box-shadow: 0 0 0 4px rgba(91,140,255,0.08);
+  }
+
+  .neo-btn {
+    width: 100%;
+    min-height: 46px;
+    border: 0;
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 18px;
+    font-size: 14px;
+    font-weight: 800;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 0.16s ease, filter 0.16s ease;
+  }
+
+  .neo-btn:hover {
+    transform: translateY(-1px);
+    filter: brightness(0.99);
+  }
+
+  .neo-btn-primary {
+    color: #fff;
+    background: linear-gradient(135deg, var(--brand-a), var(--brand-b));
+    box-shadow: 0 12px 24px rgba(91,140,255,0.18);
+  }
+
+  .neo-google {
+    display: block;
+    margin-top: 10px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: #4160bb;
+    text-decoration: none;
+  }
+
+  .floating-trust {
+    position: absolute;
+    left: 28px;
+    right: 28px;
+    bottom: 18px;
+    z-index: 4;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap: 12px;
+  }
+
+  .trust-pill {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 74px;
+    padding: 12px 14px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.12);
+    backdrop-filter: blur(14px);
+    color: #fff;
+  }
+
+  .trust-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    font-size: 18px;
+    background: linear-gradient(135deg, rgba(91,140,255,0.95), rgba(34,197,94,0.82));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.22);
+  }
+
+  .trust-pill h4 {
+    margin: 0 0 3px;
+    font-size: 14px;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  .trust-pill p {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.35;
+    color: rgba(236,242,255,0.72);
+  }
+
+  .section-neo {
+    margin-top: 26px;
+  }
+
+  .section-head-neo {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .section-head-neo h2 {
+    margin: 0 0 4px;
+    font-size: clamp(1.55rem, 2vw, 2.2rem);
+    letter-spacing: -0.04em;
+    color: #152033;
+  }
+
+  .section-head-neo p {
+    margin: 0;
+    color: #66758a;
+    font-size: 15px;
+  }
+
+  .section-head-neo a {
+    color: #355fe5;
+    text-decoration: none;
+    font-weight: 800;
+    font-size: 14px;
+  }
+
+  .bento-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr 0.95fr;
+    gap: 16px;
+  }
+
+  .bento-card {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, #ffffff, #f7faff);
+    border: 1px solid #e7edf7;
+    border-radius: 26px;
+    padding: 24px;
+    box-shadow: 0 16px 34px rgba(14, 31, 73, 0.06);
+  }
+
+  .bento-card.featured-plan {
+    background: linear-gradient(135deg, #14203d, #1c2f5e 56%, #173761);
+    color: #fff;
+    border-color: rgba(255,255,255,0.06);
+  }
+
+  .bento-card.featured-plan p,
+  .bento-card.featured-plan li {
+    color: rgba(255,255,255,0.82);
+  }
+
+  .bento-card .badge-neo {
+    display: inline-flex;
+    padding: 8px 11px;
+    border-radius: 999px;
+    background: #eef3ff;
+    color: #3f63dd;
+    font-size: 11px;
+    font-weight: 800;
+    margin-bottom: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .featured-plan .badge-neo {
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+  }
+
+  .bento-card h3 {
+    margin: 0 0 10px;
+    font-size: 1.6rem;
+    letter-spacing: -0.03em;
+  }
+
+  .bento-card p {
+    margin: 0 0 14px;
+    color: #66758a;
+    line-height: 1.7;
+    font-size: 0.96rem;
+  }
+
+  .bento-card ul {
+    margin: 0;
+    padding-left: 18px;
+  }
+
+  .bento-card li {
+    margin-bottom: 8px;
+    color: #44546b;
+    font-size: 0.94rem;
+  }
+
+  .tutor-grid-neo {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .tutor-card-neo,
+  .review-card-neo,
+  .empty-card-neo {
+    overflow: hidden;
+    border-radius: 24px;
+    background: linear-gradient(180deg, #ffffff, #f8fbff);
+    border: 1px solid #e7edf7;
+    box-shadow: 0 14px 30px rgba(14, 31, 73, 0.06);
+  }
+
+  .tutor-card-neo img {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    display: block;
+    background: #edf2fb;
+  }
+
+  .tutor-body-neo,
+  .review-body-neo,
+  .empty-card-neo {
+    padding: 16px;
+  }
+
+  .tutor-body-neo h3,
+  .review-body-neo h3 {
+    margin: 0 0 7px;
+    font-size: 1.1rem;
+    color: #152033;
+    letter-spacing: -0.02em;
+  }
+
+  .tutor-body-neo h3 a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .tutor-meta {
+    margin: 0 0 8px;
+    color: #64748b;
+    font-size: 0.9rem;
+    line-height: 1.55;
+  }
+
+  .pill-neo {
+    display: inline-flex;
+    margin: 4px 0 10px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #eef5ff;
+    color: #3762df;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .cta-mini {
+    display: inline-flex;
+    margin-top: 4px;
+    padding: 9px 12px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #edf3ff, #eefbf3);
+    color: #2854d7;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .review-grid-neo {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .review-card-neo {
+    position: relative;
+  }
+
+  .review-card-neo::before {
+    content: "“";
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    font-size: 3rem;
+    line-height: 1;
+    color: rgba(91,140,255,0.12);
+    font-weight: 900;
+  }
+
+  .review-meta {
+    margin: 0 0 10px;
+    color: #50627b;
+    font-size: 0.92rem;
+  }
+
+  @media (max-width: 1180px) {
+    .hero-neo {
+      grid-template-columns: 1fr;
+      min-height: auto;
+      padding-bottom: 28px;
+    }
+
+    .hero-art {
+      opacity: 0.3;
+      width: 100%;
+    }
+
+    .hero-copy-neo {
+      max-width: 100%;
+    }
+
+    .intent-card-neo {
+      max-width: 460px;
+    }
+
+    .floating-trust {
+      position: relative;
+      left: 0;
+      right: 0;
+      bottom: auto;
+      margin: 10px 28px 0;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+
+    .bento-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .tutor-grid-neo {
+      grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+
+    .review-grid-neo {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .ai-home {
+      padding-top: 12px;
+    }
+
+    .ai-shell {
+      border-radius: 24px;
+    }
+
+    .hero-neo {
+      padding: 18px 18px 20px;
+      gap: 16px;
+    }
+
+    .hero-copy-neo h1 {
+      font-size: 2.6rem;
+      max-width: 100%;
+    }
+
+    .hero-copy-neo p {
+      font-size: 0.95rem;
+      line-height: 1.65;
+    }
+
+    .hero-mini-grid {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .intent-card-neo {
+      padding: 14px;
+      border-radius: 20px;
+    }
+
+    .floating-trust {
+      margin: 2px 18px 0;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .trust-pill {
+      min-height: auto;
+    }
+
+    .section-head-neo {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .tutor-grid-neo,
+    .review-grid-neo {
+      grid-template-columns: 1fr;
+    }
+  }
+
+
+  <script>
+document.addEventListener("mousemove", (e) => {
+  const x = (e.clientX / window.innerWidth - 0.5);
+  const y = (e.clientY / window.innerHeight - 0.5);
+
+  document.querySelectorAll(".hero-copy-neo").forEach(el => {
+    el.style.transform = `translate(${x * -10}px, ${y * -10}px)`;
+  });
+
+  document.querySelectorAll(".intent-card-neo").forEach(el => {
+    el.style.transform = `translate(${x * 12}px, ${y * 12}px)`;
+  });
+
+  document.querySelectorAll(".hero-girl-cutout").forEach(el => {
+    el.style.transform = `translate(${x * 18}px, ${y * 18}px) scale(1.02)`;
+  });
+});
+</script>
+
+  /* ===== Motion Layer ===== */
+  @keyframes shellFloat {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-4px); }
+  }
+
+  @keyframes orbitSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes orbitSpinReverse {
+    from { transform: rotate(360deg); }
+    to { transform: rotate(0deg); }
+  }
+
+  @keyframes glowPulse {
+    0%, 100% { opacity: 0.75; filter: blur(8px); }
+    50% { opacity: 1; filter: blur(12px); }
+  }
+
+  @keyframes cardFloat {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-6px); }
+  }
+
+  @keyframes trustDrift {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-5px); }
+  }
+
+  @keyframes buttonGlow {
+    0%, 100% { box-shadow: 0 12px 24px rgba(91,140,255,0.18); }
+    50% { box-shadow: 0 16px 32px rgba(91,140,255,0.32); }
+  }
+
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .ai-shell {
+    animation: shellFloat 8s ease-in-out infinite;
+  }
+
+  .ai-shell::before,
+  .ai-shell::after {
+    animation: glowPulse 7s ease-in-out infinite;
+  }
+
+  .hero-copy-neo {
+    animation: fadeSlideUp 0.8s ease-out both;
+  }
+
+  .intent-card-neo {
+    animation: fadeSlideUp 0.9s ease-out 0.08s both, cardFloat 7s ease-in-out 1.1s infinite;
+    transform-origin: center center;
+  }
+
+  .hero-orbit.one {
+    animation: orbitSpin 28s linear infinite;
+    transform-origin: center center;
+  }
+
+  .hero-orbit.two {
+    animation: orbitSpinReverse 22s linear infinite;
+    transform-origin: center center;
+  }
+
+  .hero-girl-cutout {
+    animation: fadeSlideUp 1s ease-out 0.14s both;
+  }
+
+  .mini-stat {
+    animation: fadeSlideUp 0.7s ease-out both;
+    transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  }
+
+  .mini-stat:nth-child(1) { animation-delay: 0.18s; }
+  .mini-stat:nth-child(2) { animation-delay: 0.26s; }
+  .mini-stat:nth-child(3) { animation-delay: 0.34s; }
+
+  .mini-stat:hover {
+    transform: translateY(-4px);
+    background: rgba(255,255,255,0.1);
+  }
+
+  .trust-pill {
+    animation: fadeSlideUp 0.75s ease-out both, trustDrift 6s ease-in-out infinite;
+    transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  }
+
+  .trust-pill:nth-child(1) { animation-delay: 0.15s, 1.1s; }
+  .trust-pill:nth-child(2) { animation-delay: 0.24s, 1.3s; }
+  .trust-pill:nth-child(3) { animation-delay: 0.33s, 1.5s; }
+  .trust-pill:nth-child(4) { animation-delay: 0.42s, 1.7s; }
+
+  .trust-pill:hover {
+    transform: translateY(-5px) scale(1.01);
+    background: rgba(255,255,255,0.14);
+  }
+
+  .neo-btn-primary {
+    animation: buttonGlow 3.2s ease-in-out infinite;
+  }
+
+  .tutor-card-neo,
+  .review-card-neo,
+  .bento-card {
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+  }
+
+  .tutor-card-neo:hover,
+  .review-card-neo:hover,
+  .bento-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 40px rgba(14, 31, 73, 0.10);
+  }
+
+  .intent-btn {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .intent-btn::after {
+    content: "";
+    position: absolute;
+    inset: auto -20% -120% auto;
+    width: 70%;
+    height: 220%;
+    transform: rotate(18deg);
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .intent-btn.active::after {
+    opacity: 1;
+    animation: orbitSpin 5s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ai-shell,
+    .ai-shell::before,
+    .ai-shell::after,
+    .hero-copy-neo,
+    .intent-card-neo,
+    .hero-orbit.one,
+    .hero-orbit.two,
+    .hero-girl-cutout,
+    .mini-stat,
+    .trust-pill,
+    .neo-btn-primary,
+    .intent-btn.active::after {
+      animation: none !important;
+    }
+
+    .tutor-card-neo:hover,
+    .review-card-neo:hover,
+    .bento-card:hover,
+    .trust-pill:hover,
+    .mini-stat:hover {
+      transform: none !important;
+    }
+  }
+</style>
+
+<section class="ai-home">
+  <div class="ai-shell">
+
+    <section class="hero-neo">
+      <div class="hero-copy-neo">
+        <div class="eyebrow-neo">Online tutoring made simple</div>
+        <h1>Find a <span class="accent">better way</span> to learn online</h1>
         <p>
-          Simple, guided online tutoring for school subjects,
-          exam preparation, English language learning, and more.
+          Guided online tutoring for school subjects, exam preparation,
+          language learning, and flexible one-to-one support — designed to feel
+          clear, modern, and easy from the first click.
         </p>
+
+        <div class="hero-mini-grid">
+          <div class="mini-stat">
+            <strong>Flexible</strong>
+            <span>Book single lessons or build a monthly learning rhythm.</span>
+          </div>
+          <div class="mini-stat">
+            <strong>Trusted</strong>
+            <span>Verified tutors, clearer profiles, and simple discovery.</span>
+          </div>
+          <div class="mini-stat">
+            <strong>Online-first</strong>
+            <span>Easy sessions from home for students, families, and tutors.</span>
+          </div>
+        </div>
       </div>
 
-      <div class="hero-intent-card hero-intent-card-overlay">
+      <div class="intent-card-neo">
         <h3>Choose what you want to do</h3>
-        <p class="hero-intent-sub">
-          We’ll guide you to the right next step.
-        </p>
+        <p>Pick a path and we’ll take you straight to the right next step.</p>
 
-        <div class="intent-toggle">
+        <div class="intent-toggle intent-toggle-neo">
           <button type="button" id="studyBtn" class="intent-btn active" onclick="setIntent('study')">
             I want to study
           </button>
@@ -72,11 +951,9 @@
             <option value="other">Other</option>
           </select>
 
-          <a class="hero-btn hero-btn-primary hero-btn-wide" href="{{ url_for('tutors') }}">
-            <button type="button" class="hero-btn hero-btn-primary hero-btn-wide" onclick="goStudySearch()">
+          <button type="button" class="neo-btn neo-btn-primary" onclick="goStudySearch()">
             Find a Tutor
-            </button>
-          </a>
+          </button>
         </div>
 
         <div class="intent-panel" id="teachPanel" style="display:none;">
@@ -113,194 +990,169 @@
             <option value="other">Other</option>
           </select>
 
-          <a class="hero-btn hero-btn-primary hero-btn-wide" href="{{ url_for('register') }}">
+          <a class="neo-btn neo-btn-primary" href="{{ url_for('register') }}">
             Start Teaching
           </a>
         </div>
 
         {% if google_configured %}
-        <div class="hero-secondary-link">
-          <a href="{{ url_for('google_login') }}">Continue with Google</a>
-        </div>
+        <a class="neo-google" href="{{ url_for('google_login') }}">Continue with Google</a>
         {% endif %}
       </div>
-    </div>
+
+      <div class="hero-art" aria-hidden="true">
+        <div class="hero-orbit one"></div>
+        <div class="hero-orbit two"></div>
+        <img
+          src="{{ url_for('static', filename='images/hero-girl.png') }}"
+          alt=""
+          class="hero-girl-cutout"
+        >
+      </div>
+    </section>
+
+    <section class="floating-trust">
+      <div class="trust-pill">
+        <div class="trust-icon">🛡️</div>
+        <div>
+          <h4>Verified Tutors</h4>
+          <p>Qualified profiles you can trust.</p>
+        </div>
+      </div>
+      <div class="trust-pill">
+        <div class="trust-icon">👩‍🏫</div>
+        <div>
+          <h4>Female Tutors</h4>
+          <p>Comfortable choices for families.</p>
+        </div>
+      </div>
+      <div class="trust-pill">
+        <div class="trust-icon">🖥️</div>
+        <div>
+          <h4>Online-Only</h4>
+          <p>Simple sessions from anywhere.</p>
+        </div>
+      </div>
+      <div class="trust-pill">
+        <div class="trust-icon">✨</div>
+        <div>
+          <h4>Transparent Pricing</h4>
+          <p>Clear plans for students and tutors.</p>
+        </div>
+      </div>
+    </section>
   </div>
-</section>
 
-
-<section class="reassurance-section home-reassurance">
-  <div class="reassurance-grid">
-    <div class="reassurance-card">
-      <div class="reassurance-icon">✓</div>
+  <section id="pricing-plans" class="section-neo">
+    <div class="section-head-neo">
       <div>
-        <h3>Verified Tutors</h3>
-        <p>Qualified and reviewed tutors you can trust.</p>
+        <h2>Plans, but designed as a decision space</h2>
+        <p>Not a boring pricing table — just the paths that make sense.</p>
       </div>
     </div>
 
-    <div class="reassurance-card">
-      <div class="reassurance-icon">👩</div>
+    <div class="bento-grid">
+      <article class="bento-card">
+        <div class="badge-neo">For Students</div>
+        <h3>Pay per lesson</h3>
+        <p>
+          Try a tutor quickly, book flexibly, and move at your own pace.
+        </p>
+        <ul>
+          <li>Simple booking flow</li>
+          <li>Good for testing tutor fit</li>
+          <li>Best for flexible schedules</li>
+        </ul>
+      </article>
+
+      <article class="bento-card featured-plan">
+        <div class="badge-neo">Most Practical</div>
+        <h3>Monthly packages</h3>
+        <p>
+          Better value, stronger consistency, and clearer learning momentum.
+        </p>
+        <ul>
+          <li>Lower cost than single lessons</li>
+          <li>Useful for exam preparation</li>
+          <li>Better progress over time</li>
+        </ul>
+      </article>
+
+      <article class="bento-card">
+        <div class="badge-neo">For Tutors</div>
+        <h3>Free to join</h3>
+        <p>
+          Build a profile, teach online, and grow through the platform over time.
+        </p>
+        <ul>
+          <li>Simple onboarding</li>
+          <li>Transparent model</li>
+          <li>Growth and bonus potential</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section class="section-neo">
+    <div class="section-head-neo">
       <div>
-        <h3>Female Tutor Options</h3>
-        <p>Comfortable learning choices for families.</p>
+        <h2>Featured tutors</h2>
+        <p>Profiles that stand out on the platform right now.</p>
       </div>
+      <a href="{{ url_for('tutors') }}">View all tutors</a>
     </div>
 
-    <div class="reassurance-card">
-      <div class="reassurance-icon">💻</div>
-      <div>
-        <h3>Online-Only Learning</h3>
-        <p>Simple, flexible sessions from home.</p>
-      </div>
-    </div>
-
-    <div class="reassurance-card">
-      <div class="reassurance-icon">💳</div>
-      <div>
-        <h3>Transparent Pricing</h3>
-        <p>Clear packages and simple payment understanding.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="pricing-plans" class="pricing-section">
-  <div class="section-head section-head-stack">
-    <div>
-      <h2>Pricing Plans</h2>
-      <p class="section-subtext">
-        Clear options for students, tutors, and families.
-      </p>
-    </div>
-  </div>
-
-  <div class="pricing-grid">
-    <article class="pricing-card">
-      <div class="pricing-badge">For Students</div>
-      <h3>Pay Per Lesson</h3>
-      <p class="pricing-text">
-        Book online sessions one by one with the tutor that fits your subject and level.
-      </p>
-      <ul class="pricing-list">
-        <li>Simple online booking flow</li>
-        <li>Suitable for flexible learning</li>
-        <li>Good for trying a tutor first</li>
-      </ul>
-    </article>
-
-    <article class="pricing-card featured-plan">
-      <div class="pricing-badge">Most Practical</div>
-      <h3>Monthly Packages</h3>
-      <p class="pricing-text">
-        Lower-cost structured learning with regular weekly sessions and clearer progress.
-      </p>
-      <ul class="pricing-list">
-        <li>Better value than single sessions</li>
-        <li>Useful for exam preparation</li>
-        <li>Good for consistent learning routines</li>
-      </ul>
-    </article>
-
-    <article class="pricing-card">
-      <div class="pricing-badge">For Tutors</div>
-      <h3>Free to Join</h3>
-      <p class="pricing-text">
-        Create your profile, teach online, and grow through the platform’s earning and bonus model.
-      </p>
-      <ul class="pricing-list">
-        <li>Simple tutor onboarding</li>
-        <li>Transparent platform model</li>
-        <li>Bonus and growth structure later</li>
-      </ul>
-    </article>
-  </div>
-</section>
-
-<section class="featured-section compact-featured">
-  <div class="section-head">
-    <div>
-      <h2>Featured Tutors</h2>
-      <p class="section-subtext">Trusted tutors available on the platform</p>
-    </div>
-    <a href="{{ url_for('tutors') }}">View all</a>
-  </div>
-
-  <div class="featured-grid">
-    {% for tutor in featured_tutors %}
-      <article class="featured-card">
+    <div class="tutor-grid-neo">
+      {% for tutor in featured_tutors %}
+      <article class="tutor-card-neo">
         <a href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">
-        <img src="{{ tutor.profile_image if tutor.profile_image else 'https://picsum.photos/seed/default/300/300' }}">
+          <img src="{{ tutor.profile_image if tutor.profile_image else 'https://picsum.photos/seed/default/300/300' }}" alt="{{ tutor.public_name }}">
         </a>
-          <div class="featured-body">
+        <div class="tutor-body-neo">
           <h3>
-          <a href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">
-            {{ tutor.public_name }}
-          </a>
+            <a href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">
+              {{ tutor.public_name }}
+            </a>
           </h3>
-          <p class="featured-qual">{{ tutor.qualification }}</p>
-          <p class="featured-subjects">{{ tutor.subjects }}</p>
-          <span class="featured-badge">{{ tutor.tutor_category }}</span>
-          <p class="featured-rating">⭐ {{ '%.1f'|format(tutor.rating_avg) }} · {{ tutor.sessions_completed }} sessions</p>
-          <a class="small-cta" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">View profile</a>
+          <p class="tutor-meta">{{ tutor.qualification }}</p>
+          <p class="tutor-meta">{{ tutor.subjects }}</p>
+          <span class="pill-neo">{{ tutor.tutor_category }}</span>
+          <p class="tutor-meta">⭐ {{ '%.1f'|format(tutor.rating_avg) }} · {{ tutor.sessions_completed }} sessions</p>
+          <a class="cta-mini" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">View profile</a>
         </div>
       </article>
-    {% else %}
-      <div class="empty-card">
+      {% else %}
+      <div class="empty-card-neo">
         <p>No featured tutors yet.</p>
       </div>
-    {% endfor %}
-  </div>
-</section>
-
-<section class="featured-section reviews-home-section">
-  <div class="section-head">
-    <div>
-      <h2>What students are saying</h2>
-      <p class="section-subtext">Recent public feedback from the platform</p>
+      {% endfor %}
     </div>
-  </div>
+  </section>
 
-  <div class="featured-grid">
-    {% for review in recent_reviews %}
-      <article class="featured-card review-card">
-        <div class="featured-body">
+  <section class="section-neo">
+    <div class="section-head-neo">
+      <div>
+        <h2>What students are saying</h2>
+        <p>Short social-proof cards instead of a traditional review wall.</p>
+      </div>
+    </div>
+
+    <div class="review-grid-neo">
+      {% for review in recent_reviews %}
+      <article class="review-card-neo">
+        <div class="review-body-neo">
           <h3>{{ review.student.public_name }}</h3>
-          <p class="featured-rating">⭐ {{ review.rating }} · {{ review.tutor.public_name }}</p>
+          <p class="review-meta">⭐ {{ review.rating }} · {{ review.tutor.public_name }}</p>
           <p>{{ review.comment or 'Positive learning experience.' }}</p>
         </div>
       </article>
-    {% else %}
-      <div class="empty-card">
+      {% else %}
+      <div class="empty-card-neo">
         <p>No public reviews yet.</p>
       </div>
-    {% endfor %}
-  </div>
-</section>
-
-<section class="featured-section reviews-home-section">
-  <div class="section-head">
-    <div>
-      <h2>What students are saying</h2>
-      <p class="section-subtext">Recent public feedback from the platform</p>
+      {% endfor %}
     </div>
-  </div>
-
-  <div class="featured-grid">
-    {% for review in recent_reviews %}
-      <article class="featured-card review-card">
-        <div class="featured-body">
-          <h3>{{ review.student.public_name }}</h3>
-          <p class="featured-rating">⭐ {{ review.rating }} · {{ review.tutor.public_name }}</p>
-          <p>{{ review.comment or 'Positive learning experience.' }}</p>
-        </div>
-      </article>
-    {% else %}
-      <div class="empty-card">
-        <p>No public reviews yet.</p>
-      </div>
-    {% endfor %}
-  </div>
+  </section>
 </section>
 
 <script>
@@ -338,7 +1190,6 @@ function goStudySearch() {
 
   window.location.href = "{{ url_for('tutors') }}" + (params.toString() ? "?" + params.toString() : "");
 }
-
 </script>
 
 {% endblock %}

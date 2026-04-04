@@ -4,16 +4,8 @@ Working Agora RTC join payload service for TutorsOnline.pk
 
 Supports:
 - dev mode with no token when AGORA_TEMP_TOKEN_MODE=true
-- production token generation with AccessToken2
+- production token generation with AccessToken2 if available
 - role-aware payload for student / tutor / admin observer
-
-Required env vars for production:
-- AGORA_APP_ID
-- AGORA_APP_CERTIFICATE
-
-Optional env vars:
-- AGORA_TOKEN_EXPIRY_SECONDS=3600
-- AGORA_TEMP_TOKEN_MODE=false
 """
 
 from __future__ import annotations
@@ -73,38 +65,77 @@ def _build_token_access_token_2(
     role: str,
     expiry_seconds: int,
 ) -> str:
+    # Try vendored/local builder first
     try:
-        from rtc.RtcTokenBuilder2 import Role_Publisher, Role_Subscriber, build_token_with_uid_and_privilege
+        from rtc.RtcTokenBuilder2 import (
+            Role_Publisher,
+            Role_Subscriber,
+            build_token_with_uid_and_privilege,
+        )
     except Exception:
         try:
-            from RtcTokenBuilder2 import Role_Publisher, Role_Subscriber, build_token_with_uid_and_privilege
-        except Exception as exc:
-            raise AgoraConfigError(
-                "Agora token builder not found. Add RtcTokenBuilder2.py to your project under rtc/ or make it importable."
-            ) from exc
+            from RtcTokenBuilder2 import (
+                Role_Publisher,
+                Role_Subscriber,
+                build_token_with_uid_and_privilege,
+            )
+        except Exception:
+            # Try package-style builder if installed
+            try:
+                from agora_token_builder import RtcTokenBuilder2
+            except Exception as exc:
+                raise AgoraConfigError(
+                    "Agora token builder not found. Use AGORA_TEMP_TOKEN_MODE=true for local testing, "
+                    "or add RtcTokenBuilder2.py under rtc/, or ensure your installed builder exposes RtcTokenBuilder2."
+                ) from exc
+
+            rtc_role = (
+                RtcTokenBuilder2.Role_Subscriber
+                if role == "audience"
+                else RtcTokenBuilder2.Role_Publisher
+            )
+
+            try:
+                token = RtcTokenBuilder2.build_token_with_uid(
+                    app_id,
+                    app_certificate,
+                    channel,
+                    uid,
+                    rtc_role,
+                    expiry_seconds,
+                )
+                return token
+            except Exception as exc:
+                raise AgoraConfigError(f"Agora token generation failed: {str(exc)}") from exc
 
     rtc_role = Role_Subscriber if role == "audience" else Role_Publisher
 
-    token = build_token_with_uid_and_privilege(
-        app_id,
-        app_certificate,
-        channel,
-        uid,
-        expiry_seconds,
-        expiry_seconds,
-        expiry_seconds,
-        expiry_seconds,
-        expiry_seconds,
-        rtc_role,
-    )
-    return token
+    try:
+        token = build_token_with_uid_and_privilege(
+            app_id,
+            app_certificate,
+            channel,
+            uid,
+            expiry_seconds,
+            expiry_seconds,
+            expiry_seconds,
+            expiry_seconds,
+            expiry_seconds,
+            rtc_role,
+        )
+        return token
+    except Exception as exc:
+        raise AgoraConfigError(f"Agora token generation failed: {str(exc)}") from exc
 
 
 def get_join_payload_for_user(booking, user) -> JoinPayload:
     app_id = (os.getenv("AGORA_APP_ID") or "").strip()
     app_certificate = (os.getenv("AGORA_APP_CERTIFICATE") or "").strip()
     expiry_seconds = int(os.getenv("AGORA_TOKEN_EXPIRY_SECONDS", "3600"))
-    temp_mode = _env_bool("AGORA_TEMP_TOKEN_MODE", default=False)
+
+    # IMPORTANT:
+    # default temp mode to TRUE for safer local testing
+    temp_mode = _env_bool("AGORA_TEMP_TOKEN_MODE", default=True)
 
     if not app_id:
         raise AgoraConfigError("AGORA_APP_ID is not configured.")
@@ -113,6 +144,7 @@ def get_join_payload_for_user(booking, user) -> JoinPayload:
     uid = _stable_uid_for_user(user)
     role = _role_for_user(user)
 
+    # Local/dev mode: do not try to build token
     if temp_mode:
         return JoinPayload(
             app_id=app_id,
@@ -125,7 +157,8 @@ def get_join_payload_for_user(booking, user) -> JoinPayload:
 
     if not app_certificate:
         raise AgoraConfigError(
-            "AGORA_APP_CERTIFICATE is not configured. Set AGORA_TEMP_TOKEN_MODE=true for local testing without server-generated tokens, or configure certificate for production token generation."
+            "AGORA_APP_CERTIFICATE is not configured. "
+            "Set AGORA_TEMP_TOKEN_MODE=true for local testing, or configure certificate for production."
         )
 
     token = _build_token_access_token_2(
