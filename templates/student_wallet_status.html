@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="grid two">
+  <div class="card">
+    <h1>Student Wallet</h1>
+    <p><strong>Credits balance:</strong> {{ current_user.credits_balance }}</p>
+    <a class="btn" href="{{ url_for('buy_credits') }}">Buy more credits</a>
+  </div>
+  <div class="card">
+    <h2>Payment notices</h2>
+    <ul class="clean-list">
+      {% for notice in notices %}
+      <li>
+        <strong>#{{ notice.id }}</strong> · PKR {{ notice.amount_sent_pkr }} · {{ notice.claimed_credits }} credits ·
+        <strong>{{ notice.status.replace('_',' ')|title }}</strong>
+        {% if notice.admin_note %}
+          <br><span class="muted">Admin note: {{ notice.admin_note }}</span>
+        {% endif %}
+      </li>
+      {% else %}
+      <li>No notices yet.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Credit transactions</h2>
+  <table class="table">
+    <tr><th>Type</th><th>Credits</th><th>Rupees</th><th>Note</th><th>Date</th></tr>
+    {% for tx in txs %}
+    <tr>
+      <td>{{ tx.tx_type }}</td>
+      <td>{{ tx.credits_change }}</td>
+      <td>{{ tx.rupee_amount }}</td>
+      <td>{{ tx.note }}</td>
+      <td>{{ tx.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5">No transactions yet.</td></tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}

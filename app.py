@@ -1179,27 +1179,174 @@ def ensure_user_columns():
 
 def ensure_default_admin():
     email = os.getenv("DEFAULT_ADMIN_EMAIL", "admin@tutorsonline.pk").strip().lower()
-    password = os.getenv("DEFAULT_ADMIN_PASSWORD", "Admin@12345")
+    password = os.getenv("DEFAULT_ADMIN_PASSWORD", "Admin@12345").strip()
     name = os.getenv("DEFAULT_ADMIN_NAME", "Super Admin").strip()
+
     admin = User.query.filter_by(email=email).first()
+
     if admin:
-        admin.role = "admin"
-        admin.full_name = admin.full_name or name
-        admin.public_name = admin.public_name or name
-        admin.is_active_user = True
-        admin.set_password(password)
-    else:
-        admin = User(
-            email=email,
-            role="admin",
-            full_name=name,
-            public_name=name,
-            bio="System admin",
-            is_active_user=True,
-        )
-        admin.set_password(password)
-        db.session.add(admin)
+        changed = False
+
+        if admin.role != "admin":
+            admin.role = "admin"
+            changed = True
+
+        if not admin.full_name:
+            admin.full_name = name
+            changed = True
+
+        if not admin.public_name:
+            admin.public_name = name
+            changed = True
+
+        if not admin.is_active_user:
+            admin.is_active_user = True
+            changed = True
+
+        # IMPORTANT:
+        # Do NOT reset/re-hash password every startup.
+        # Only set password if hash is missing.
+        if not admin.password_hash:
+            admin.password_hash = generate_password_hash(password, method="pbkdf2:sha256")
+            changed = True
+
+        if changed:
+            db.session.commit()
+
+        return admin
+
+    admin = User(
+        email=email,
+        role="admin",
+        full_name=name,
+        public_name=name,
+        is_active_user=True,
+    )
+    admin.password_hash = generate_password_hash(password, method="pbkdf2:sha256")
+    db.session.add(admin)
     db.session.commit()
+    return admin
+
+@app.route("/admin/payment-notices")
+@login_required
+def admin_payment_notices():
+    if current_user.role != "admin":
+        flash("Unauthorized.", "danger")
+        return redirect(url_for("dashboard"))
+
+    notices = PaymentNotice.query.order_by(
+        PaymentNotice.created_at.desc()
+    ).all()
+
+    return render_template("admin_payment_notices.html", notices=notices)
+
+@app.route("/admin/payment-notices/<int:notice_id>/action", methods=["POST"])
+@login_required
+def admin_payment_action(notice_id):
+    if current_user.role != "admin":
+        flash("Unauthorized.", "danger")
+        return redirect(url_for("dashboard"))
+
+    notice = PaymentNotice.query.get_or_404(notice_id)
+    action = (request.form.get("action", "") or "").strip().lower()
+    reason = (request.form.get("reason", "") or "").strip()
+
+    if notice.status == "approved":
+        flash("This payment notice has already been approved.", "warning")
+        return redirect(url_for("admin_payment_notices"))
+
+    if notice.status == "declined":
+        flash("This payment notice has already been declined.", "warning")
+        return redirect(url_for("admin_payment_notices"))
+
+    if action == "approve":
+        add_credits(
+            notice.student,
+            notice.claimed_credits,
+            "manual_topup",
+            f"Approved payment notice #{notice.id}",
+            rupees=notice.amount_sent_pkr,
+        )
+        notice.status = "approved"
+        notice.admin_note = reason
+        notice.reviewed_at = datetime.utcnow()
+        db.session.commit()
+
+        safe_send_email(
+            notice.student.email,
+            "Credits approved - TutorsOnline.pk",
+            f"""Assalam-o-Alaikum {notice.student.full_name},
+
+Your payment notice has been approved.
+
+Credits added: {notice.claimed_credits}
+Amount received: PKR {notice.amount_sent_pkr}
+
+{f"Admin note: {reason}" if reason else ""}
+
+Regards,
+TutorsOnline.pk
+superadmin@tutorsonline.pk
+""",
+        )
+
+        flash(f"Approved notice #{notice.id} and added {notice.claimed_credits} credits.", "success")
+        return redirect(url_for("admin_payment_notices"))
+
+    if action == "decline":
+        notice.status = "declined"
+        notice.admin_note = reason or "Payment proof could not be verified."
+        notice.reviewed_at = datetime.utcnow()
+        db.session.commit()
+
+        safe_send_email(
+            notice.student.email,
+            "Payment notice declined - TutorsOnline.pk",
+            f"""Assalam-o-Alaikum {notice.student.full_name},
+
+Your payment notice could not be approved.
+
+Reason: {notice.admin_note}
+
+No credits were added to your account.
+
+Regards,
+TutorsOnline.pk
+superadmin@tutorsonline.pk
+""",
+        )
+
+        flash(f"Declined notice #{notice.id}.", "info")
+        return redirect(url_for("admin_payment_notices"))
+
+    if action == "on_hold":
+        notice.status = "on_hold"
+        notice.admin_note = reason or "Payment notice is being reviewed."
+        notice.reviewed_at = datetime.utcnow()
+        db.session.commit()
+
+        safe_send_email(
+            notice.student.email,
+            "Payment notice on hold - TutorsOnline.pk",
+            f"""Assalam-o-Alaikum {notice.student.full_name},
+
+Your payment notice is currently on hold for review.
+
+{f"Admin note: {notice.admin_note}" if notice.admin_note else ""}
+
+No credits have been added yet.
+
+Regards,
+TutorsOnline.pk
+superadmin@tutorsonline.pk
+""",
+        )
+
+        flash(f"Notice #{notice.id} marked on hold.", "warning")
+        return redirect(url_for("admin_payment_notices"))
+
+    flash("Invalid action.", "danger")
+    return redirect(url_for("admin_payment_notices"))
 
 @app.route("/")
 def index():
@@ -1709,6 +1856,57 @@ def privacy_policy():
     return render_template("privacy.html")
 
 
+@app.route("/admin/credits")
+@login_required
+def admin_credit_notices():
+    if current_user.role != "admin":
+        return redirect(url_for("dashboard"))
+
+    notices = PaymentNotice.query.order_by(PaymentNotice.created_at.desc()).all()
+    return render_template("admin_credit_notices.html", notices=notices)
+
+@app.route("/admin/credits/<int:notice_id>/review", methods=["POST"])
+@login_required
+def admin_review_credit_notice(notice_id):
+    if current_user.role != "admin":
+        return redirect(url_for("dashboard"))
+
+    notice = PaymentNotice.query.get_or_404(notice_id)
+    action = request.form.get("action", "").strip()
+    reason = request.form.get("reason", "").strip()
+
+    if notice.status != "pending":
+        flash("This payment notice has already been reviewed.", "warning")
+        return redirect(url_for("admin_credit_notices"))
+
+    if action == "approve":
+        add_credits(
+            notice.student,
+            notice.claimed_credits,
+            "manual_topup",
+            f"Approved payment notice #{notice.id}",
+            rupees=notice.amount_sent_pkr,
+        )
+        notice.status = "approved"
+        notice.admin_note = reason
+        notice.reviewed_at = datetime.utcnow()
+        db.session.commit()
+        flash("Credits approved and added successfully.", "success")
+
+    elif action == "decline":
+        notice.status = "declined"
+        notice.admin_note = reason
+        notice.reviewed_at = datetime.utcnow()
+        db.session.commit()
+        flash("Payment notice declined.", "info")
+
+    else:
+        flash("Invalid action.", "danger")
+
+    return redirect(url_for("admin_credit_notices"))
+
+
+
 @app.route("/accessibility")
 def accessibility():
     return render_template("accessibility.html")
@@ -1729,26 +1927,61 @@ def buy_credits():
     credit_rate = app.config.get("CREDIT_RATE", 10)
 
     if request.method == "POST":
-        selected = request.form.get("credits_requested", "").strip()
-        if selected == "other":
-            credits = int(request.form.get("credits_requested_other") or 0)
-        else:
-            credits = int(selected or 0)
+        selected = (request.form.get("credits_requested", "") or "").strip()
+
+        try:
+            if selected == "other":
+                credits = int((request.form.get("credits_requested_other") or "0").strip())
+            else:
+                credits = int(selected or 0)
+        except ValueError:
+            flash("Please enter a valid credit amount.", "danger")
+            return render_template(
+                "buy_credits_v2.html",
+                form_data=form_data,
+                credit_rate=credit_rate,
+            )
 
         if credits < 10:
             flash("Minimum purchase is 10 credits.", "danger")
-            return render_template("buy_credits_v2.html", form_data=form_data, credit_rate=credit_rate)
+            return render_template(
+                "buy_credits_v2.html",
+                form_data=form_data,
+                credit_rate=credit_rate,
+            )
 
         if request.form.get("payment_confirmed", "").strip() != "yes":
             flash("Please confirm the transfer before submitting.", "danger")
-            return render_template("buy_credits_v2.html", form_data=form_data, credit_rate=credit_rate)
+            return render_template(
+                "buy_credits_v2.html",
+                form_data=form_data,
+                credit_rate=credit_rate,
+            )
 
-        amount = credits * credit_rate
+        # Prevent duplicate pending notices for the same student/amount before admin review
+        existing_pending = PaymentNotice.query.filter_by(
+            student_id=current_user.id,
+            claimed_credits=credits,
+            status="pending",
+        ).order_by(PaymentNotice.created_at.desc()).first()
+
+        if existing_pending:
+            flash(
+                "You already have a pending payment notice for this credit request. Please wait for admin review.",
+                "warning",
+            )
+            return redirect(url_for("student_wallet"))
+
         screenshot = request.files.get("screenshot")
         if not screenshot or not screenshot.filename:
             flash("Please attach transfer screenshot.", "danger")
-            return render_template("buy_credits_v2.html", form_data=form_data, credit_rate=credit_rate)
+            return render_template(
+                "buy_credits_v2.html",
+                form_data=form_data,
+                credit_rate=credit_rate,
+            )
 
+        amount = credits * credit_rate
         filename = f"payment_{uuid4().hex}_{secure_filename(screenshot.filename)}"
         screenshot.save(Path(app.config["UPLOAD_FOLDER"]) / filename)
 
@@ -1756,15 +1989,18 @@ def buy_credits():
             student_id=current_user.id,
             amount_sent_pkr=amount,
             claimed_credits=credits,
-            sender_name=request.form.get("sender_name", ""),
-            sender_account=request.form.get("sender_account", ""),
-            transfer_method=request.form.get("transfer_method", "easypaisa"),
+            sender_name=(request.form.get("sender_name", "") or "").strip(),
+            sender_account=(request.form.get("sender_account", "") or "").strip(),
+            transfer_method=(request.form.get("transfer_method", "easypaisa") or "easypaisa").strip(),
             screenshot_filename=filename,
-            note=request.form.get("note", ""),
+            note=(request.form.get("note", "") or "").strip(),
+            status="pending",
         )
         db.session.add(notice)
         db.session.commit()
 
+        # IMPORTANT: No credits are added here.
+        # Credits must only be granted from admin approval route.
         safe_send_email(
             "superadmin@tutorsonline.pk",
             "TutorsOnline.pk Credit Purchase Notice",
@@ -1774,13 +2010,25 @@ Amount: PKR {amount}
 Sender: {notice.sender_name}
 Account: {notice.sender_account}
 Method: {notice.transfer_method}
-Screenshot: {filename}""",
+Notice ID: {notice.id}
+Screenshot: {filename}
+
+Status: pending
+Action required: Admin approval or decline
+""",
         )
 
-        flash("Payment notice submitted successfully. Admin will review it shortly.", "success")
-        return redirect(url_for("dashboard"))
+        flash(
+            "Payment notice submitted successfully. Your credits will be added only after admin approval.",
+            "success",
+        )
+        return redirect(url_for("student_wallet"))
 
-    return render_template("buy_credits_v2.html", form_data=form_data, credit_rate=credit_rate)
+    return render_template(
+        "buy_credits_v2.html",
+        form_data=form_data,
+        credit_rate=credit_rate,
+    )
 
 @app.route("/wallet")
 
@@ -2196,16 +2444,6 @@ def admin_verify_tutor(user_id):
 
     return redirect(url_for("admin_users"))
 
-
-@app.route("/admin/payment-notices")
-
-@login_required
-def admin_payment_notices():
-    if current_user.role != "admin":
-        return redirect(url_for("dashboard"))
-
-    notices = PaymentNotice.query.order_by(PaymentNotice.created_at.desc()).all()
-    return render_template("admin_payment_notices.html", notices=notices)
 
 
 @app.route("/admin/payment-notices/<int:notice_id>/approve", methods=["POST"])
