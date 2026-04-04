@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from sqlalchemy import text
+from rtc.extensions import db
 
 from flask import (
     Flask,
@@ -28,6 +29,7 @@ from flask_login import (
     logout_user,
 )
 from flask_sqlalchemy import SQLAlchemy
+from rtc.extensions import db
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 from authlib.integrations.flask_client import OAuth
@@ -327,9 +329,7 @@ google = oauth.register(
     }
 )
 
-db = SQLAlchemy(app)
-from rtc import models_rtc
-models_rtc.db = db
+db.init_app(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
@@ -570,6 +570,7 @@ class TutorBonus(db.Model):
     tutor = db.relationship("User", backref="bonus_entries")
 
 
+
 class WithdrawalRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tutor_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
@@ -606,6 +607,189 @@ class ChatFlag(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     booking = db.relationship("Booking", backref="chat_flags")
     sender = db.relationship("User")
+
+# Add this model near PaymentNotice if not already present
+class TutorFeeNotice(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    tutor_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    amount_sent_pkr = db.Column(db.Integer, nullable=False, default=500)
+    sender_name = db.Column(db.String(120), default="")
+    sender_account = db.Column(db.String(120), default="")
+    transfer_method = db.Column(db.String(50), default="easypaisa")
+    screenshot_filename = db.Column(db.String(255), default="")
+    note = db.Column(db.Text, default="")
+    status = db.Column(db.String(20), default="pending")
+    admin_note = db.Column(db.Text, default="")
+    reviewed_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    tutor = db.relationship("User", backref="tutor_fee_notices")
+
+@app.route("/tutor/registration-fee", methods=["GET", "POST"])
+@login_required
+def tutor_registration_fee():
+    if current_user.role != "tutor":
+        flash("Only tutors can access this page.", "danger")
+        return redirect(url_for("dashboard"))
+
+    if current_user.profile_stage != "fee_pending":
+        flash("No tutor registration fee is pending on your account.", "info")
+        return redirect(url_for("dashboard"))
+
+    form_data = request.form.to_dict(flat=True) if request.method == "POST" else {}
+
+    if request.method == "POST":
+        if request.form.get("payment_confirmed", "").strip() != "yes":
+            flash("Please confirm the payment before submitting.", "danger")
+            return render_template("tutor_registration_fee.html", form_data=form_data)
+
+        existing_pending = TutorFeeNotice.query.filter_by(
+            tutor_id=current_user.id,
+            status="pending",
+        ).order_by(TutorFeeNotice.created_at.desc()).first()
+
+        if existing_pending:
+            flash("You already have a pending tutor fee notice under review.", "warning")
+            return redirect(url_for("dashboard"))
+
+        screenshot = request.files.get("screenshot")
+        if not screenshot or not screenshot.filename:
+            flash("Please attach payment screenshot.", "danger")
+            return render_template("tutor_registration_fee.html", form_data=form_data)
+
+        filename = f"tutor_fee_{uuid4().hex}_{secure_filename(screenshot.filename)}"
+        screenshot.save(Path(app.config["UPLOAD_FOLDER"]) / filename)
+
+        notice = TutorFeeNotice(
+            tutor_id=current_user.id,
+            amount_sent_pkr=500,
+            sender_name=(request.form.get("sender_name", "") or "").strip(),
+            sender_account=(request.form.get("sender_account", "") or "").strip(),
+            transfer_method=(request.form.get("transfer_method", "easypaisa") or "easypaisa").strip(),
+            screenshot_filename=filename,
+            note=(request.form.get("note", "") or "").strip(),
+            status="pending",
+        )
+        db.session.add(notice)
+        db.session.commit()
+
+        safe_send_email(
+            "superadmin@tutorsonline.pk",
+            "Tutor registration fee notice - TutorsOnline.pk",
+            f"""Tutor: {current_user.full_name} ({current_user.email})
+Amount: PKR 500
+Sender: {notice.sender_name}
+Account: {notice.sender_account}
+Method: {notice.transfer_method}
+Notice ID: {notice.id}
+Screenshot: {filename}
+
+Status: pending
+Action required: Admin approval or decline
+""",
+        )
+
+        flash("Tutor fee notice submitted successfully. Admin will review it shortly.", "success")
+        return redirect(url_for("dashboard"))
+
+    return render_template("tutor_registration_fee.html", form_data=form_data)
+
+
+@app.route("/admin/tutor-fee-notices")
+@login_required
+def admin_tutor_fee_notices():
+    if current_user.role != "admin":
+        flash("Unauthorized.", "danger")
+        return redirect(url_for("dashboard"))
+
+    notices = TutorFeeNotice.query.order_by(TutorFeeNotice.created_at.desc()).all()
+    return render_template("admin_tutor_fee_notices.html", notices=notices)
+
+
+@app.route("/admin/tutor-fee-notices/<int:notice_id>/action", methods=["POST"])
+@login_required
+def admin_tutor_fee_action(notice_id):
+    if current_user.role != "admin":
+        flash("Unauthorized.", "danger")
+        return redirect(url_for("dashboard"))
+
+    notice = TutorFeeNotice.query.get_or_404(notice_id)
+    action = (request.form.get("action", "") or "").strip().lower()
+    reason = (request.form.get("reason", "") or "").strip()
+
+    if notice.status in {"approved", "declined"}:
+        flash("This tutor fee notice has already been finalized.", "warning")
+        return redirect(url_for("admin_tutor_fee_notices"))
+
+    if action == "approve":
+        notice.status = "approved"
+        notice.admin_note = reason
+        notice.reviewed_at = datetime.utcnow()
+
+        tutor = notice.tutor
+        tutor.profile_stage = "approved"
+        tutor.is_verified_tutor = True
+        tutor.is_public_tutor = True
+        tutor.approved_at = datetime.utcnow()
+
+        db.session.commit()
+
+        safe_send_email(
+            tutor.email,
+            "Tutor activation complete - TutorsOnline.pk",
+            f"""Assalam-o-Alaikum {tutor.full_name},
+
+Your PKR 500 registration fee has been verified.
+
+Your tutor profile is now active on TutorsOnline.pk.
+
+{f"Admin note: {reason}" if reason else ""}
+
+Regards,
+TutorsOnline.pk
+superadmin@tutorsonline.pk
+""",
+        )
+
+        flash("Tutor fee approved and tutor activated.", "success")
+        return redirect(url_for("admin_tutor_fee_notices"))
+
+    if action == "decline":
+        notice.status = "declined"
+        notice.admin_note = reason or "Fee proof could not be verified."
+        notice.reviewed_at = datetime.utcnow()
+        db.session.commit()
+
+        safe_send_email(
+            notice.tutor.email,
+            "Tutor fee notice declined - TutorsOnline.pk",
+            f"""Assalam-o-Alaikum {notice.tutor.full_name},
+
+Your tutor registration fee notice could not be approved.
+
+Reason: {notice.admin_note}
+
+Your profile remains pending fee confirmation.
+
+Regards,
+TutorsOnline.pk
+superadmin@tutorsonline.pk
+""",
+        )
+
+        flash("Tutor fee notice declined.", "info")
+        return redirect(url_for("admin_tutor_fee_notices"))
+
+    if action == "on_hold":
+        notice.status = "on_hold"
+        notice.admin_note = reason or "Tutor fee notice is under review."
+        notice.reviewed_at = datetime.utcnow()
+        db.session.commit()
+        flash("Tutor fee notice marked on hold.", "warning")
+        return redirect(url_for("admin_tutor_fee_notices"))
+
+    flash("Invalid action.", "danger")
+    return redirect(url_for("admin_tutor_fee_notices"))
+
 
 
 @login_manager.user_loader

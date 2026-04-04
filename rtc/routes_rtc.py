@@ -2,7 +2,7 @@ from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_login import current_user, login_required
 from werkzeug.utils import secure_filename
 
@@ -10,20 +10,40 @@ from rtc.agora_service import AgoraConfigError, get_join_payload_for_user
 from rtc.chat_guard import message_contains_blocked_contact_info
 from rtc.models_rtc import SessionMessage
 
-
 rtc_bp = Blueprint("rtc", __name__)
+
+import sys
+
+def _get_app_objects():
+    # When app is started with "python app.py", the loaded module is "__main__".
+    # Importing "app" again creates a second module and duplicates SQLAlchemy models.
+    source = sys.modules.get("__main__") or sys.modules.get("app")
+
+    if source is None:
+        raise RuntimeError("Could not locate the running app module.")
+
+    db = getattr(source, "db", None)
+    Booking = getattr(source, "Booking", None)
+    LiveSessionLog = getattr(source, "LiveSessionLog", None)
+
+    if not all([db, Booking, LiveSessionLog]):
+        raise RuntimeError(
+            "App objects not found. Make sure db, Booking, and LiveSessionLog are defined before rtc blueprint is imported."
+        )
+
+    return db, Booking, LiveSessionLog
 
 
 def _get_booking_or_404(booking_id: int):
-    from app import Booking
-    booking = Booking.query.get(booking_id)
+    db, Booking, LiveSessionLog = _get_app_objects()
+    booking = db.session.get(Booking, booking_id)
     if not booking:
         return None, jsonify({"ok": False, "error": "Booking not found"}), 404
     return booking, None, None
 
 
-def _get_or_create_live_log(booking: Booking) -> LiveSessionLog:
-    from app import LiveSessionLog
+def _get_or_create_live_log(booking):
+    db, Booking, LiveSessionLog = _get_app_objects()
     log = LiveSessionLog.query.filter_by(booking_id=booking.id).first()
     if not log:
         log = LiveSessionLog(
@@ -37,7 +57,7 @@ def _get_or_create_live_log(booking: Booking) -> LiveSessionLog:
     return log
 
 
-def _user_can_access_booking(booking: Booking) -> bool:
+def _user_can_access_booking(booking) -> bool:
     if not current_user.is_authenticated:
         return False
 
@@ -47,7 +67,7 @@ def _user_can_access_booking(booking: Booking) -> bool:
     return current_user.id in {booking.student_id, booking.tutor_id}
 
 
-def _update_live_log_join_state(log: LiveSessionLog, booking: Booking):
+def _update_live_log_join_state(log, booking):
     if current_user.role == "admin":
         log.admin_joined = True
         log.last_activity_note = f"Admin joined at {datetime.utcnow().isoformat()} UTC"
@@ -59,7 +79,7 @@ def _update_live_log_join_state(log: LiveSessionLog, booking: Booking):
         log.last_activity_note = f"Tutor joined at {datetime.utcnow().isoformat()} UTC"
 
 
-def _update_live_log_leave_state(log: LiveSessionLog, booking: Booking):
+def _update_live_log_leave_state(log, booking):
     if current_user.role == "admin":
         log.admin_joined = False
         log.last_activity_note = f"Admin left at {datetime.utcnow().isoformat()} UTC"
@@ -77,6 +97,8 @@ def _update_live_log_leave_state(log: LiveSessionLog, booking: Booking):
 @rtc_bp.route("/join/<int:booking_id>", methods=["POST"])
 @login_required
 def rtc_join(booking_id):
+    db, Booking, LiveSessionLog = _get_app_objects()
+
     booking, error_response, status_code = _get_booking_or_404(booking_id)
     if error_response:
         return error_response, status_code
@@ -99,7 +121,6 @@ def rtc_join(booking_id):
     if booking.status == "scheduled":
         booking.status = "live"
 
-    from app import db
     db.session.commit()
 
     return jsonify(
@@ -124,6 +145,8 @@ def rtc_join(booking_id):
 @rtc_bp.route("/leave/<int:booking_id>", methods=["POST"])
 @login_required
 def rtc_leave(booking_id):
+    db, Booking, LiveSessionLog = _get_app_objects()
+
     booking, error_response, status_code = _get_booking_or_404(booking_id)
     if error_response:
         return error_response, status_code
@@ -151,6 +174,8 @@ def rtc_leave(booking_id):
 @rtc_bp.route("/session-status/<int:booking_id>", methods=["GET"])
 @login_required
 def rtc_session_status(booking_id):
+    db, Booking, LiveSessionLog = _get_app_objects()
+
     booking, error_response, status_code = _get_booking_or_404(booking_id)
     if error_response:
         return error_response, status_code
@@ -193,6 +218,8 @@ def rtc_session_status(booking_id):
 @rtc_bp.route("/admin/live-sessions", methods=["GET"])
 @login_required
 def rtc_admin_live_sessions():
+    db, Booking, LiveSessionLog = _get_app_objects()
+
     if current_user.role != "admin":
         return jsonify({"ok": False, "error": "Admin access required"}), 403
 
@@ -232,6 +259,8 @@ def rtc_admin_live_sessions():
 @rtc_bp.route("/chat/<int:booking_id>", methods=["GET"])
 @login_required
 def rtc_chat_messages(booking_id):
+    db, Booking, LiveSessionLog = _get_app_objects()
+
     booking, error_response, status_code = _get_booking_or_404(booking_id)
     if error_response:
         return error_response, status_code
@@ -268,6 +297,8 @@ def rtc_chat_messages(booking_id):
 @rtc_bp.route("/chat/<int:booking_id>/send", methods=["POST"])
 @login_required
 def rtc_chat_send(booking_id):
+    db, Booking, LiveSessionLog = _get_app_objects()
+
     booking, error_response, status_code = _get_booking_or_404(booking_id)
     if error_response:
         return error_response, status_code
@@ -318,6 +349,8 @@ def rtc_chat_send(booking_id):
 @rtc_bp.route("/chat/<int:booking_id>/upload", methods=["POST"])
 @login_required
 def rtc_chat_upload(booking_id):
+    db, Booking, LiveSessionLog = _get_app_objects()
+
     booking, error_response, status_code = _get_booking_or_404(booking_id)
     if error_response:
         return error_response, status_code

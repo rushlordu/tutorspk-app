@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="auth-section">
+  <div class="auth-card" style="max-width:860px;">
+    <h1>Tutor Registration Fee</h1>
+    <p class="auth-sub">Complete the PKR 500 tutor activation payment after admin selection.</p>
+
+    <div class="inline-note-card">
+      <strong>Status</strong>
+      <p>Your profile has been selected in principle. To activate your tutor account, submit the PKR 500 payment proof below.</p>
+      {% if current_user.admin_review_note %}
+      <p><strong>Admin note:</strong> {{ current_user.admin_review_note }}</p>
+      {% endif %}
+    </div>
+
+    <div class="inline-note-card" style="margin-top:12px;">
+      <strong>Payment Method</strong>
+      <p><strong>EasyPaisa Account:</strong> 030012345678</p>
+      <p><strong>Amount to transfer:</strong> PKR 500</p>
+      <p>Please upload a clear screenshot after sending the payment.</p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+      <div class="form-grid two-col">
+        <div>
+          <label class="small-label">Sender name <span style="color:#cc2b2b;">* required</span></label>
+          <input name="sender_name" value="{{ form_data.get('sender_name','') }}" required>
+        </div>
+        <div>
+          <label class="small-label">Sender account / mobile number <span style="color:#cc2b2b;">* required</span></label>
+          <input name="sender_account" value="{{ form_data.get('sender_account','') }}" required>
+        </div>
+        <div>
+          <label class="small-label">Transfer method <span style="color:#cc2b2b;">* required</span></label>
+          <select name="transfer_method" required>
+            <option value="easypaisa" {% if form_data.get('transfer_method','easypaisa') == 'easypaisa' %}selected{% endif %}>EasyPaisa</option>
+            <option value="bank" {% if form_data.get('transfer_method') == 'bank' %}selected{% endif %}>Bank</option>
+          </select>
+        </div>
+        <div>
+          <label class="small-label">Payment screenshot <span style="color:#cc2b2b;">* required</span></label>
+          <input type="file" name="screenshot" accept="image/*,.pdf" required>
+        </div>
+        <div style="grid-column:1/-1;">
+          <label class="small-label">Optional note</label>
+          <textarea name="note" rows="4">{{ form_data.get('note','') }}</textarea>
+        </div>
+
+        <label style="grid-column:1/-1; display:flex; gap:10px; align-items:flex-start;">
+          <input type="checkbox" name="payment_confirmed" value="yes" {% if form_data.get('payment_confirmed') == 'yes' %}checked{% endif %} required>
+          <span>I confirm that I have transferred PKR 500 for tutor activation. <span style="color:#cc2b2b;">* required</span></span>
+        </label>
+      </div>
+
+      <div class="step-actions" style="margin-top:20px;">
+        <a class="btn btn-light" href="{{ url_for('dashboard') }}">← Back</a>
+        <button class="btn btn-primary" type="submit" onclick="return confirm('Do you confirm that you have transferred PKR 500 and uploaded the proof?');">Submit Fee Proof</button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

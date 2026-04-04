@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+    <div>
+      <h1 style="margin-bottom:6px;">Tutor Registration Fee Notices</h1>
+      <p class="muted" style="margin-top:0;">Review PKR 500 tutor activation payment proofs.</p>
+    </div>
+    <a class="btn btn-light" href="{{ url_for('admin_dashboard') }}">← Back to Admin</a>
+  </div>
+</section>
+
+<section class="card">
+  <table class="table">
+    <tr>
+      <th>ID</th>
+      <th>Tutor</th>
+      <th>Amount</th>
+      <th>Method</th>
+      <th>Proof</th>
+      <th>Status</th>
+      <th>Admin Note</th>
+      <th>Actions</th>
+    </tr>
+
+    {% for notice in notices %}
+    <tr>
+      <td>#{{ notice.id }}</td>
+      <td>
+        <strong>{{ notice.tutor.public_name }}</strong><br>
+        <span class="muted">{{ notice.tutor.email }}</span>
+      </td>
+      <td>PKR {{ notice.amount_sent_pkr }}</td>
+      <td>
+        {{ notice.transfer_method|title }}<br>
+        <span class="muted">{{ notice.sender_account or '-' }}</span>
+      </td>
+      <td>
+        {% if notice.screenshot_filename %}
+          <a href="{{ url_for('uploaded_file', filename=notice.screenshot_filename) }}" target="_blank">Open</a>
+        {% else %}
+          -
+        {% endif %}
+      </td>
+      <td>{{ notice.status.replace('_',' ')|title }}</td>
+      <td>{{ notice.admin_note or '-' }}</td>
+      <td style="min-width:280px;">
+        {% if notice.status in ['pending', 'on_hold'] %}
+        <form method="post" action="{{ url_for('admin_tutor_fee_action', notice_id=notice.id) }}" class="form-grid" style="gap:8px;">
+          <textarea name="reason" rows="2" placeholder="Optional note / decline reason">{{ notice.admin_note or '' }}</textarea>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-primary" type="submit" name="action" value="approve"
+                    onclick="return confirm('Approve this tutor fee proof and activate tutor?');">
+              Approve & Activate
+            </button>
+            <button class="btn btn-light" type="submit" name="action" value="on_hold">Put On Hold</button>
+            <button class="btn" style="background:#b42318; color:#fff;" type="submit" name="action" value="decline"
+                    onclick="return confirm('Decline this tutor fee notice?');">
+              Decline
+            </button>
+          </div>
+        </form>
+        {% else %}
+          <span class="muted">Finalized {{ notice.reviewed_at.strftime('%Y-%m-%d %H:%M') if notice.reviewed_at else '' }}</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8">No tutor fee notices found.</td></tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}

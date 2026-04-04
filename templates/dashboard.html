@@ -1,6 +1,14 @@
 {% extends 'base.html' %}
 {% block content %}
 
+{% if current_user.role == 'tutor' and current_user.profile_stage == 'fee_pending' %}
+<section class="card">
+  <h2>Tutor Activation Fee Pending</h2>
+  <p>Your profile has been selected. Please submit the PKR 500 fee proof to activate your tutor account.</p>
+  <a class="btn btn-primary" href="{{ url_for('tutor_registration_fee') }}">Submit Registration Fee</a>
+</section>
+{% endif %}
+
 {% if current_user.role == 'student' and pending_notices %}
 <section class="card">
   <h2>Pending Credit Top-Up</h2>
