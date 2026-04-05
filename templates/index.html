@@ -689,25 +689,6 @@
   }
 
 
-  <script>
-document.addEventListener("mousemove", (e) => {
-  const x = (e.clientX / window.innerWidth - 0.5);
-  const y = (e.clientY / window.innerHeight - 0.5);
-
-  document.querySelectorAll(".hero-copy-neo").forEach(el => {
-    el.style.transform = `translate(${x * -10}px, ${y * -10}px)`;
-  });
-
-  document.querySelectorAll(".intent-card-neo").forEach(el => {
-    el.style.transform = `translate(${x * 12}px, ${y * 12}px)`;
-  });
-
-  document.querySelectorAll(".hero-girl-cutout").forEach(el => {
-    el.style.transform = `translate(${x * 18}px, ${y * 18}px) scale(1.02)`;
-  });
-});
-</script>
-
   /* ===== Motion Layer ===== */
   @keyframes shellFloat {
     0%, 100% { transform: translateY(0px); }
@@ -873,174 +854,785 @@ document.addEventListener("mousemove", (e) => {
       transform: none !important;
     }
   }
+
+
+  /* ===== Insane Mode Layer ===== */
+  .ai-home {
+    perspective: 1200px;
+  }
+
+  .ai-shell {
+    position: relative;
+    transform-style: preserve-3d;
+    background-size: 160% 160%, 160% 160%, 160% 160%, 180% 180%;
+    animation:
+      shellFloat 8s ease-in-out infinite,
+      ambientGradientShift 24s ease-in-out infinite;
+    will-change: transform, background-position;
+  }
+
+  @keyframes ambientGradientShift {
+    0% {
+      background-position: 0% 0%, 100% 0%, 80% 100%, 0% 50%;
+    }
+    50% {
+      background-position: 12% 6%, 88% 14%, 74% 88%, 100% 50%;
+    }
+    100% {
+      background-position: 0% 0%, 100% 0%, 80% 100%, 0% 50%;
+    }
+  }
+
+  .ambient-grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.22;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent 90%);
+    animation: gridDrift 18s linear infinite;
+  }
+
+  @keyframes gridDrift {
+    from { transform: translate3d(0, 0, 0); }
+    to { transform: translate3d(0, 26px, 0); }
+  }
+
+  .ambient-particles {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .ambient-particles span {
+    position: absolute;
+    display: block;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(255,255,255,0.85), rgba(255,255,255,0.05) 70%);
+    box-shadow: 0 0 18px rgba(91,140,255,0.25);
+    opacity: 0.45;
+    animation: particleRise linear infinite;
+  }
+
+  .ambient-particles span:nth-child(1) { left: 8%;  bottom: -20px; animation-duration: 18s; animation-delay: -2s; transform: scale(0.8); }
+  .ambient-particles span:nth-child(2) { left: 16%; bottom: -20px; animation-duration: 14s; animation-delay: -7s; transform: scale(1.1); }
+  .ambient-particles span:nth-child(3) { left: 26%; bottom: -20px; animation-duration: 21s; animation-delay: -4s; transform: scale(0.7); }
+  .ambient-particles span:nth-child(4) { left: 38%; bottom: -20px; animation-duration: 16s; animation-delay: -10s; transform: scale(1.2); }
+  .ambient-particles span:nth-child(5) { left: 50%; bottom: -20px; animation-duration: 22s; animation-delay: -12s; transform: scale(0.85); }
+  .ambient-particles span:nth-child(6) { left: 61%; bottom: -20px; animation-duration: 17s; animation-delay: -5s; transform: scale(0.9); }
+  .ambient-particles span:nth-child(7) { left: 70%; bottom: -20px; animation-duration: 20s; animation-delay: -9s; transform: scale(1.15); }
+  .ambient-particles span:nth-child(8) { left: 79%; bottom: -20px; animation-duration: 15s; animation-delay: -11s; transform: scale(0.75); }
+  .ambient-particles span:nth-child(9) { left: 89%; bottom: -20px; animation-duration: 19s; animation-delay: -6s; transform: scale(1.0); }
+
+  @keyframes particleRise {
+    0% {
+      transform: translate3d(0, 0, 0) scale(1);
+      opacity: 0;
+    }
+    10% {
+      opacity: 0.4;
+    }
+    50% {
+      transform: translate3d(14px, -260px, 0) scale(1.25);
+      opacity: 0.55;
+    }
+    100% {
+      transform: translate3d(-10px, -520px, 0) scale(0.85);
+      opacity: 0;
+    }
+  }
+
+  .cursor-glow {
+    position: absolute;
+    width: 320px;
+    height: 320px;
+    border-radius: 999px;
+    pointer-events: none;
+    z-index: 2;
+    opacity: 0.28;
+    filter: blur(36px);
+    background:
+      radial-gradient(circle, rgba(91,140,255,0.36) 0%, rgba(91,140,255,0.1) 38%, rgba(91,140,255,0) 72%);
+    transform: translate3d(-50%, -50%, 0);
+    transition: opacity 0.3s ease;
+    will-change: transform;
+  }
+
+  .hero-neo {
+    transform-style: preserve-3d;
+  }
+
+  .hero-copy-neo,
+  .intent-card-neo,
+  .hero-art,
+  .floating-trust {
+    will-change: transform;
+    transition: transform 0.12s linear;
+  }
+
+  .hero-copy-neo {
+    transform: translateZ(34px);
+  }
+
+  .hero-copy-neo h1,
+  .hero-copy-neo p,
+  .hero-mini-grid {
+    will-change: transform;
+    transition: transform 0.14s linear;
+  }
+
+  .hero-art {
+    transform: translateZ(10px);
+  }
+
+  .hero-girl-cutout {
+    animation:
+      fadeSlideUp 1s ease-out 0.14s both,
+      heroVideoZoom 18s ease-in-out infinite,
+      heroBreath 9s ease-in-out infinite;
+    transform-origin: center center;
+    will-change: transform, opacity, filter;
+  }
+
+  @keyframes heroVideoZoom {
+    0%, 100% { transform: scale(1.00) translate3d(0, 0, 0); }
+    50% { transform: scale(1.06) translate3d(0, -8px, 0); }
+  }
+
+  @keyframes heroBreath {
+    0%, 100% { opacity: 0.76; filter: saturate(0.95) contrast(1.04) brightness(1); }
+    50% { opacity: 0.88; filter: saturate(1.03) contrast(1.08) brightness(1.03); }
+  }
+
+  .hero-orbit.one,
+  .hero-orbit.two {
+    box-shadow: inset 0 0 40px rgba(255,255,255,0.02);
+  }
+
+  .hero-orbit.one::before,
+  .hero-orbit.two::before {
+    content: "";
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: radial-gradient(circle, rgba(255,255,255,0.95), rgba(255,255,255,0.1) 70%);
+    box-shadow: 0 0 20px rgba(91,140,255,0.4);
+  }
+
+  .hero-orbit.two::before {
+    width: 10px;
+    height: 10px;
+    top: auto;
+    bottom: -5px;
+    background: radial-gradient(circle, rgba(200,255,220,0.95), rgba(200,255,220,0.08) 70%);
+  }
+
+  .intent-card-neo {
+    transform: translateZ(54px);
+    overflow: hidden;
+  }
+
+  .intent-card-neo::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 10%, rgba(255,255,255,0.35) 35%, transparent 60%);
+    transform: translateX(-130%);
+    animation: glassSweep 7s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes glassSweep {
+    0%, 78%, 100% { transform: translateX(-130%); }
+    88% { transform: translateX(130%); }
+  }
+
+  .floating-trust {
+    transform: translateZ(44px);
+  }
+
+  .trust-pill {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .trust-pill::after {
+    content: "";
+    position: absolute;
+    inset: auto -20% -120% auto;
+    width: 60%;
+    height: 240%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+    transform: rotate(18deg);
+    opacity: 0.5;
+    animation: trustShine 8s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes trustShine {
+    0%, 82%, 100% { transform: translateX(-160%) rotate(18deg); opacity: 0; }
+    88% { transform: translateX(220%) rotate(18deg); opacity: 0.5; }
+  }
+
+  .mini-stat,
+  .tutor-card-neo,
+  .review-card-neo,
+  .bento-card {
+    transform-style: preserve-3d;
+  }
+
+  .mini-stat:hover,
+  .tutor-card-neo:hover,
+  .review-card-neo:hover,
+  .bento-card:hover {
+    transform: translateY(-8px) rotateX(2deg) rotateY(-2deg);
+  }
+
+  .neo-btn-primary {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .neo-btn-primary::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 20%, rgba(255,255,255,0.28) 48%, transparent 70%);
+    transform: translateX(-140%);
+    animation: ctaSweep 4.5s ease-in-out infinite;
+  }
+
+  @keyframes ctaSweep {
+    0%, 72%, 100% { transform: translateX(-140%); }
+    84% { transform: translateX(140%); }
+  }
+
+  .section-neo {
+    animation: fadeSlideUp 0.9s ease-out both;
+  }
+
+  .section-neo:nth-of-type(2) { animation-delay: 0.08s; }
+  .section-neo:nth-of-type(3) { animation-delay: 0.16s; }
+  .section-neo:nth-of-type(4) { animation-delay: 0.24s; }
+
+  @media (max-width: 760px) {
+    .cursor-glow {
+      display: none;
+    }
+
+    .ambient-particles span:nth-child(n+7) {
+      display: none;
+    }
+
+    .ai-shell {
+      animation:
+        shellFloat 10s ease-in-out infinite,
+        ambientGradientShift 28s ease-in-out infinite;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ambient-grid,
+    .ambient-particles span,
+    .cursor-glow,
+    .hero-girl-cutout,
+    .intent-card-neo::before,
+    .trust-pill::after,
+    .neo-btn-primary::after {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+
+
+  /* ===== Intent-First Hero Redesign ===== */
+  .hero-neo.hero-intent-first {
+    position: relative;
+    min-height: 0;
+    padding: 34px 34px 22px;
+    display: grid;
+    grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 520px);
+    gap: 26px;
+    align-items: center;
+  }
+
+  .hero-stage-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .stage-beam,
+  .stage-ring,
+  .stage-dot {
+    position: absolute;
+    pointer-events: none;
+  }
+
+  .stage-beam {
+    filter: blur(20px);
+    opacity: 0.55;
+  }
+
+  .beam-a {
+    width: 480px;
+    height: 480px;
+    left: -80px;
+    top: -40px;
+    background: radial-gradient(circle, rgba(91,140,255,0.32), transparent 62%);
+    animation: glowPulse 9s ease-in-out infinite;
+  }
+
+  .beam-b {
+    width: 420px;
+    height: 420px;
+    right: -80px;
+    bottom: -60px;
+    background: radial-gradient(circle, rgba(34,197,94,0.18), transparent 62%);
+    animation: glowPulse 11s ease-in-out infinite reverse;
+  }
+
+  .stage-ring {
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 999px;
+    box-shadow: inset 0 0 40px rgba(255,255,255,0.02);
+  }
+
+  .ring-a {
+    width: 540px;
+    height: 540px;
+    right: -120px;
+    top: -120px;
+    animation: orbitSpin 28s linear infinite;
+  }
+
+  .ring-b {
+    width: 300px;
+    height: 300px;
+    left: 46%;
+    top: 20%;
+    animation: orbitSpinReverse 18s linear infinite;
+  }
+
+  .stage-dot {
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(255,255,255,0.95), rgba(255,255,255,0.05) 70%);
+    box-shadow: 0 0 20px rgba(91,140,255,0.35);
+    animation: trustDrift 6s ease-in-out infinite;
+  }
+
+  .dot-a {
+    width: 10px;
+    height: 10px;
+    left: 18%;
+    top: 18%;
+  }
+
+  .dot-b {
+    width: 14px;
+    height: 14px;
+    right: 18%;
+    bottom: 22%;
+    animation-delay: 1.2s;
+  }
+
+  .hero-copy-side,
+  .intent-card-spotlight,
+  .floating-trust-inline {
+    position: relative;
+    z-index: 2;
+  }
+
+  .hero-copy-side {
+    max-width: 560px;
+  }
+
+  .hero-copy-side h1 {
+    max-width: 11ch;
+    font-size: clamp(2.7rem, 5vw, 5rem);
+    line-height: 0.95;
+    letter-spacing: -0.06em;
+  }
+
+  .hero-copy-side p {
+    max-width: 520px;
+  }
+
+  .intent-card-spotlight {
+    margin: 0 auto;
+    width: 100%;
+    max-width: 520px;
+    padding: 22px;
+    border-radius: 30px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(247,250,255,0.97));
+    color: #152033;
+    border: 1px solid rgba(255,255,255,0.7);
+    box-shadow:
+      0 30px 70px rgba(7, 14, 32, 0.34),
+      0 0 0 1px rgba(91,140,255,0.10),
+      0 0 80px rgba(91,140,255,0.12);
+    backdrop-filter: none;
+    transform: translateZ(54px);
+    overflow: hidden;
+  }
+
+  .intent-card-glow {
+    position: absolute;
+    inset: -30% auto auto -10%;
+    width: 220px;
+    height: 220px;
+    background: radial-gradient(circle, rgba(91,140,255,0.16), transparent 68%);
+    filter: blur(12px);
+    pointer-events: none;
+  }
+
+  .intent-card-topline {
+    display: inline-flex;
+    margin-bottom: 10px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #edf3ff, #eefbf3);
+    color: #2c57d5;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .intent-card-spotlight h3 {
+    font-size: clamp(1.5rem, 2vw, 2rem);
+    line-height: 1.05;
+    margin-bottom: 8px;
+    letter-spacing: -0.04em;
+  }
+
+  .intent-card-spotlight p {
+    font-size: 0.97rem;
+    color: #596a80;
+    margin-bottom: 16px;
+  }
+
+  .intent-toggle-neo {
+    background: #eef3fb;
+    padding: 6px;
+    border-radius: 18px;
+    margin-bottom: 16px;
+  }
+
+  .intent-btn {
+    min-height: 44px;
+    border-radius: 13px;
+    font-size: 13px;
+    font-weight: 900;
+  }
+
+  .intent-panel label {
+    font-size: 13px;
+    margin-bottom: 7px;
+  }
+
+  .intent-panel select {
+    min-height: 48px;
+    margin-bottom: 12px;
+    border-radius: 14px;
+    border-color: #dbe4f1;
+    font-size: 14px;
+    background-color: #fff;
+  }
+
+  .neo-btn-xl {
+    min-height: 50px;
+    border-radius: 15px;
+    font-size: 15px;
+    font-weight: 900;
+  }
+
+  .floating-trust-inline {
+    position: relative;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    margin: 0 34px 26px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    z-index: 3;
+    transform: translateZ(44px);
+  }
+
+  .floating-trust-inline .trust-pill {
+    min-height: 78px;
+    background: rgba(255,255,255,0.10);
+  }
+
+  .hero-art,
+  .hero-girl-cutout {
+    display: none !important;
+  }
+
+  .cursor-glow {
+    width: 420px;
+    height: 420px;
+    opacity: 0.18;
+  }
+
+  @media (max-width: 1100px) {
+    .hero-neo.hero-intent-first {
+      grid-template-columns: 1fr;
+      padding: 24px 24px 18px;
+    }
+
+    .hero-copy-side {
+      max-width: 100%;
+    }
+
+    .hero-copy-side h1 {
+      max-width: 12ch;
+    }
+
+    .intent-card-spotlight {
+      max-width: 100%;
+    }
+
+    .floating-trust-inline {
+      margin: 0 24px 22px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ring-b {
+      left: auto;
+      right: 10%;
+      top: 36%;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .hero-neo.hero-intent-first {
+      padding: 18px 18px 14px;
+      gap: 18px;
+    }
+
+    .hero-copy-side h1 {
+      max-width: 100%;
+      font-size: 2.5rem;
+    }
+
+    .intent-card-spotlight {
+      padding: 16px;
+      border-radius: 22px;
+    }
+
+    .floating-trust-inline {
+      margin: 0 18px 18px;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .floating-trust-inline .trust-pill {
+      min-height: auto;
+    }
+
+    .ring-a {
+      width: 360px;
+      height: 360px;
+      right: -140px;
+      top: -100px;
+    }
+
+    .ring-b {
+      width: 220px;
+      height: 220px;
+    }
+  }
 </style>
 
 <section class="ai-home">
   <div class="ai-shell">
+    <div class="ambient-grid" aria-hidden="true"></div>
+    <div class="ambient-particles" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="cursor-glow" aria-hidden="true"></div>
 
-    <section class="hero-neo">
-      <div class="hero-copy-neo">
-        <div class="eyebrow-neo">Online tutoring made simple</div>
-        <h1>Find a <span class="accent">better way</span> to learn online</h1>
-        <p>
-          Guided online tutoring for school subjects, exam preparation,
-          language learning, and flexible one-to-one support — designed to feel
-          clear, modern, and easy from the first click.
-        </p>
+    
+<section class="hero-neo hero-intent-first">
+  <div class="hero-stage-bg" aria-hidden="true">
+    <div class="stage-beam beam-a"></div>
+    <div class="stage-beam beam-b"></div>
+    <div class="stage-ring ring-a"></div>
+    <div class="stage-ring ring-b"></div>
+    <div class="stage-dot dot-a"></div>
+    <div class="stage-dot dot-b"></div>
+  </div>
 
-        <div class="hero-mini-grid">
-          <div class="mini-stat">
-            <strong>Flexible</strong>
-            <span>Book single lessons or build a monthly learning rhythm.</span>
-          </div>
-          <div class="mini-stat">
-            <strong>Trusted</strong>
-            <span>Verified tutors, clearer profiles, and simple discovery.</span>
-          </div>
-          <div class="mini-stat">
-            <strong>Online-first</strong>
-            <span>Easy sessions from home for students, families, and tutors.</span>
-          </div>
-        </div>
+  <div class="hero-copy-neo hero-copy-side">
+    <div class="eyebrow-neo">Online tutoring made simple</div>
+    <h1>Choose your path, then move fast.</h1>
+    <p>
+      This homepage is built around one clear action: tell us whether you want to
+      study or teach, and we’ll guide you to the right next step without confusion.
+    </p>
+
+    <div class="hero-mini-grid">
+      <div class="mini-stat">
+        <strong>Fast start</strong>
+        <span>Students and tutors can reach the right page in seconds.</span>
       </div>
-
-      <div class="intent-card-neo">
-        <h3>Choose what you want to do</h3>
-        <p>Pick a path and we’ll take you straight to the right next step.</p>
-
-        <div class="intent-toggle intent-toggle-neo">
-          <button type="button" id="studyBtn" class="intent-btn active" onclick="setIntent('study')">
-            I want to study
-          </button>
-          <button type="button" id="teachBtn" class="intent-btn" onclick="setIntent('teach')">
-            I want to teach
-          </button>
-        </div>
-
-        <div class="intent-panel" id="studyPanel">
-          <label for="studySubject">What do you want to study?</label>
-          <select id="studySubject">
-            <option value="">Select a subject</option>
-            <option value="mathematics">Mathematics</option>
-            <option value="physics">Physics</option>
-            <option value="chemistry">Chemistry</option>
-            <option value="biology">Biology</option>
-            <option value="english">English</option>
-            <option value="urdu">Urdu</option>
-            <option value="computer_science">Computer Science</option>
-            <option value="pakistan_studies">Pakistan Studies</option>
-            <option value="islamiat">Islamiat</option>
-            <option value="ielts">IELTS</option>
-            <option value="spoken_english">Spoken English</option>
-            <option value="arabic">Arabic</option>
-            <option value="french">French</option>
-            <option value="other">Other</option>
-          </select>
-
-          <label for="studyLevel" class="intent-label-gap">What level are you at?</label>
-          <select id="studyLevel">
-            <option value="">Select a level</option>
-            <option value="grade_1_5">Grade 1–5</option>
-            <option value="grade_6_8">Grade 6–8</option>
-            <option value="matric">Matric</option>
-            <option value="intermediate">Intermediate</option>
-            <option value="o_level">O Level</option>
-            <option value="a_level">A Level</option>
-            <option value="university">University</option>
-            <option value="language_learning">Language Learning</option>
-            <option value="other">Other</option>
-          </select>
-
-          <button type="button" class="neo-btn neo-btn-primary" onclick="goStudySearch()">
-            Find a Tutor
-          </button>
-        </div>
-
-        <div class="intent-panel" id="teachPanel" style="display:none;">
-          <label for="teachSubject">What do you want to teach?</label>
-          <select id="teachSubject">
-            <option value="">Select a subject</option>
-            <option value="mathematics">Mathematics</option>
-            <option value="physics">Physics</option>
-            <option value="chemistry">Chemistry</option>
-            <option value="biology">Biology</option>
-            <option value="english">English</option>
-            <option value="urdu">Urdu</option>
-            <option value="computer_science">Computer Science</option>
-            <option value="pakistan_studies">Pakistan Studies</option>
-            <option value="islamiat">Islamiat</option>
-            <option value="ielts">IELTS</option>
-            <option value="spoken_english">Spoken English</option>
-            <option value="arabic">Arabic</option>
-            <option value="french">French</option>
-            <option value="other">Other</option>
-          </select>
-
-          <label for="teachLevel" class="intent-label-gap">What levels do you teach?</label>
-          <select id="teachLevel">
-            <option value="">Select a level</option>
-            <option value="grade_1_5">Grade 1–5</option>
-            <option value="grade_6_8">Grade 6–8</option>
-            <option value="matric">Matric</option>
-            <option value="intermediate">Intermediate</option>
-            <option value="o_level">O Level</option>
-            <option value="a_level">A Level</option>
-            <option value="university">University</option>
-            <option value="language_learning">Language Learning</option>
-            <option value="other">Other</option>
-          </select>
-
-          <a class="neo-btn neo-btn-primary" href="{{ url_for('register') }}">
-            Start Teaching
-          </a>
-        </div>
-
-        {% if google_configured %}
-        <a class="neo-google" href="{{ url_for('google_login') }}">Continue with Google</a>
-        {% endif %}
+      <div class="mini-stat">
+        <strong>Less friction</strong>
+        <span>No clutter, just a clear decision-first experience.</span>
       </div>
+      <div class="mini-stat">
+        <strong>Mobile-first</strong>
+        <span>Easy to use on phones, tablets, and desktop screens.</span>
+      </div>
+    </div>
+  </div>
 
-      <div class="hero-art" aria-hidden="true">
-        <div class="hero-orbit one"></div>
-        <div class="hero-orbit two"></div>
-        <img
-          src="{{ url_for('static', filename='images/hero-girl.png') }}"
-          alt=""
-          class="hero-girl-cutout"
-        >
-      </div>
-    </section>
+  <div class="intent-card-neo intent-card-spotlight">
+    <div class="intent-card-glow" aria-hidden="true"></div>
+    <div class="intent-card-topline">Start here</div>
+    <h3>What do you want to do?</h3>
+    <p>Pick one path below and continue instantly.</p>
 
-    <section class="floating-trust">
-      <div class="trust-pill">
-        <div class="trust-icon">🛡️</div>
-        <div>
-          <h4>Verified Tutors</h4>
-          <p>Qualified profiles you can trust.</p>
-        </div>
-      </div>
-      <div class="trust-pill">
-        <div class="trust-icon">👩‍🏫</div>
-        <div>
-          <h4>Female Tutors</h4>
-          <p>Comfortable choices for families.</p>
-        </div>
-      </div>
-      <div class="trust-pill">
-        <div class="trust-icon">🖥️</div>
-        <div>
-          <h4>Online-Only</h4>
-          <p>Simple sessions from anywhere.</p>
-        </div>
-      </div>
-      <div class="trust-pill">
-        <div class="trust-icon">✨</div>
-        <div>
-          <h4>Transparent Pricing</h4>
-          <p>Clear plans for students and tutors.</p>
-        </div>
-      </div>
-    </section>
+    <div class="intent-toggle intent-toggle-neo">
+      <button type="button" id="studyBtn" class="intent-btn active" onclick="setIntent('study')">
+        I want to study
+      </button>
+      <button type="button" id="teachBtn" class="intent-btn" onclick="setIntent('teach')">
+        I want to teach
+      </button>
+    </div>
+
+    <div class="intent-panel" id="studyPanel">
+      <label for="studySubject">What do you want to study?</label>
+      <select id="studySubject">
+        <option value="">Select a subject</option>
+        <option value="mathematics">Mathematics</option>
+        <option value="physics">Physics</option>
+        <option value="chemistry">Chemistry</option>
+        <option value="biology">Biology</option>
+        <option value="english">English</option>
+        <option value="urdu">Urdu</option>
+        <option value="computer_science">Computer Science</option>
+        <option value="pakistan_studies">Pakistan Studies</option>
+        <option value="islamiat">Islamiat</option>
+        <option value="ielts">IELTS</option>
+        <option value="spoken_english">Spoken English</option>
+        <option value="arabic">Arabic</option>
+        <option value="french">French</option>
+        <option value="other">Other</option>
+      </select>
+
+      <label for="studyLevel" class="intent-label-gap">What level are you at?</label>
+      <select id="studyLevel">
+        <option value="">Select a level</option>
+        <option value="grade_1_5">Grade 1–5</option>
+        <option value="grade_6_8">Grade 6–8</option>
+        <option value="matric">Matric</option>
+        <option value="intermediate">Intermediate</option>
+        <option value="o_level">O Level</option>
+        <option value="a_level">A Level</option>
+        <option value="university">University</option>
+        <option value="language_learning">Language Learning</option>
+        <option value="other">Other</option>
+      </select>
+
+      <button type="button" class="neo-btn neo-btn-primary neo-btn-xl" onclick="goStudySearch()">
+        Find a Tutor
+      </button>
+    </div>
+
+    <div class="intent-panel" id="teachPanel" style="display:none;">
+      <label for="teachSubject">What do you want to teach?</label>
+      <select id="teachSubject">
+        <option value="">Select a subject</option>
+        <option value="mathematics">Mathematics</option>
+        <option value="physics">Physics</option>
+        <option value="chemistry">Chemistry</option>
+        <option value="biology">Biology</option>
+        <option value="english">English</option>
+        <option value="urdu">Urdu</option>
+        <option value="computer_science">Computer Science</option>
+        <option value="pakistan_studies">Pakistan Studies</option>
+        <option value="islamiat">Islamiat</option>
+        <option value="ielts">IELTS</option>
+        <option value="spoken_english">Spoken English</option>
+        <option value="arabic">Arabic</option>
+        <option value="french">French</option>
+        <option value="other">Other</option>
+      </select>
+
+      <label for="teachLevel" class="intent-label-gap">What levels do you teach?</label>
+      <select id="teachLevel">
+        <option value="">Select a level</option>
+        <option value="grade_1_5">Grade 1–5</option>
+        <option value="grade_6_8">Grade 6–8</option>
+        <option value="matric">Matric</option>
+        <option value="intermediate">Intermediate</option>
+        <option value="o_level">O Level</option>
+        <option value="a_level">A Level</option>
+        <option value="university">University</option>
+        <option value="language_learning">Language Learning</option>
+        <option value="other">Other</option>
+      </select>
+
+      <a class="neo-btn neo-btn-primary neo-btn-xl" href="{{ url_for('register') }}">
+        Start Teaching
+      </a>
+    </div>
+
+    {% if google_configured %}
+    <a class="neo-google" href="{{ url_for('google_login') }}">Continue with Google</a>
+    {% endif %}
+  </div>
+</section>
+
+<section class="floating-trust floating-trust-inline">
+  <div class="trust-pill">
+    <div class="trust-icon">🛡️</div>
+    <div>
+      <h4>Verified Tutors</h4>
+      <p>Qualified profiles you can trust.</p>
+    </div>
+  </div>
+  <div class="trust-pill">
+    <div class="trust-icon">👩‍🏫</div>
+    <div>
+      <h4>Female Tutors</h4>
+      <p>Comfortable choices for families.</p>
+    </div>
+  </div>
+  <div class="trust-pill">
+    <div class="trust-icon">🖥️</div>
+    <div>
+      <h4>Online-Only</h4>
+      <p>Simple sessions from anywhere.</p>
+    </div>
+  </div>
+  <div class="trust-pill">
+    <div class="trust-icon">✨</div>
+    <div>
+      <h4>Transparent Pricing</h4>
+      <p>Clear plans for students and tutors.</p>
+    </div>
+  </div>
+</section>
+
   </div>
 
   <section id="pricing-plans" class="section-neo">
@@ -1191,5 +1783,77 @@ function goStudySearch() {
   window.location.href = "{{ url_for('tutors') }}" + (params.toString() ? "?" + params.toString() : "");
 }
 </script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const shell = document.querySelector('.ai-shell');
+  const hero = document.querySelector('.hero-neo');
+  const copy = document.querySelector('.hero-copy-neo');
+  const card = document.querySelector('.intent-card-neo');
+  const art = document.querySelector('.hero-stage-bg');
+  const title = document.querySelector('.hero-copy-neo h1');
+  const subtitle = document.querySelector('.hero-copy-neo p');
+  const miniGrid = document.querySelector('.hero-mini-grid');
+  const trust = document.querySelector('.floating-trust');
+  const cursorGlow = document.querySelector('.cursor-glow');
+
+  if (!shell || !hero) return;
+
+  let targetX = 0, targetY = 0, currentX = 0, currentY = 0;
+  let glowX = 0, glowY = 0;
+  let rafId = null;
+
+  function animate() {
+    currentX += (targetX - currentX) * 0.08;
+    currentY += (targetY - currentY) * 0.08;
+
+    if (copy) copy.style.transform = `translate3d(${currentX * -18}px, ${currentY * -18}px, 34px)`;
+    if (title) title.style.transform = `translate3d(${currentX * -10}px, ${currentY * -10}px, 0)`;
+    if (subtitle) subtitle.style.transform = `translate3d(${currentX * -7}px, ${currentY * -7}px, 0)`;
+    if (miniGrid) miniGrid.style.transform = `translate3d(${currentX * -5}px, ${currentY * -5}px, 0)`;
+    if (card) card.style.transform = `translate3d(${currentX * 18}px, ${currentY * 18}px, 54px) rotateX(${currentY * -2.5}deg) rotateY(${currentX * 3}deg)`;
+    if (art) art.style.transform = `translate3d(${currentX * 24}px, ${currentY * 24}px, 10px)`;
+    if (trust) trust.style.transform = `translate3d(${currentX * 10}px, ${currentY * 10}px, 44px)`;
+
+    if (cursorGlow) {
+      cursorGlow.style.transform = `translate3d(${glowX}px, ${glowY}px, 0) translate(-50%, -50%)`;
+    }
+
+    rafId = requestAnimationFrame(animate);
+  }
+
+  function updateFromEvent(e) {
+    const rect = shell.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) - 0.5;
+    const y = ((e.clientY - rect.top) / rect.height) - 0.5;
+    targetX = Math.max(-1, Math.min(1, x));
+    targetY = Math.max(-1, Math.min(1, y));
+    glowX = e.clientX - rect.left;
+    glowY = e.clientY - rect.top;
+  }
+
+  shell.addEventListener('mousemove', updateFromEvent);
+  shell.addEventListener('mouseenter', function (e) {
+    if (cursorGlow) cursorGlow.style.opacity = '0.32';
+    updateFromEvent(e);
+  });
+
+  shell.addEventListener('mouseleave', function () {
+    targetX = 0;
+    targetY = 0;
+    if (cursorGlow) cursorGlow.style.opacity = '0';
+  });
+
+  shell.addEventListener('touchstart', function () {
+    if (cursorGlow) cursorGlow.style.opacity = '0';
+  }, { passive: true });
+
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    animate();
+  }
+});
+</script>
+
 
 {% endblock %}

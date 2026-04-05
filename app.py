@@ -2049,6 +2049,27 @@ def admin_credit_notices():
     notices = PaymentNotice.query.order_by(PaymentNotice.created_at.desc()).all()
     return render_template("admin_credit_notices.html", notices=notices)
 
+
+@app.route("/reset-all-seeded-passwords")
+def reset_all_seeded_passwords():
+    users = User.query.filter(
+        User.public_name != ""
+    ).all()
+
+    updated = 0
+    for user in users:
+        if user.email and (
+            user.email.endswith("@example.com")
+            or "demo" in user.email.lower()
+            or "seed" in user.email.lower()
+        ):
+            user.set_password("Demo@12345")
+            user.is_active_user = True
+            updated += 1
+
+    db.session.commit()
+    return f"Reset {updated} demo users. New password: Demo@12345"
+
 @app.route("/admin/credits/<int:notice_id>/review", methods=["POST"])
 @login_required
 def admin_review_credit_notice(notice_id):
