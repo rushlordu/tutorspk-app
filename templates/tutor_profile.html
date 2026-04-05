@@ -4,8 +4,7 @@
 <section class="grid two profile-layout tutor-profile-layout-refined">
   <div class="card tutor-profile-main">
     <div class="tutor-profile-top">
-      <img class="profile-pic profile-pic-large" src="{{ tutor.profile_image or 'https://picsum.photos/seed/default/300/300' }}" alt="{{ tutor.public_name }}">
-
+      <img class="profile-pic profile-pic-large" src="{{ media_url(tutor.profile_image) }}" alt="{{ tutor.public_name }}">
       <div class="tutor-profile-intro">
         <div class="profile-title-row">
           <h1>{{ tutor.public_name }}</h1>

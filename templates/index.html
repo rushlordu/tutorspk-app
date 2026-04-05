@@ -1458,6 +1458,123 @@
       height: 220px;
     }
   }
+
+
+  /* ===== Cosmic Clickable Routes ===== */
+  .section-neo-cosmic {
+    position: relative;
+  }
+
+  .bento-grid-cosmic {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 18px;
+  }
+
+  .bento-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .cosmic-card {
+    position: relative;
+    min-height: 100%;
+    overflow: hidden;
+    isolation: isolate;
+    border: 1px solid rgba(255,255,255,0.08);
+    background:
+      radial-gradient(circle at top right, rgba(91,140,255,0.16), transparent 28%),
+      radial-gradient(circle at bottom left, rgba(34,197,94,0.12), transparent 24%),
+      linear-gradient(180deg, rgba(255,255,255,0.98), rgba(243,247,255,0.98));
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, filter 0.22s ease;
+  }
+
+  .cosmic-card::after {
+    content: "";
+    position: absolute;
+    inset: auto -12% -40% auto;
+    width: 170px;
+    height: 170px;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(139,92,246,0.14), transparent 70%);
+    pointer-events: none;
+  }
+
+  .cosmic-card:hover {
+    transform: translateY(-8px) rotateX(2deg) rotateY(-2deg);
+    box-shadow: 0 24px 44px rgba(12, 19, 38, 0.16);
+    border-color: rgba(91,140,255,0.22);
+    filter: brightness(1.01);
+  }
+
+  .cosmic-featured {
+    background:
+      radial-gradient(circle at top right, rgba(91,140,255,0.24), transparent 26%),
+      radial-gradient(circle at bottom left, rgba(34,197,94,0.18), transparent 24%),
+      linear-gradient(135deg, #101c3d 0%, #182a58 52%, #12244d 100%);
+    border-color: rgba(255,255,255,0.10);
+  }
+
+  .cosmic-featured .card-jump {
+    color: #d7e5ff;
+  }
+
+  .cosmic-featured h3,
+  .cosmic-featured p,
+  .cosmic-featured li {
+    color: rgba(255,255,255,0.9);
+  }
+
+  .cosmic-orb {
+    position: absolute;
+    border-radius: 999px;
+    filter: blur(10px);
+    opacity: 0.85;
+    pointer-events: none;
+    animation: trustDrift 6s ease-in-out infinite;
+  }
+
+  .orb-a {
+    width: 80px;
+    height: 80px;
+    top: 12px;
+    right: 14px;
+    background: radial-gradient(circle, rgba(91,140,255,0.26), transparent 70%);
+  }
+
+  .orb-b {
+    width: 110px;
+    height: 110px;
+    top: 8px;
+    right: 8px;
+    background: radial-gradient(circle, rgba(34,197,94,0.22), transparent 70%);
+    animation-delay: 0.8s;
+  }
+
+  .orb-c {
+    width: 90px;
+    height: 90px;
+    bottom: 10px;
+    right: 10px;
+    background: radial-gradient(circle, rgba(139,92,246,0.22), transparent 70%);
+    animation-delay: 1.5s;
+  }
+
+  .card-jump {
+    display: inline-flex;
+    margin-top: 14px;
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 0.03em;
+    color: #3159d6;
+  }
+
+  @media (max-width: 1180px) {
+    .bento-grid-cosmic {
+      grid-template-columns: 1fr;
+    }
+  }
+
 </style>
 
 <section class="ai-home">
@@ -1635,55 +1752,71 @@
 
   </div>
 
-  <section id="pricing-plans" class="section-neo">
-    <div class="section-head-neo">
-      <div>
-        <h2>Plans, but designed as a decision space</h2>
-        <p>Not a boring pricing table — just the paths that make sense.</p>
-      </div>
+  
+<section id="pricing-plans" class="section-neo section-neo-cosmic">
+  <div class="section-head-neo">
+    <div>
+      <h2>Choose your route</h2>
+      <p>Every card below is clickable — students can explore packages, tutors can start onboarding.</p>
     </div>
+  </div>
 
-    <div class="bento-grid">
-      <article class="bento-card">
+  <div class="bento-grid bento-grid-cosmic">
+    <a class="bento-link" href="/student-packages">
+      <article class="bento-card cosmic-card">
+        <div class="cosmic-orb orb-a" aria-hidden="true"></div>
         <div class="badge-neo">For Students</div>
         <h3>Pay per lesson</h3>
         <p>
-          Try a tutor quickly, book flexibly, and move at your own pace.
+          A flexible starting point for students who want to try a tutor, book quickly,
+          and keep things simple.
         </p>
         <ul>
-          <li>Simple booking flow</li>
+          <li>Single-lesson friendly</li>
           <li>Good for testing tutor fit</li>
-          <li>Best for flexible schedules</li>
+          <li>Ideal for flexible schedules</li>
         </ul>
+        <span class="card-jump">Explore student packages →</span>
       </article>
+    </a>
 
-      <article class="bento-card featured-plan">
+    <a class="bento-link" href="/student-packages">
+      <article class="bento-card cosmic-card featured-plan cosmic-featured">
+        <div class="cosmic-orb orb-b" aria-hidden="true"></div>
         <div class="badge-neo">Most Practical</div>
         <h3>Monthly packages</h3>
         <p>
-          Better value, stronger consistency, and clearer learning momentum.
+          Better value, better consistency, and a more structured learning path for students
+          who want momentum.
         </p>
         <ul>
-          <li>Lower cost than single lessons</li>
-          <li>Useful for exam preparation</li>
-          <li>Better progress over time</li>
+          <li>More value than one-off lessons</li>
+          <li>Useful for exams and regular study</li>
+          <li>Made for steady progress</li>
         </ul>
+        <span class="card-jump">See monthly package options →</span>
       </article>
+    </a>
 
-      <article class="bento-card">
+    <a class="bento-link" href="{{ url_for('register') }}">
+      <article class="bento-card cosmic-card">
+        <div class="cosmic-orb orb-c" aria-hidden="true"></div>
         <div class="badge-neo">For Tutors</div>
         <h3>Free to join</h3>
         <p>
-          Build a profile, teach online, and grow through the platform over time.
+          Build your profile, join the platform, and move straight into the tutor registration flow.
         </p>
         <ul>
           <li>Simple onboarding</li>
-          <li>Transparent model</li>
-          <li>Growth and bonus potential</li>
+          <li>Transparent platform model</li>
+          <li>Built for long-term growth</li>
         </ul>
+        <span class="card-jump">Go to tutor registration →</span>
       </article>
-    </div>
-  </section>
+    </a>
+  </div>
+</section>
+
 
   <section class="section-neo">
     <div class="section-head-neo">
@@ -1698,7 +1831,7 @@
       {% for tutor in featured_tutors %}
       <article class="tutor-card-neo">
         <a href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">
-          <img src="{{ tutor.profile_image if tutor.profile_image else 'https://picsum.photos/seed/default/300/300' }}" alt="{{ tutor.public_name }}">
+         <img src="{{ media_url(tutor.profile_image) }}" alt="{{ tutor.public_name }}">
         </a>
         <div class="tutor-body-neo">
           <h3>

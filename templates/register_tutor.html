@@ -194,12 +194,12 @@
         </div>
         {% endfor %}
 
-        <div id="interBlock" class="card qualification-block" style="margin-top:14px;">
+        <div id="interBlock" class="card qualification-block" style="display:none; margin-top:14px;">
           <h4 style="margin-top:0;">Intermediate Details</h4>
           <div class="form-grid two-col">
             <div>
-              <label class="small-label">Program <span style="color:#cc2b2b;">* required</span></label>
-              <select name="inter_program" id="inter_program" onchange="toggleOtherField('inter_program','inter_program_other_wrap')" required>
+              <label class="small-label">Program <span class="dynamic-required" style="color:#cc2b2b; display:none;">* required</span></label>
+              <select name="inter_program" id="inter_program" onchange="toggleOtherField('inter_program','inter_program_other_wrap')">
                 <option value="">Select intermediate program</option>
                 {% for value,label in [('fsc_pre_medical','FSc Pre-Medical'),('fsc_pre_engineering','FSc Pre-Engineering'),('ics','ICS'),('icom','ICom'),('fa','FA'),('a_level','A Level'),('other','Other')] %}
                 <option value="{{ value }}" {% if form_data.get('inter_program') == value %}selected{% endif %}>{{ label }}</option>
@@ -210,25 +210,32 @@
               </div>
             </div>
             <div>
-              <label class="small-label">Institution / college <span style="color:#cc2b2b;">* required</span></label>
-              <select name="inter_institution" id="inter_institution" onchange="toggleOtherField('inter_institution','inter_institution_other_wrap')" required>
+              <label class="small-label">Institution / college <span class="dynamic-required" style="color:#cc2b2b; display:none;">* required</span></label>
+              <select name="inter_institution" id="inter_institution" onchange="toggleOtherField('inter_institution','inter_institution_other_wrap')">
                 <option value="">Select college</option>
               </select>
               <div id="inter_institution_other_wrap" style="display:none; margin-top:8px;">
                 <input name="inter_institution_other" value="{{ form_data.get('inter_institution_other','') }}" placeholder="Enter college">
               </div>
             </div>
-            <div><label class="small-label">Year <span style="color:#cc2b2b;">* required</span></label><input name="inter_year" value="{{ form_data.get('inter_year','') }}" required></div>
-            <div><label class="small-label">Grade <span style="color:#cc2b2b;">* required</span></label><input name="inter_grade" value="{{ form_data.get('inter_grade','') }}" required></div>
+            <div>
+              <label class="small-label">Year <span class="dynamic-required" style="color:#cc2b2b; display:none;">* required</span></label>
+              <input name="inter_year" value="{{ form_data.get('inter_year','') }}">
+            </div>
+            <div>
+              <label class="small-label">Grade <span class="dynamic-required" style="color:#cc2b2b; display:none;">* required</span></label>
+              <input name="inter_grade" value="{{ form_data.get('inter_grade','') }}">
+            </div>
           </div>
         </div>
 
-        <div id="matricBlock" class="card qualification-block" style="margin-top:14px;">
+        
+        <div id="matricBlock" class="card qualification-block" style="display:none; margin-top:14px;">
           <h4 style="margin-top:0;">Matric Details</h4>
           <div class="form-grid two-col">
             <div>
-              <label class="small-label">Program <span style="color:#cc2b2b;">* required</span></label>
-              <select name="matric_program" id="matric_program" onchange="toggleOtherField('matric_program','matric_program_other_wrap')" required>
+              <label class="small-label">Program <span class="dynamic-required" style="color:#cc2b2b; display:none;">* required</span></label>
+              <select name="matric_program" id="matric_program" onchange="toggleOtherField('matric_program','matric_program_other_wrap')">
                 <option value="">Select matric program</option>
                 {% for value,label in [('science','Science'),('arts','Arts'),('o_level','O Level'),('other','Other')] %}
                 <option value="{{ value }}" {% if form_data.get('matric_program') == value %}selected{% endif %}>{{ label }}</option>
@@ -239,16 +246,22 @@
               </div>
             </div>
             <div>
-              <label class="small-label">Institution / school <span style="color:#cc2b2b;">* required</span></label>
-              <select name="matric_institution" id="matric_institution" onchange="toggleOtherField('matric_institution','matric_institution_other_wrap')" required>
+              <label class="small-label">Institution / school <span class="dynamic-required" style="color:#cc2b2b; display:none;">* required</span></label>
+              <select name="matric_institution" id="matric_institution" onchange="toggleOtherField('matric_institution','matric_institution_other_wrap')">
                 <option value="">Select school</option>
               </select>
               <div id="matric_institution_other_wrap" style="display:none; margin-top:8px;">
                 <input name="matric_institution_other" value="{{ form_data.get('matric_institution_other','') }}" placeholder="Enter school">
               </div>
             </div>
-            <div><label class="small-label">Year <span style="color:#cc2b2b;">* required</span></label><input name="matric_year" value="{{ form_data.get('matric_year','') }}" required></div>
-            <div><label class="small-label">Grade <span style="color:#cc2b2b;">* required</span></label><input name="matric_grade" value="{{ form_data.get('matric_grade','') }}" required></div>
+            <div>
+              <label class="small-label">Year <span class="dynamic-required" style="color:#cc2b2b; display:none;">* required</span></label>
+              <input name="matric_year" value="{{ form_data.get('matric_year','') }}">
+            </div>
+            <div>
+              <label class="small-label">Grade <span class="dynamic-required" style="color:#cc2b2b; display:none;">* required</span></label>
+              <input name="matric_grade" value="{{ form_data.get('matric_grade','') }}">
+            </div>
           </div>
         </div>
 
@@ -383,15 +396,18 @@
 }
 </style>
 
+
 <script>
 const degreeTitles = [
   "MBBS","BDS","Pharm-D","BS","BSc","BA","BBA","BCom","LLB","BE","B.E.","B.Ed","MSc","MA","MBA","MCom","M.Ed","MPhil","PhD","MS","LLM","CA","ACCA","CMA","Other"
 ];
+
 const subjectCatalog = [
   "Mathematics","Physics","Chemistry","Biology","English","Urdu","Computer Science","Pakistan Studies","Islamiat",
   "IELTS","Spoken English","Arabic","French","Quran","Computer Course","AI Courses","Content Creation",
   "Accounting","Economics","Business Studies","Statistics","General Science","Social Studies","History","Geography","Other"
 ];
+
 const institutions = [
   "NUST","COMSATS University Islamabad","FAST-NUCES","Punjab University","University of Karachi","University of the Punjab",
   "LUMS","Aga Khan University","Bahria University","Air University","IIUI","QAU","GIKI","UET Lahore","UET Taxila","NED University",
@@ -399,9 +415,11 @@ const institutions = [
   "Kinnaird College","Government College University Lahore","Bahauddin Zakariya University","University of Peshawar","University of Balochistan",
   "The Islamia University of Bahawalpur","Abdul Wali Khan University","Riphah International University","Iqra University","University of Central Punjab","Other"
 ];
+
 const collegeOptions = [
   "Punjab Group of Colleges","Superior College","Government College","FG Degree College","Cadet College","KIPS College","APSACS College","Other"
 ];
+
 const schoolOptions = [
   "APSACS","Beaconhouse","City School","Roots","Allied School","The Educators","Government High School","FG Public School","Other"
 ];
@@ -414,6 +432,7 @@ const qualificationLevelMap = {
   phd: ["grade_1_5","grade_6_8","matric","intermediate","o_level","a_level","university"],
   other: ["grade_1_5","grade_6_8","matric","intermediate"]
 };
+
 const levelLabels = {
   grade_1_5: "Grade 1–5",
   grade_6_8: "Grade 6–8",
@@ -430,9 +449,15 @@ const preselectedLevels = {{ selected_tutor_levels|tojson }};
 function populateSelect(selectId, options, selectedValue, includeOther=true) {
   const select = document.getElementById(selectId);
   if (!select) return;
-  const first = select.querySelector('option') ? select.querySelector('option').outerHTML : '<option value="">Select</option>';
+
+  const first = select.querySelector('option')
+    ? select.querySelector('option').outerHTML
+    : '<option value="">Select</option>';
+
   select.innerHTML = first;
+
   const list = includeOther ? options : options.filter(v => v !== 'Other' && v !== 'other');
+
   list.forEach(item => {
     const opt = document.createElement('option');
     const value = item.toLowerCase() === 'other' ? 'other' : item;
@@ -441,6 +466,7 @@ function populateSelect(selectId, options, selectedValue, includeOther=true) {
     if (selectedValue === value || selectedValue === item) opt.selected = true;
     select.appendChild(opt);
   });
+
   if (selectedValue && !Array.from(select.options).some(o => o.value === selectedValue)) {
     const extra = document.createElement('option');
     extra.value = 'other';
@@ -457,45 +483,80 @@ function toggleOtherField(selectId, wrapId) {
   wrap.style.display = el.value === 'other' ? 'block' : 'none';
 }
 
-function setRequiredState(blockId, isRequired) {
+function setBlockState(blockId, visible) {
   const block = document.getElementById(blockId);
   if (!block) return;
-  block.style.display = isRequired ? 'block' : 'none';
-  block.querySelectorAll('input, select').forEach(input => {
-    if (input.name && input.name.endsWith('_additional_note')) {
-      input.required = false;
-    } else if (input.name) {
-      input.required = isRequired;
+
+  block.style.display = visible ? 'block' : 'none';
+
+  block.querySelectorAll('input, select, textarea').forEach(el => {
+    if (!el.name) return;
+
+    if (el.name.endsWith('_additional_note')) {
+      el.required = false;
+      return;
+    }
+
+    if (visible) {
+      if (blockId === 'interBlock' || blockId === 'matricBlock') {
+        el.required = !el.name.endsWith('_other');
+      } else {
+        el.required = !el.name.endsWith('_other');
+      }
+    } else {
+      el.required = false;
     }
   });
+
   block.querySelectorAll('.dynamic-required').forEach(el => {
-    el.style.display = isRequired ? 'inline' : 'none';
+    el.style.display = visible ? 'inline' : 'none';
   });
+}
+
+function getEducationChain(highest, previousChoice) {
+  highest = (highest || '').toLowerCase();
+  previousChoice = (previousChoice || '').toLowerCase();
+
+  if (highest === 'phd') {
+    if (previousChoice === 'mphil') return ['mphilBlock','mastersBlock','bachelorBlock','interBlock','matricBlock'];
+    if (previousChoice === 'masters') return ['mastersBlock','bachelorBlock','interBlock','matricBlock'];
+    return [];
+  }
+  if (highest === 'mphil') return ['mastersBlock','bachelorBlock','interBlock','matricBlock'];
+  if (highest === 'masters') return ['bachelorBlock','interBlock','matricBlock'];
+  if (highest === 'bachelors') return ['interBlock','matricBlock'];
+  if (highest === 'intermediate') return ['matricBlock'];
+  if (highest === 'other') return ['interBlock','matricBlock'];
+  return [];
 }
 
 function syncEducationFlow() {
   const highest = (document.getElementById('qualification')?.value || '').toLowerCase();
-  const previousChoiceWrap = document.getElementById('previousPathChoiceWrap');
-  const previousChoice = (document.getElementById('previous_path_choice')?.value || '').toLowerCase();
+  const previousSelect = document.getElementById('previous_path_choice');
+  const previousWrap = document.getElementById('previousPathChoiceWrap');
+  const previousChoice = (previousSelect?.value || '').toLowerCase();
 
-  if (previousChoiceWrap) previousChoiceWrap.style.display = highest === 'phd' ? 'block' : 'none';
+  if (previousWrap) previousWrap.style.display = highest === 'phd' ? 'block' : 'none';
 
-  setRequiredState('mphilBlock', highest === 'phd' && previousChoice === 'mphil');
-  setRequiredState('mastersBlock',
-    (highest === 'phd' && (previousChoice === 'mphil' || previousChoice === 'masters')) ||
-    highest === 'mphil'
-  );
-  setRequiredState('bachelorBlock',
-    (highest === 'phd' && (previousChoice === 'mphil' || previousChoice === 'masters')) ||
-    highest === 'mphil' ||
-    highest === 'masters'
-  );
+  if (previousSelect) {
+    previousSelect.required = highest === 'phd';
+    if (highest !== 'phd') previousSelect.value = '';
+  }
+
+  ['mphilBlock','mastersBlock','bachelorBlock','interBlock','matricBlock'].forEach(id => setBlockState(id, false));
+
+  const chain = getEducationChain(highest, previousSelect?.value || '');
+  chain.forEach(id => setBlockState(id, true));
+
+  syncAllowedLevels();
 }
 
 function buildMultiSelect(containerId, values, selectedValues, fieldName, labelId, maxAllowed=null) {
   const wrap = document.getElementById(containerId);
   if (!wrap) return;
+
   wrap.innerHTML = '';
+
   values.forEach(value => {
     const row = document.createElement('label');
     row.className = 'multiselect-item';
@@ -524,6 +585,7 @@ function buildMultiSelect(containerId, values, selectedValues, fieldName, labelI
     row.appendChild(span);
     wrap.appendChild(row);
   });
+
   updateMultiSelectLabel(containerId, labelId, fieldName);
 }
 
@@ -531,7 +593,11 @@ function updateMultiSelectLabel(containerId, labelId, fieldName) {
   const wrap = document.getElementById(containerId);
   const label = document.getElementById(labelId);
   if (!wrap || !label) return;
-  const checked = Array.from(wrap.querySelectorAll('input[name="' + fieldName + '"]:checked')).map(el => el.value);
+
+  const checked = Array.from(
+    wrap.querySelectorAll('input[name="' + fieldName + '"]:checked')
+  ).map(el => el.value);
+
   if (!checked.length) {
     label.textContent = fieldName === 'main_subject' ? 'Select subjects' : 'Select levels';
   } else if (checked.length <= 3) {
@@ -547,22 +613,116 @@ function toggleMultiSelect(dropdownId) {
   dd.style.display = dd.style.display === 'none' || !dd.style.display ? 'block' : 'none';
 }
 
-function syncAllowedLevels() {
-  const qualification = (document.getElementById('qualification')?.value || 'intermediate').toLowerCase();
-  const allowed = qualificationLevelMap[qualification] || qualificationLevelMap['intermediate'];
-  const current = Array.from(document.querySelectorAll('#levelsCheckboxWrap input:checked')).map(el => el.value);
-  const chosen = Array.from(new Set([...current, ...preselectedLevels])).filter(v => allowed.includes(v));
-  buildMultiSelect('levelsCheckboxWrap', allowed.map(v => levelLabels[v] ? v : v), chosen, 'class_levels', 'levelsDropdownLabel', null);
-  const wrap = document.getElementById('levelsCheckboxWrap');
-  wrap.querySelectorAll('input').forEach(input => {
-    const text = levelLabels[input.value] || input.value;
-    input.parentElement.querySelector('span').textContent = text;
-  });
+function getCheckedValues(containerId, fieldName) {
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return [];
+  return Array.from(
+    wrap.querySelectorAll('input[name="' + fieldName + '"]:checked')
+  ).map(el => el.value);
 }
 
-function goToStep(stepNo) {
+function syncAllowedLevels() {
+  const qualification = (document.getElementById('qualification')?.value || '').toLowerCase();
+  const allowed = qualificationLevelMap[qualification] || [];
+  const currentSelected = getCheckedValues('levelsCheckboxWrap', 'class_levels');
+
+  const wrap = document.getElementById('levelsCheckboxWrap');
+  if (!wrap) return;
+
+  wrap.innerHTML = '';
+
+  allowed.forEach(level => {
+    const label = document.createElement('label');
+    label.className = 'multiselect-item';
+
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.name = 'class_levels';
+    input.value = level;
+    if (currentSelected.includes(level) || preselectedLevels.includes(level)) {
+      input.checked = true;
+    }
+
+    input.addEventListener('change', function() {
+      updateMultiSelectLabel('levelsCheckboxWrap', 'levelsDropdownLabel', 'class_levels');
+    });
+
+    const span = document.createElement('span');
+    span.textContent = levelLabels[level];
+
+    label.appendChild(input);
+    label.appendChild(span);
+    wrap.appendChild(label);
+  });
+
+  updateMultiSelectLabel('levelsCheckboxWrap', 'levelsDropdownLabel', 'class_levels');
+}
+
+function isActuallyVisible(el) {
+  return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+}
+
+function validateVisibleRequiredFields(stepNo) {
+  const step = document.getElementById('step' + stepNo);
+  if (!step) return true;
+
+  const fields = step.querySelectorAll('input, select, textarea');
+  for (const field of fields) {
+    if (field.disabled) continue;
+    if (!field.required) continue;
+    if (!isActuallyVisible(field)) continue;
+
+    if (!field.checkValidity()) {
+      field.reportValidity();
+      field.focus();
+      return false;
+    }
+  }
+
+  if (stepNo === 3) {
+    if (getCheckedValues('subjectsCheckboxWrap', 'main_subject').length === 0) {
+      alert('Please select at least one subject.');
+      return false;
+    }
+    if (getCheckedValues('levelsCheckboxWrap', 'class_levels').length === 0) {
+      alert('Please select at least one level you can teach.');
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function validateAllStepsBeforeSubmit() {
+  syncEducationFlow();
+
+  for (let stepNo = 1; stepNo <= 4; stepNo++) {
+    if (!validateVisibleRequiredFields(stepNo)) {
+      goToStep(stepNo, true);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function currentActiveStep() {
+  const active = document.getElementById('active_step');
+  return parseInt(active?.value || '1', 10) || 1;
+}
+
+function goToStep(stepNo, force=false) {
+  const current = currentActiveStep();
+
+  if (!force && stepNo > current) {
+    if (!validateVisibleRequiredFields(current)) {
+      return;
+    }
+  }
+
   document.querySelectorAll('.step-content').forEach(el => el.style.display = 'none');
   document.querySelectorAll('.step-nav .step').forEach(el => el.classList.remove('active'));
+
   document.getElementById('step' + stepNo).style.display = 'block';
   document.getElementById('step' + stepNo + 'Tab').classList.add('active');
   document.getElementById('active_step').value = String(stepNo);
@@ -578,6 +738,9 @@ document.addEventListener('click', function(event) {
 });
 
 document.addEventListener('DOMContentLoaded', function () {
+  const form = document.getElementById('tutorApplicationForm');
+  if (form) form.setAttribute('novalidate', 'novalidate');
+
   [
     ['degree_title', degreeTitles, "{{ form_data.get('degree_title','') }}"],
     ['degree_major', subjectCatalog, "{{ form_data.get('degree_major','') }}"],
@@ -598,12 +761,28 @@ document.addEventListener('DOMContentLoaded', function () {
     toggleOtherField(id, id + '_other_wrap');
   });
 
-  buildMultiSelect('subjectsCheckboxWrap', subjectCatalog.filter(v => v !== 'Other'), preselectedSubjects, 'main_subject', 'subjectsDropdownLabel', 5);
+  buildMultiSelect(
+    'subjectsCheckboxWrap',
+    subjectCatalog.filter(v => v !== 'Other'),
+    preselectedSubjects,
+    'main_subject',
+    'subjectsDropdownLabel',
+    5
+  );
+
   syncEducationFlow();
-  syncAllowedLevels();
 
   const lastStep = parseInt("{{ form_data.get('active_step','1') }}", 10) || 1;
-  goToStep(lastStep);
+  goToStep(lastStep, true);
+
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      if (!validateAllStepsBeforeSubmit()) {
+        e.preventDefault();
+      }
+    });
+  }
 });
 </script>
+
 {% endblock %}

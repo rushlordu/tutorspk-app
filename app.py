@@ -917,6 +917,92 @@ def validate_tutor_application_form(form):
 
     return None
 
+def tutor_missing_requirements_from_form(form):
+    missing = []
+
+    highest = pick_with_other(form, "qualification")
+    next_choice = (form.get("previous_path_choice", "") or "").strip().lower()
+
+    if not highest:
+        missing.append("highest qualification")
+
+    if highest == "phd" and next_choice not in {"mphil", "masters"}:
+        missing.append("qualification before highest")
+
+    if not normalize_subjects(form, "tutor"):
+        missing.append("subjects")
+
+    if not normalize_levels(form):
+        missing.append("teaching level")
+
+    if not form.get("experience_years", "").strip():
+        missing.append("experience")
+
+    if not form.get("bio", "").strip():
+        missing.append("bio")
+
+    if not form.get("demo_video_url", "").strip():
+        missing.append("demo video")
+
+    if not form.get("degree_title", "").strip():
+        missing.append("highest qualification title")
+
+    if not form.get("degree_institution", "").strip():
+        missing.append("highest qualification institution")
+
+    if not form.get("degree_year", "").strip():
+        missing.append("highest qualification year")
+
+    if not form.get("degree_grade", "").strip():
+        missing.append("highest qualification grade")
+
+    if not form.get("mobile_number", "").strip():
+        missing.append("mobile number")
+
+    if not form.get("cnic_number", "").strip():
+        missing.append("CNIC number")
+
+    def require_if_visible(prefix, label):
+        if not form.get(f"{prefix}_title", "").strip():
+            missing.append(f"{label} title")
+        if not form.get(f"{prefix}_institution", "").strip():
+            missing.append(f"{label} institution")
+        if not form.get(f"{prefix}_year", "").strip():
+            missing.append(f"{label} year")
+        if not form.get(f"{prefix}_grade", "").strip():
+            missing.append(f"{label} grade")
+
+    chain = lower_qualification_chain(highest, next_choice)
+
+    if "mphil" in chain:
+        require_if_visible("mphil", "MPhil")
+    if "masters" in chain:
+        require_if_visible("masters", "Master's")
+    if "bachelor" in chain:
+        require_if_visible("bachelor", "Bachelor's")
+
+    if "inter" in chain:
+        if not form.get("inter_program", "").strip():
+            missing.append("intermediate")
+        if not form.get("inter_institution", "").strip():
+            missing.append("intermediate institution")
+        if not form.get("inter_year", "").strip():
+            missing.append("intermediate year")
+        if not form.get("inter_grade", "").strip():
+            missing.append("intermediate grade")
+
+    if "matric" in chain:
+        if not form.get("matric_program", "").strip():
+            missing.append("matric")
+        if not form.get("matric_institution", "").strip():
+            missing.append("matric institution")
+        if not form.get("matric_year", "").strip():
+            missing.append("matric year")
+        if not form.get("matric_grade", "").strip():
+            missing.append("matric grade")
+
+    return list(dict.fromkeys(missing))
+
 def apply_bonus_if_eligible(tutor: User):
     milestones = [
         (50000, "earnings_milestone_50k", 100),
@@ -1010,97 +1096,86 @@ def qualification_allowed_levels(qualification: str):
         return {"grade_1_5", "grade_6_8", "matric", "intermediate", "o_level", "a_level", "university"}
     return {"grade_1_5", "grade_6_8", "matric", "intermediate"}
 
-def tutor_missing_requirements_from_form(form):
-    missing = []
+def lower_qualification_chain(highest, next_choice=""):
+    highest = (highest or "").strip().lower()
+    next_choice = (next_choice or "").strip().lower()
 
-    if not pick_with_other(form, "qualification"):
-        missing.append("highest qualification")
-    if not normalize_subjects(form, "tutor"):
-        missing.append("subjects")
-    if not normalize_levels(form):
-        missing.append("teaching level")
-    if not form.get("experience_years", "").strip():
-        missing.append("experience")
-    if not form.get("bio", "").strip():
-        missing.append("bio")
-    if not form.get("demo_video_url", "").strip():
-        missing.append("demo video")
-    if not form.get("degree_title", "").strip():
-        missing.append("highest qualification title")
-    if not form.get("degree_institution", "").strip():
-        missing.append("highest qualification institution")
-    if not form.get("degree_year", "").strip():
-        missing.append("highest qualification year")
-    if not form.get("degree_grade", "").strip():
-        missing.append("highest qualification grade")
-    if not form.get("mobile_number", "").strip():
-        missing.append("mobile number")
-    if not form.get("cnic_number", "").strip():
-        missing.append("CNIC number")
+    if highest == "phd":
+        if next_choice == "mphil":
+            return ["mphil", "masters", "bachelor", "inter", "matric"]
+        if next_choice == "masters":
+            return ["masters", "bachelor", "inter", "matric"]
+        return []
+    if highest == "mphil":
+        return ["masters", "bachelor", "inter", "matric"]
+    if highest == "masters":
+        return ["bachelor", "inter", "matric"]
+    if highest == "bachelors":
+        return ["inter", "matric"]
+    if highest == "intermediate":
+        return ["matric"]
+    if highest == "other":
+        return ["inter", "matric"]
+    return []
 
-    highest = pick_with_other(form, "qualification")
-    next_choice = form.get("previous_path_choice", "").strip()
 
-    def require_if_visible(prefix, label):
-        if not form.get(f"{prefix}_title", "").strip():
-            missing.append(f"{label} title")
-        if not form.get(f"{prefix}_institution", "").strip():
-            missing.append(f"{label} institution")
-        if not form.get(f"{prefix}_year", "").strip():
-            missing.append(f"{label} year")
-        if not form.get(f"{prefix}_grade", "").strip():
-            missing.append(f"{label} grade")
+def media_url(path, fallback="https://picsum.photos/seed/default/300/300"):
+    path = (path or "").strip()
+    if not path:
+        return fallback
 
-    if highest == "phd" and next_choice == "mphil":
-        require_if_visible("mphil", "MPhil")
-        require_if_visible("masters", "Master's")
-        require_if_visible("bachelor", "Bachelor's")
-    elif highest == "phd" and next_choice == "masters":
-        require_if_visible("masters", "Master's")
-        require_if_visible("bachelor", "Bachelor's")
-    elif highest == "mphil":
-        require_if_visible("masters", "Master's")
-        require_if_visible("bachelor", "Bachelor's")
-    elif highest == "masters":
-        require_if_visible("bachelor", "Bachelor's")
+    if path.startswith(("http://", "https://", "/uploads/", "/demo_seed/", "/static/")):
+        return path
 
-    if highest in {"phd", "mphil", "masters", "bachelors", "intermediate", "other"}:
-        if not form.get("inter_program", "").strip():
-            missing.append("intermediate")
-        if not form.get("matric_program", "").strip():
-            missing.append("matric")
+    return url_for("uploaded_file", filename=path)
 
-    return list(dict.fromkeys(missing))
+
+app.jinja_env.globals["media_url"] = media_url
 
 def tutor_missing_requirements_from_user(user):
     missing = []
-    if not user.qualification:
-        missing.append("highest qualification")
-    if not user.main_subject:
-        missing.append("main subject")
-    if not user.class_levels:
-        missing.append("teaching level")
-    if not user.experience_years:
-        missing.append("experience")
-    if not user.bio:
-        missing.append("bio")
-    if not user.demo_video_url:
-        missing.append("demo video")
-    if not user.degree_title:
-        missing.append("highest qualification title")
-    if not user.degree_institution:
-        missing.append("highest qualification institution")
-    if not user.degree_year:
-        missing.append("highest qualification year")
-    if not user.degree_grade:
-        missing.append("highest qualification grade")
-    if not getattr(user, "mobile_number", ""):
-        missing.append("mobile number")
-    if not getattr(user, "cnic_number", ""):
-        missing.append("CNIC number")
 
     highest = (user.qualification or "").strip().lower()
     next_choice = (getattr(user, "previous_path_choice", "") or "").strip().lower()
+
+    if not user.qualification:
+        missing.append("highest qualification")
+
+    if highest == "phd" and next_choice not in {"mphil", "masters"}:
+        missing.append("qualification before highest")
+
+    if not user.main_subject:
+        missing.append("main subject")
+
+    if not user.class_levels:
+        missing.append("teaching level")
+
+    if not user.experience_years:
+        missing.append("experience")
+
+    if not user.bio:
+        missing.append("bio")
+
+    if not user.demo_video_url:
+        missing.append("demo video")
+
+    if not user.degree_title:
+        missing.append("highest qualification title")
+
+    if not user.degree_institution:
+        missing.append("highest qualification institution")
+
+    if not user.degree_year:
+        missing.append("highest qualification year")
+
+    if not user.degree_grade:
+        missing.append("highest qualification grade")
+
+    if not getattr(user, "mobile_number", ""):
+        missing.append("mobile number")
+
+    if not getattr(user, "cnic_number", ""):
+        missing.append("CNIC number")
 
     def require_if_visible(title, institution, year, grade, label):
         if not title:
@@ -1112,23 +1187,54 @@ def tutor_missing_requirements_from_user(user):
         if not grade:
             missing.append(f"{label} grade")
 
-    if highest == "phd" and next_choice == "mphil":
-        require_if_visible(getattr(user, "mphil_title", ""), getattr(user, "mphil_institution", ""), getattr(user, "mphil_year", ""), getattr(user, "mphil_grade", ""), "MPhil")
-        require_if_visible(getattr(user, "masters_title", ""), getattr(user, "masters_institution", ""), getattr(user, "masters_year", ""), getattr(user, "masters_grade", ""), "Master's")
-        require_if_visible(getattr(user, "bachelor_title", ""), getattr(user, "bachelor_institution", ""), getattr(user, "bachelor_year", ""), getattr(user, "bachelor_grade", ""), "Bachelor's")
-    elif highest == "phd" and next_choice == "masters":
-        require_if_visible(getattr(user, "masters_title", ""), getattr(user, "masters_institution", ""), getattr(user, "masters_year", ""), getattr(user, "masters_grade", ""), "Master's")
-        require_if_visible(getattr(user, "bachelor_title", ""), getattr(user, "bachelor_institution", ""), getattr(user, "bachelor_year", ""), getattr(user, "bachelor_grade", ""), "Bachelor's")
-    elif highest == "mphil":
-        require_if_visible(getattr(user, "masters_title", ""), getattr(user, "masters_institution", ""), getattr(user, "masters_year", ""), getattr(user, "masters_grade", ""), "Master's")
-        require_if_visible(getattr(user, "bachelor_title", ""), getattr(user, "bachelor_institution", ""), getattr(user, "bachelor_year", ""), getattr(user, "bachelor_grade", ""), "Bachelor's")
-    elif highest == "masters":
-        require_if_visible(getattr(user, "bachelor_title", ""), getattr(user, "bachelor_institution", ""), getattr(user, "bachelor_year", ""), getattr(user, "bachelor_grade", ""), "Bachelor's")
+    chain = lower_qualification_chain(highest, next_choice)
 
-    if highest in {"phd", "mphil", "masters", "bachelors", "intermediate", "other"} and not user.inter_program:
-        missing.append("intermediate")
-    if highest in {"phd", "mphil", "masters", "bachelors", "intermediate", "other"} and not user.matric_program:
-        missing.append("matric")
+    if "mphil" in chain:
+        require_if_visible(
+            getattr(user, "mphil_title", ""),
+            getattr(user, "mphil_institution", ""),
+            getattr(user, "mphil_year", ""),
+            getattr(user, "mphil_grade", ""),
+            "MPhil",
+        )
+
+    if "masters" in chain:
+        require_if_visible(
+            getattr(user, "masters_title", ""),
+            getattr(user, "masters_institution", ""),
+            getattr(user, "masters_year", ""),
+            getattr(user, "masters_grade", ""),
+            "Master's",
+        )
+
+    if "bachelor" in chain:
+        require_if_visible(
+            getattr(user, "bachelor_title", ""),
+            getattr(user, "bachelor_institution", ""),
+            getattr(user, "bachelor_year", ""),
+            getattr(user, "bachelor_grade", ""),
+            "Bachelor's",
+        )
+
+    if "inter" in chain:
+        if not getattr(user, "inter_program", ""):
+            missing.append("intermediate")
+        if not getattr(user, "inter_institution", ""):
+            missing.append("intermediate institution")
+        if not getattr(user, "inter_year", ""):
+            missing.append("intermediate year")
+        if not getattr(user, "inter_grade", ""):
+            missing.append("intermediate grade")
+
+    if "matric" in chain:
+        if not getattr(user, "matric_program", ""):
+            missing.append("matric")
+        if not getattr(user, "matric_institution", ""):
+            missing.append("matric institution")
+        if not getattr(user, "matric_year", ""):
+            missing.append("matric year")
+        if not getattr(user, "matric_grade", ""):
+            missing.append("matric grade")
 
     return list(dict.fromkeys(missing))
 
@@ -2050,25 +2156,6 @@ def admin_credit_notices():
     return render_template("admin_credit_notices.html", notices=notices)
 
 
-@app.route("/reset-all-seeded-passwords")
-def reset_all_seeded_passwords():
-    users = User.query.filter(
-        User.public_name != ""
-    ).all()
-
-    updated = 0
-    for user in users:
-        if user.email and (
-            user.email.endswith("@example.com")
-            or "demo" in user.email.lower()
-            or "seed" in user.email.lower()
-        ):
-            user.set_password("Demo@12345")
-            user.is_active_user = True
-            updated += 1
-
-    db.session.commit()
-    return f"Reset {updated} demo users. New password: Demo@12345"
 
 @app.route("/admin/credits/<int:notice_id>/review", methods=["POST"])
 @login_required
@@ -2744,7 +2831,15 @@ def admin_live_sessions():
 def uploaded_file(filename):
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
+@app.route("/demo_seed/<path:filename>")
+def demo_seed_file(filename):
+    demo_dir = BASE_DIR / "demo_seed"
+    if demo_dir.exists():
+        candidate = demo_dir / filename
+        if candidate.exists():
+            return send_from_directory(str(demo_dir), filename)
 
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 from rtc.routes_rtc import rtc_bp
 app.register_blueprint(rtc_bp, url_prefix="/rtc")
@@ -2778,7 +2873,7 @@ def seed():
         bio="Preparing for board exams.",
         credits_balance=1000,
     )
-    student.set_password("password123")
+    student.set_password("Demo@12345")
     db.session.add(student)
 
     tutor_data = [
@@ -2877,7 +2972,7 @@ def seed():
             rating_count=12,
             sessions_completed=20,
         )
-        tutor.set_password("password123")
+        tutor.set_password("Demo@12345")
         db.session.add(tutor)
 
     db.session.commit()
