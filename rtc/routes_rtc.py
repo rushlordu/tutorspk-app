@@ -15,21 +15,18 @@ rtc_bp = Blueprint("rtc", __name__, url_prefix="/rtc")
 
 
 def _get_app_objects():
-    source = sys.modules.get("__main__") or sys.modules.get("app")
-    if source is None:
-        raise RuntimeError("Could not locate the running app module.")
+    rtc_models = current_app.extensions.get("rtc_models")
+    if not rtc_models:
+        raise RuntimeError("RTC models are not registered on current_app.extensions['rtc_models'].")
 
-    db = getattr(source, "db", None)
-    Booking = getattr(source, "Booking", None)
-    LiveSessionLog = getattr(source, "LiveSessionLog", None)
+    db = rtc_models.get("db")
+    Booking = rtc_models.get("Booking")
+    LiveSessionLog = rtc_models.get("LiveSessionLog")
 
     if not all([db, Booking, LiveSessionLog]):
-        raise RuntimeError(
-            "App objects not found. Make sure db, Booking, and LiveSessionLog are defined before rtc blueprint is imported."
-        )
+        raise RuntimeError("RTC model registry is incomplete.")
 
     return db, Booking, LiveSessionLog
-
 
 def _get_booking_or_404(booking_id: int):
     db, Booking, _ = _get_app_objects()

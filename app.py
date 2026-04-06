@@ -598,6 +598,12 @@ class LiveSessionLog(db.Model):
     last_activity_note = db.Column(db.String(255), default="Session created")
     booking = db.relationship("Booking", backref="live_log")
 
+app.extensions["rtc_models"] = {
+    "db": db,
+    "Booking": Booking,
+    "LiveSessionLog": LiveSessionLog,
+}
+app.register_blueprint(rtc_bp)
 
 class ChatFlag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -2801,7 +2807,7 @@ def demo_seed_file(filename):
 
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
-app.register_blueprint(rtc_bp, url_prefix="/rtc")
+
 
 @app.route("/seed")
 def seed():
