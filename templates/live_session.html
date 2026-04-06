@@ -1,77 +1,441 @@
 {% extends 'base.html' %}
 {% block content %}
-<section class="card">
-  <h1>Live Session Room #{{ booking.room_code }}</h1>
+<section class="live-room-shell">
+  <div class="session-topbar">
+    <div class="session-meta">
+      <div class="session-title">Live Session</div>
+      <div class="session-subtitle">Room #{{ booking.room_code }}</div>
+      <div class="session-status-line">
+        <span class="status-dot"></span>
+        <span id="participant-status">
+          student {% if log and log.student_joined %}joined{% else %}pending{% endif %},
+          tutor {% if log and log.tutor_joined %}joined{% else %}pending{% endif %},
+          admin {% if log and log.admin_joined %}observing{% else %}not present{% endif %}
+        </span>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <div class="booking-badge">
+        <strong id="booking-status">{{ booking.status }}</strong>
+      </div>
+      <button class="leave-btn" type="button" onclick="leaveSession()">Leave</button>
+    </div>
+  </div>
 
   <div id="admin-banner" class="observer-banner" style="{% if log and log.admin_joined %}display:block;{% else %}display:none;{% endif %}">
     Admin observer is in this session for quality assurance.
   </div>
 
-  <p><strong>Booking:</strong> {{ booking.subject }} · {{ booking.class_level }}</p>
-  <p><strong>Status:</strong> <span id="booking-status">{{ booking.status }}</span></p>
-  <p id="participant-status">
-    <strong>Participants:</strong>
-    student {% if log and log.student_joined %}joined{% else %}pending{% endif %},
-    tutor {% if log and log.tutor_joined %}joined{% else %}pending{% endif %},
-    admin {% if log and log.admin_joined %}observing{% else %}not present{% endif %}
-  </p>
-
-  <div class="session-controls" style="display:flex; gap:10px; flex-wrap:wrap; margin:14px 0;">
-    <button class="btn" id="join-btn" type="button" onclick="joinSession()">Join Session</button>
-    <button class="btn" id="leave-btn" type="button" onclick="leaveSession()">Leave Session</button>
-    <button class="btn" id="mute-btn" type="button" onclick="toggleMute()">Mute</button>
-    <button class="btn" id="camera-btn" type="button" onclick="toggleCamera()">Camera Off</button>
-  </div>
-
-  <div class="video-shell" id="video-shell" style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;">
-    <div>
-      <div class="video-box" id="local-player" style="width:320px; height:220px; background:#111; border-radius:12px; overflow:hidden; display:flex; align-items:center; justify-content:center; color:#fff;">
-        {% if current_user.role == 'admin' %}
-          Admin observer
-        {% else %}
-          Your video
-        {% endif %}
+  <div class="live-room-grid">
+    <section class="video-stage-card">
+      <div class="video-stage-header">
+        <div><strong>{{ booking.subject }}</strong> · {{ booking.class_level }}</div>
       </div>
-      <p class="muted" style="margin-top:6px;">Local</p>
-    </div>
 
-    <div id="remote-container" style="display:flex; gap:16px; flex-wrap:wrap;"></div>
+      <div class="video-stage">
+        <div id="remote-player-main" class="remote-video-box">
+          Waiting for remote participant
+        </div>
+
+        <div class="video-label remote-label">Remote</div>
+
+        <div class="local-pip-wrap">
+          <div id="local-player" class="local-pip">
+            {% if current_user.role == 'admin' %}
+              Admin observer
+            {% else %}
+              Your video
+            {% endif %}
+          </div>
+          <div class="video-label pip-label">You</div>
+        </div>
+
+        <div class="call-controls">
+          <button class="control-btn" id="join-btn" type="button" onclick="joinSession()">Join</button>
+          <button class="control-btn" id="mute-btn" type="button" onclick="toggleMute()">Mute</button>
+          <button class="control-btn" id="camera-btn" type="button" onclick="toggleCamera()">Camera Off</button>
+          <button class="control-btn" type="button" onclick="activateTab('chat')">Chat</button>
+          <button class="control-btn" type="button" onclick="activateTab('files')">Files</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="bottom-panel">
+      <div class="panel-tabs">
+        <button class="panel-tab active" id="tab-btn-chat" type="button" onclick="activateTab('chat')">Chat</button>
+        <button class="panel-tab" id="tab-btn-files" type="button" onclick="activateTab('files')">Files</button>
+      </div>
+
+      <div class="panel-body">
+        <div class="tab-content active" id="tab-chat">
+          <div id="chat-box" class="chat-messages"></div>
+
+          <div class="chat-compose">
+            <input
+              id="chat-input"
+              name="message"
+              type="text"
+              placeholder="Type a message. Phone/email/contact-sharing is blocked."
+            >
+            <button type="button" onclick="sendMessage()">Send</button>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tab-files">
+          <div class="file-upload-row">
+            <input id="file-input" type="file">
+            <button type="button" onclick="uploadFile()">Upload</button>
+          </div>
+
+          <div id="files-box" class="shared-files">
+            <div class="empty-files-note">Uploaded files shared in chat will appear here.</div>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
-
-  <p class="muted" style="margin-top:14px;">
-    Protected in-platform session. Contact sharing in chat is blocked and sessions may be monitored.
-  </p>
 </section>
 
-<section class="card">
-  <h2>Protected chat box</h2>
+<style>
+  .live-room-shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 12px;
+  }
 
-  <div id="chat-box" style="border:1px solid #dcdcdc; border-radius:10px; min-height:220px; max-height:320px; overflow:auto; padding:12px; margin-bottom:12px; background:#fff;"></div>
+  .session-topbar {
+    position: sticky;
+    top: 8px;
+    z-index: 20;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+  }
 
-  <div class="form-grid" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-    <input
-      id="chat-input"
-      name="message"
-      placeholder="Type a message. Phone/email/contact-sharing is blocked."
-      style="flex:1; min-width:260px;"
-    >
-    <button class="btn" id="send-btn" type="button" onclick="sendMessage()">Send</button>
-  </div>
+  .session-meta {
+    min-width: 0;
+  }
 
-  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
-    <input id="file-input" type="file">
-    <button class="btn btn-light" id="upload-btn" type="button" onclick="uploadFile()">Upload File</button>
-  </div>
-</section>
+  .session-title {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .session-subtitle {
+    font-size: 13px;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+
+  .session-status-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #4b5563;
+    margin-top: 6px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #16a34a;
+    flex: 0 0 auto;
+  }
+
+  .topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .booking-badge {
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: #f3f4f6;
+    font-size: 13px;
+  }
+
+  .leave-btn {
+    border: none;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #ef4444;
+    color: #fff;
+  }
+
+  .observer-banner {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+    font-size: 14px;
+  }
+
+  .live-room-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .video-stage-card,
+  .bottom-panel {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    overflow: hidden;
+  }
+
+  .video-stage-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid #eef2f7;
+    font-size: 14px;
+    color: #374151;
+  }
+
+  .video-stage {
+    position: relative;
+    background: #0f172a;
+    min-height: 250px;
+  }
+
+  .remote-video-box {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    min-height: 250px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: #111827;
+    overflow: hidden;
+    border-radius: 0;
+  }
+
+  .video-label {
+    position: absolute;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+  }
+
+  .remote-label {
+    top: 12px;
+    left: 12px;
+  }
+
+  .local-pip-wrap {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 28%;
+    max-width: 130px;
+    min-width: 90px;
+  }
+
+  .local-pip {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #000;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(255,255,255,0.85);
+  }
+
+  .pip-label {
+    left: 8px;
+    bottom: 8px;
+    font-size: 11px;
+  }
+
+  .call-controls {
+    position: absolute;
+    left: 50%;
+    bottom: 12px;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.84);
+    backdrop-filter: blur(8px);
+    overflow-x: auto;
+    max-width: calc(100% - 20px);
+  }
+
+  .control-btn {
+    border: none;
+    border-radius: 999px;
+    padding: 10px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    background: #fff;
+  }
+
+  .panel-tabs {
+    display: flex;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .panel-tab {
+    flex: 1 1 0;
+    padding: 12px;
+    border: none;
+    background: #fff;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .panel-tab.active {
+    background: #f8fafc;
+  }
+
+  .panel-body {
+    padding: 12px;
+  }
+
+  .tab-content {
+    display: none;
+  }
+
+  .tab-content.active {
+    display: block;
+  }
+
+  .chat-messages {
+    min-height: 220px;
+    max-height: 340px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .chat-row {
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: #f9fafb;
+  }
+
+  .chat-meta {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+
+  .chat-compose {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .chat-compose input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+  }
+
+  .chat-compose button,
+  .file-upload-row button {
+    padding: 12px 14px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    background: #111827;
+    color: #fff;
+  }
+
+  .file-upload-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .file-upload-row input[type="file"] {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .shared-files {
+    min-height: 180px;
+  }
+
+  .shared-file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .shared-file-item a {
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .empty-files-note {
+    color: #6b7280;
+    font-size: 14px;
+  }
+
+  @media (min-width: 960px) {
+    .live-room-grid {
+      grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr);
+      align-items: start;
+    }
+
+    .bottom-panel {
+      min-height: 560px;
+    }
+
+    .chat-messages {
+      max-height: 430px;
+    }
+
+    .local-pip-wrap {
+      width: 22%;
+      max-width: 150px;
+    }
+  }
+</style>
 
 <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
 <script>
   const bookingId = {{ booking.id }};
   const currentRole = "{{ current_user.role }}";
   const localPlayerId = "local-player";
+  const remoteMainPlayerId = "remote-player-main";
 
   let client = null;
   let joined = false;
+  let remoteMainUid = null;
   let localTracks = { audio: null, video: null };
   let adminPollingStarted = false;
   let statusPollTimer = null;
@@ -79,16 +443,25 @@
   const bookingStatusEl = document.getElementById("booking-status");
   const participantStatusEl = document.getElementById("participant-status");
   const adminBanner = document.getElementById("admin-banner");
-  const remoteContainer = document.getElementById("remote-container");
   const chatBox = document.getElementById("chat-box");
   const chatInput = document.getElementById("chat-input");
   const fileInput = document.getElementById("file-input");
+  const filesBox = document.getElementById("files-box");
+
+  function activateTab(tabName) {
+    document.getElementById("tab-chat").classList.remove("active");
+    document.getElementById("tab-files").classList.remove("active");
+    document.getElementById("tab-btn-chat").classList.remove("active");
+    document.getElementById("tab-btn-files").classList.remove("active");
+
+    document.getElementById(`tab-${tabName}`).classList.add("active");
+    document.getElementById(`tab-btn-${tabName}`).classList.add("active");
+  }
 
   function appendSystemMessage(text) {
     const row = document.createElement("div");
-    row.className = "muted";
-    row.style.marginBottom = "8px";
-    row.innerHTML = `<em>${text}</em>`;
+    row.className = "chat-row";
+    row.innerHTML = `<div class="chat-meta">System</div><div>${text}</div>`;
     chatBox.appendChild(row);
     chatBox.scrollTop = chatBox.scrollHeight;
   }
@@ -102,6 +475,26 @@
       .replace(/'/g, "&#039;");
   }
 
+  function renderFiles(messages) {
+    const fileMessages = messages.filter(m => m.file_url);
+    filesBox.innerHTML = "";
+
+    if (!fileMessages.length) {
+      filesBox.innerHTML = `<div class="empty-files-note">Uploaded files shared in chat will appear here.</div>`;
+      return;
+    }
+
+    fileMessages.forEach(msg => {
+      const item = document.createElement("div");
+      item.className = "shared-file-item";
+      item.innerHTML = `
+        <span>${escapeHtml(msg.file_name || "Attachment")}</span>
+        <a href="${msg.file_url}" target="_blank" rel="noopener">Open</a>
+      `;
+      filesBox.appendChild(item);
+    });
+  }
+
   async function loadMessages() {
     try {
       const res = await fetch(`/rtc/chat/${bookingId}`);
@@ -111,27 +504,29 @@
       chatBox.innerHTML = "";
 
       data.messages.forEach(msg => {
-        const row = document.createElement("div");
-        row.style.marginBottom = "10px";
-
         const who = msg.sender_role === "admin"
           ? "Admin"
           : (msg.sender_role === "tutor" ? "Tutor" : "Student");
 
-        let inner = `<strong>${who}:</strong> `;
+        const row = document.createElement("div");
+        row.className = "chat-row";
 
+        let body = "";
         if (msg.message_text) {
-          inner += `<span>${escapeHtml(msg.message_text)}</span>`;
+          body += `<div>${escapeHtml(msg.message_text)}</div>`;
         }
-
         if (msg.file_url) {
-          inner += ` <a href="${msg.file_url}" target="_blank" rel="noopener">📎 ${escapeHtml(msg.file_name || "Attachment")}</a>`;
+          body += `<div><a href="${msg.file_url}" target="_blank" rel="noopener">📎 ${escapeHtml(msg.file_name || "Attachment")}</a></div>`;
         }
 
-        row.innerHTML = inner;
+        row.innerHTML = `
+          <div class="chat-meta">${who}</div>
+          ${body}
+        `;
         chatBox.appendChild(row);
       });
 
+      renderFiles(data.messages);
       chatBox.scrollTop = chatBox.scrollHeight;
     } catch (err) {
       console.error("Failed to load chat:", err);
@@ -158,6 +553,7 @@
 
       chatInput.value = "";
       await loadMessages();
+      activateTab("chat");
     } catch (err) {
       console.error("Failed to send message:", err);
       alert("Could not send message.");
@@ -188,6 +584,7 @@
 
       fileInput.value = "";
       await loadMessages();
+      activateTab("files");
     } catch (err) {
       console.error("Failed to upload file:", err);
       alert("Could not upload file.");
@@ -195,8 +592,8 @@
   }
 
   function updateParticipantStatus(data) {
-    participantStatusEl.innerHTML =
-      `<strong>Participants:</strong> student ${data.student_joined ? "joined" : "pending"}, tutor ${data.tutor_joined ? "joined" : "pending"}, admin ${data.admin_joined ? "observing" : "not present"}`;
+    participantStatusEl.innerText =
+      `student ${data.student_joined ? "joined" : "pending"}, tutor ${data.tutor_joined ? "joined" : "pending"}, admin ${data.admin_joined ? "observing" : "not present"}`;
 
     adminBanner.style.display = data.admin_joined ? "block" : "none";
     if (data.booking_status) {
@@ -231,37 +628,10 @@
     adminPollingStarted = false;
   }
 
-  function ensureRemoteBox(uid) {
-    let wrapper = document.getElementById(`remote-wrapper-${uid}`);
-    if (wrapper) return wrapper.querySelector(".remote-video-box");
-
-    wrapper = document.createElement("div");
-    wrapper.id = `remote-wrapper-${uid}`;
-
-    const box = document.createElement("div");
-    box.className = "remote-video-box";
-    box.id = `remote-player-${uid}`;
-    box.style.width = "320px";
-    box.style.height = "220px";
-    box.style.background = "#111";
-    box.style.borderRadius = "12px";
-    box.style.overflow = "hidden";
-    box.style.display = "flex";
-    box.style.alignItems = "center";
-    box.style.justifyContent = "center";
-    box.style.color = "#fff";
-    box.innerText = `Remote user ${uid}`;
-
-    const label = document.createElement("p");
-    label.className = "muted";
-    label.style.marginTop = "6px";
-    label.innerText = `Remote #${uid}`;
-
-    wrapper.appendChild(box);
-    wrapper.appendChild(label);
-    remoteContainer.appendChild(wrapper);
-
-    return box;
+  function clearRemoteMain() {
+    const remoteMain = document.getElementById(remoteMainPlayerId);
+    remoteMain.innerHTML = "Waiting for remote participant";
+    remoteMainUid = null;
   }
 
   async function confirmConnected() {
@@ -295,8 +665,8 @@
         await client.subscribe(user, mediaType);
 
         if (mediaType === "video") {
-          const remoteBox = ensureRemoteBox(user.uid);
-          user.videoTrack.play(remoteBox);
+          remoteMainUid = user.uid;
+          user.videoTrack.play(remoteMainPlayerId);
         }
 
         if (mediaType === "audio") {
@@ -305,15 +675,15 @@
       });
 
       client.on("user-unpublished", (user, mediaType) => {
-        if (mediaType === "video") {
-          const wrapper = document.getElementById(`remote-wrapper-${user.uid}`);
-          if (wrapper) wrapper.remove();
+        if (mediaType === "video" && remoteMainUid === user.uid) {
+          clearRemoteMain();
         }
       });
 
       client.on("user-left", (user) => {
-        const wrapper = document.getElementById(`remote-wrapper-${user.uid}`);
-        if (wrapper) wrapper.remove();
+        if (remoteMainUid === user.uid) {
+          clearRemoteMain();
+        }
       });
 
       await client.join(rtc.appId, rtc.channel, rtc.token, rtc.uid);
@@ -328,7 +698,6 @@
       }
 
       const connectedData = await confirmConnected();
-
       if (connectedData.ok) {
         bookingStatusEl.innerText = connectedData.booking_status || bookingStatusEl.innerText;
         updateParticipantStatus(connectedData);
@@ -373,7 +742,7 @@
       await fetch(`/rtc/leave/${bookingId}`, { method: "POST" });
 
       joined = false;
-      remoteContainer.innerHTML = "";
+      clearRemoteMain();
       document.getElementById(localPlayerId).innerHTML =
         currentRole === "admin" ? "Admin observer" : "Your video";
 
@@ -423,5 +792,6 @@
   window.toggleCamera = toggleCamera;
   window.sendMessage = sendMessage;
   window.uploadFile = uploadFile;
+  window.activateTab = activateTab;
 </script>
 {% endblock %}

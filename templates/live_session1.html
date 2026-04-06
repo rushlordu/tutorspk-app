@@ -1,0 +1,427 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="card">
+  <h1>Live Session Room #{{ booking.room_code }}</h1>
+
+  <div id="admin-banner" class="observer-banner" style="{% if log and log.admin_joined %}display:block;{% else %}display:none;{% endif %}">
+    Admin observer is in this session for quality assurance.
+  </div>
+
+  <p><strong>Booking:</strong> {{ booking.subject }} · {{ booking.class_level }}</p>
+  <p><strong>Status:</strong> <span id="booking-status">{{ booking.status }}</span></p>
+  <p id="participant-status">
+    <strong>Participants:</strong>
+    student {% if log and log.student_joined %}joined{% else %}pending{% endif %},
+    tutor {% if log and log.tutor_joined %}joined{% else %}pending{% endif %},
+    admin {% if log and log.admin_joined %}observing{% else %}not present{% endif %}
+  </p>
+
+  <div class="session-controls" style="display:flex; gap:10px; flex-wrap:wrap; margin:14px 0;">
+    <button class="btn" id="join-btn" type="button" onclick="joinSession()">Join Session</button>
+    <button class="btn" id="leave-btn" type="button" onclick="leaveSession()">Leave Session</button>
+    <button class="btn" id="mute-btn" type="button" onclick="toggleMute()">Mute</button>
+    <button class="btn" id="camera-btn" type="button" onclick="toggleCamera()">Camera Off</button>
+  </div>
+
+  <div class="video-shell" id="video-shell" style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;">
+    <div>
+      <div class="video-box" id="local-player" style="width:320px; height:220px; background:#111; border-radius:12px; overflow:hidden; display:flex; align-items:center; justify-content:center; color:#fff;">
+        {% if current_user.role == 'admin' %}
+          Admin observer
+        {% else %}
+          Your video
+        {% endif %}
+      </div>
+      <p class="muted" style="margin-top:6px;">Local</p>
+    </div>
+
+    <div id="remote-container" style="display:flex; gap:16px; flex-wrap:wrap;"></div>
+  </div>
+
+  <p class="muted" style="margin-top:14px;">
+    Protected in-platform session. Contact sharing in chat is blocked and sessions may be monitored.
+  </p>
+</section>
+
+<section class="card">
+  <h2>Protected chat box</h2>
+
+  <div id="chat-box" style="border:1px solid #dcdcdc; border-radius:10px; min-height:220px; max-height:320px; overflow:auto; padding:12px; margin-bottom:12px; background:#fff;"></div>
+
+  <div class="form-grid" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+    <input
+      id="chat-input"
+      name="message"
+      placeholder="Type a message. Phone/email/contact-sharing is blocked."
+      style="flex:1; min-width:260px;"
+    >
+    <button class="btn" id="send-btn" type="button" onclick="sendMessage()">Send</button>
+  </div>
+
+  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+    <input id="file-input" type="file">
+    <button class="btn btn-light" id="upload-btn" type="button" onclick="uploadFile()">Upload File</button>
+  </div>
+</section>
+
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
+<script>
+  const bookingId = {{ booking.id }};
+  const currentRole = "{{ current_user.role }}";
+  const localPlayerId = "local-player";
+
+  let client = null;
+  let joined = false;
+  let localTracks = { audio: null, video: null };
+  let adminPollingStarted = false;
+  let statusPollTimer = null;
+
+  const bookingStatusEl = document.getElementById("booking-status");
+  const participantStatusEl = document.getElementById("participant-status");
+  const adminBanner = document.getElementById("admin-banner");
+  const remoteContainer = document.getElementById("remote-container");
+  const chatBox = document.getElementById("chat-box");
+  const chatInput = document.getElementById("chat-input");
+  const fileInput = document.getElementById("file-input");
+
+  function appendSystemMessage(text) {
+    const row = document.createElement("div");
+    row.className = "muted";
+    row.style.marginBottom = "8px";
+    row.innerHTML = `<em>${text}</em>`;
+    chatBox.appendChild(row);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  function escapeHtml(value) {
+    return (value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  async function loadMessages() {
+    try {
+      const res = await fetch(`/rtc/chat/${bookingId}`);
+      const data = await res.json();
+      if (!data.ok) return;
+
+      chatBox.innerHTML = "";
+
+      data.messages.forEach(msg => {
+        const row = document.createElement("div");
+        row.style.marginBottom = "10px";
+
+        const who = msg.sender_role === "admin"
+          ? "Admin"
+          : (msg.sender_role === "tutor" ? "Tutor" : "Student");
+
+        let inner = `<strong>${who}:</strong> `;
+
+        if (msg.message_text) {
+          inner += `<span>${escapeHtml(msg.message_text)}</span>`;
+        }
+
+        if (msg.file_url) {
+          inner += ` <a href="${msg.file_url}" target="_blank" rel="noopener">📎 ${escapeHtml(msg.file_name || "Attachment")}</a>`;
+        }
+
+        row.innerHTML = inner;
+        chatBox.appendChild(row);
+      });
+
+      chatBox.scrollTop = chatBox.scrollHeight;
+    } catch (err) {
+      console.error("Failed to load chat:", err);
+    }
+  }
+
+  async function sendMessage() {
+    const message = chatInput.value.trim();
+    if (!message) return;
+
+    try {
+      const res = await fetch(`/rtc/chat/${bookingId}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message })
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        alert(data.error || "Message blocked");
+        return;
+      }
+
+      chatInput.value = "";
+      await loadMessages();
+    } catch (err) {
+      console.error("Failed to send message:", err);
+      alert("Could not send message.");
+    }
+  }
+
+  async function uploadFile() {
+    if (!fileInput.files.length) {
+      alert("Please choose a file first.");
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+
+      const res = await fetch(`/rtc/chat/${bookingId}/upload`, {
+        method: "POST",
+        body: formData
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        alert(data.error || "Upload failed");
+        return;
+      }
+
+      fileInput.value = "";
+      await loadMessages();
+    } catch (err) {
+      console.error("Failed to upload file:", err);
+      alert("Could not upload file.");
+    }
+  }
+
+  function updateParticipantStatus(data) {
+    participantStatusEl.innerHTML =
+      `<strong>Participants:</strong> student ${data.student_joined ? "joined" : "pending"}, tutor ${data.tutor_joined ? "joined" : "pending"}, admin ${data.admin_joined ? "observing" : "not present"}`;
+
+    adminBanner.style.display = data.admin_joined ? "block" : "none";
+    if (data.booking_status) {
+      bookingStatusEl.innerText = data.booking_status;
+    }
+  }
+
+  async function checkSessionStatus() {
+    try {
+      const res = await fetch(`/rtc/session-status/${bookingId}`);
+      const data = await res.json();
+
+      if (!data.ok) return;
+      updateParticipantStatus(data);
+    } catch (err) {
+      console.error("Status check failed:", err);
+    }
+  }
+
+  function startStatusPolling() {
+    if (adminPollingStarted) return;
+    adminPollingStarted = true;
+    checkSessionStatus();
+    statusPollTimer = setInterval(checkSessionStatus, 5000);
+  }
+
+  function stopStatusPolling() {
+    if (statusPollTimer) {
+      clearInterval(statusPollTimer);
+      statusPollTimer = null;
+    }
+    adminPollingStarted = false;
+  }
+
+  function ensureRemoteBox(uid) {
+    let wrapper = document.getElementById(`remote-wrapper-${uid}`);
+    if (wrapper) return wrapper.querySelector(".remote-video-box");
+
+    wrapper = document.createElement("div");
+    wrapper.id = `remote-wrapper-${uid}`;
+
+    const box = document.createElement("div");
+    box.className = "remote-video-box";
+    box.id = `remote-player-${uid}`;
+    box.style.width = "320px";
+    box.style.height = "220px";
+    box.style.background = "#111";
+    box.style.borderRadius = "12px";
+    box.style.overflow = "hidden";
+    box.style.display = "flex";
+    box.style.alignItems = "center";
+    box.style.justifyContent = "center";
+    box.style.color = "#fff";
+    box.innerText = `Remote user ${uid}`;
+
+    const label = document.createElement("p");
+    label.className = "muted";
+    label.style.marginTop = "6px";
+    label.innerText = `Remote #${uid}`;
+
+    wrapper.appendChild(box);
+    wrapper.appendChild(label);
+    remoteContainer.appendChild(wrapper);
+
+    return box;
+  }
+
+  async function confirmConnected() {
+    const res = await fetch(`/rtc/connected/${bookingId}`, { method: "POST" });
+    const data = await res.json();
+
+    if (!data.ok) {
+      throw new Error(data.error || "Could not confirm session connection.");
+    }
+
+    updateParticipantStatus(data);
+    return data;
+  }
+
+  async function joinSession() {
+    if (joined) return;
+
+    try {
+      const res = await fetch(`/rtc/join/${bookingId}`, { method: "POST" });
+      const data = await res.json();
+
+      if (!data.ok) {
+        alert(data.error || "Unable to join session.");
+        return;
+      }
+
+      const rtc = data.rtc;
+      client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+
+      client.on("user-published", async (user, mediaType) => {
+        await client.subscribe(user, mediaType);
+
+        if (mediaType === "video") {
+          const remoteBox = ensureRemoteBox(user.uid);
+          user.videoTrack.play(remoteBox);
+        }
+
+        if (mediaType === "audio") {
+          user.audioTrack.play();
+        }
+      });
+
+      client.on("user-unpublished", (user, mediaType) => {
+        if (mediaType === "video") {
+          const wrapper = document.getElementById(`remote-wrapper-${user.uid}`);
+          if (wrapper) wrapper.remove();
+        }
+      });
+
+      client.on("user-left", (user) => {
+        const wrapper = document.getElementById(`remote-wrapper-${user.uid}`);
+        if (wrapper) wrapper.remove();
+      });
+
+      await client.join(rtc.appId, rtc.channel, rtc.token, rtc.uid);
+
+      if (rtc.role === "host") {
+        localTracks.audio = await AgoraRTC.createMicrophoneAudioTrack();
+        localTracks.video = await AgoraRTC.createCameraVideoTrack();
+        await client.publish([localTracks.audio, localTracks.video]);
+        localTracks.video.play(localPlayerId);
+      } else {
+        document.getElementById(localPlayerId).innerText = "Admin observer";
+      }
+
+      const connectedData = await confirmConnected();
+
+      if (connectedData.ok) {
+        bookingStatusEl.innerText = connectedData.booking_status || bookingStatusEl.innerText;
+        updateParticipantStatus(connectedData);
+      }
+
+      joined = true;
+      startStatusPolling();
+      await loadMessages();
+      appendSystemMessage("You joined the session.");
+    } catch (err) {
+      console.error("Join failed:", err);
+      alert("Failed to join live session. Check Agora setup, browser permissions, and token configuration.");
+
+      try {
+        if (client) {
+          await client.leave();
+        }
+      } catch (_) {}
+
+      client = null;
+      joined = false;
+    }
+  }
+
+  async function leaveSession() {
+    try {
+      if (localTracks.audio) {
+        localTracks.audio.close();
+        localTracks.audio = null;
+      }
+
+      if (localTracks.video) {
+        localTracks.video.close();
+        localTracks.video = null;
+      }
+
+      if (client) {
+        await client.leave();
+        client = null;
+      }
+
+      await fetch(`/rtc/leave/${bookingId}`, { method: "POST" });
+
+      joined = false;
+      remoteContainer.innerHTML = "";
+      document.getElementById(localPlayerId).innerHTML =
+        currentRole === "admin" ? "Admin observer" : "Your video";
+
+      await checkSessionStatus();
+      appendSystemMessage("You left the session.");
+      stopStatusPolling();
+    } catch (err) {
+      console.error("Leave failed:", err);
+      alert("Could not leave cleanly.");
+    }
+  }
+
+  async function toggleMute() {
+    if (!joined || !localTracks.audio) return;
+    const nextState = localTracks.audio.muted ? false : true;
+    await localTracks.audio.setMuted(nextState);
+    document.getElementById("mute-btn").innerText = nextState ? "Unmute" : "Mute";
+  }
+
+  async function toggleCamera() {
+    if (!joined || !localTracks.video) return;
+    const nextState = localTracks.video.muted ? false : true;
+    await localTracks.video.setMuted(nextState);
+    document.getElementById("camera-btn").innerText = nextState ? "Camera On" : "Camera Off";
+  }
+
+  chatInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  window.addEventListener("beforeunload", function () {
+    if (joined) {
+      navigator.sendBeacon(`/rtc/leave/${bookingId}`);
+    }
+  });
+
+  loadMessages();
+  checkSessionStatus();
+  startStatusPolling();
+
+  window.joinSession = joinSession;
+  window.leaveSession = leaveSession;
+  window.toggleMute = toggleMute;
+  window.toggleCamera = toggleCamera;
+  window.sendMessage = sendMessage;
+  window.uploadFile = uploadFile;
+</script>
+{% endblock %}
