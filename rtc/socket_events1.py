@@ -7,9 +7,6 @@ from uuid import uuid4
 from dotenv import load_dotenv
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from sqlalchemy import text
-from rtc.extensions import db
-from rtc import rtc_bp
 
 from flask import (
     Flask,
@@ -30,7 +27,6 @@ from flask_login import (
     logout_user,
 )
 from flask_sqlalchemy import SQLAlchemy
-from rtc.extensions import db
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 from authlib.integrations.flask_client import OAuth
@@ -216,23 +212,47 @@ superadmin@tutorsonline.pk
     safe_send_email(user.email, subject, body)
 
 def get_tutor_completion_status(user):
-    missing = tutor_missing_requirements_from_user(user)
-    total_items = 14
-    highest = (user.qualification or "").strip().lower()
-    next_choice = (getattr(user, "previous_path_choice", "") or "").strip().lower()
-    if highest == "phd" and next_choice in {"mphil", "masters"}:
-        total_items += 8
-    elif highest == "mphil":
-        total_items += 8
-    elif highest == "masters":
-        total_items += 4
-    completion = max(0, int(round(((total_items - len(missing)) / total_items) * 100))) if total_items else 0
-    stage = compute_tutor_profile_stage(user)
+    missing = []
+
+    if not user.main_subject:
+        missing.append("Main subject")
+
+    if not user.class_levels:
+        missing.append("Teaching level")
+
+    if not user.experience_years:
+        missing.append("Experience")
+
+    if not user.bio:
+        missing.append("Bio")
+
+    if not user.demo_video_url:
+        missing.append("Demo video")
+
+    # Education
+    if not user.degree_title:
+        missing.append("Degree title")
+
+    if not user.degree_institution:
+        missing.append("Institution")
+
+    if not user.degree_year:
+        missing.append("Degree year")
+
+    if not user.degree_grade:
+        missing.append("Degree grade")
+
+    if not user.inter_program:
+        missing.append("Intermediate")
+
+    if not user.matric_program:
+        missing.append("Matric")
+
+    completion = int(((12 - len(missing)) / 12) * 100)
+
     return {
         "missing": missing,
-        "completion": min(100, completion),
-        "stage": stage,
-        "stage_meta": get_stage_badge(stage),
+        "completion": completion
     }
 
 def send_booking_emails(booking):
@@ -316,7 +336,6 @@ app.config["WHATSAPP_SUPPORT"] = os.getenv("WHATSAPP_SUPPORT", "+923558500230")
 app.config["CREDIT_RATE"] = int(os.getenv("CREDIT_RATE", "10"))
 app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID", "")
 app.config["GOOGLE_CLIENT_SECRET"] = os.getenv("GOOGLE_CLIENT_SECRET", "")
-app.config["GOOGLE_REDIRECT_URI"] = os.getenv("GOOGLE_REDIRECT_URI", "")
 
 oauth = OAuth(app)
 
@@ -330,7 +349,7 @@ google = oauth.register(
     }
 )
 
-db.init_app(app)
+db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
@@ -357,10 +376,6 @@ SUBJECT_OPTIONS = [
     ("spoken_english", "Spoken English"),
     ("arabic", "Arabic"),
     ("french", "French"),
-    ("quran", "Quran"),
-    ("computer_course", "Computer Course"),
-    ("ai_courses", "AI Courses"),
-    ("content_creation", "Content Creation"),
     ("other", "Other"),
 ]
 
@@ -395,28 +410,11 @@ class User(UserMixin, db.Model):
     degree_institution = db.Column(db.String(255), default="")
     degree_year = db.Column(db.String(50), default="")
     degree_grade = db.Column(db.String(50), default="")
-    previous_path_choice = db.Column(db.String(50), default="")
-
-    mphil_title = db.Column(db.String(255), default="")
-    mphil_major = db.Column(db.String(255), default="")
-    mphil_institution = db.Column(db.String(255), default="")
-    mphil_year = db.Column(db.String(50), default="")
-    mphil_grade = db.Column(db.String(50), default="")
-    mphil_additional_note = db.Column(db.String(255), default="")
-
-    masters_title = db.Column(db.String(255), default="")
-    masters_major = db.Column(db.String(255), default="")
-    masters_institution = db.Column(db.String(255), default="")
-    masters_year = db.Column(db.String(50), default="")
-    masters_grade = db.Column(db.String(50), default="")
-    masters_additional_note = db.Column(db.String(255), default="")
 
     bachelor_title = db.Column(db.String(255), default="")
-    bachelor_major = db.Column(db.String(255), default="")
     bachelor_institution = db.Column(db.String(255), default="")
     bachelor_year = db.Column(db.String(50), default="")
     bachelor_grade = db.Column(db.String(50), default="")
-    bachelor_additional_note = db.Column(db.String(255), default="")
 
     inter_program = db.Column(db.String(100), default="")
     inter_institution = db.Column(db.String(255), default="")
@@ -438,18 +436,9 @@ class User(UserMixin, db.Model):
     learning_mode = db.Column(db.String(50), default="")
     teaching_mode = db.Column(db.String(50), default="")
     hourly_rate = db.Column(db.Integer, default=0)
-    mobile_number = db.Column(db.String(40), default="")
-    cnic_number = db.Column(db.String(40), default="")
     
     profile_image = db.Column(db.String(255), default="")
     degree_file = db.Column(db.String(255), default="")
-    additional_qualification_level = db.Column(db.String(80), default="")
-    additional_qualification_title = db.Column(db.String(255), default="")
-    additional_qualification_major = db.Column(db.String(255), default="")
-    additional_qualification_institution = db.Column(db.String(255), default="")
-    additional_qualification_year = db.Column(db.String(50), default="")
-    additional_qualification_grade = db.Column(db.String(50), default="")
-    additional_qualification_file = db.Column(db.String(255), default="")
     demo_video_url = db.Column(db.String(255), default="")
     modest_profile = db.Column(db.Boolean, default=False)
     audio_only = db.Column(db.Boolean, default=False)
@@ -571,7 +560,6 @@ class TutorBonus(db.Model):
     tutor = db.relationship("User", backref="bonus_entries")
 
 
-
 class WithdrawalRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tutor_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
@@ -608,189 +596,6 @@ class ChatFlag(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     booking = db.relationship("Booking", backref="chat_flags")
     sender = db.relationship("User")
-
-# Add this model near PaymentNotice if not already present
-class TutorFeeNotice(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    tutor_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    amount_sent_pkr = db.Column(db.Integer, nullable=False, default=500)
-    sender_name = db.Column(db.String(120), default="")
-    sender_account = db.Column(db.String(120), default="")
-    transfer_method = db.Column(db.String(50), default="easypaisa")
-    screenshot_filename = db.Column(db.String(255), default="")
-    note = db.Column(db.Text, default="")
-    status = db.Column(db.String(20), default="pending")
-    admin_note = db.Column(db.Text, default="")
-    reviewed_at = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    tutor = db.relationship("User", backref="tutor_fee_notices")
-
-@app.route("/tutor/registration-fee", methods=["GET", "POST"])
-@login_required
-def tutor_registration_fee():
-    if current_user.role != "tutor":
-        flash("Only tutors can access this page.", "danger")
-        return redirect(url_for("dashboard"))
-
-    if current_user.profile_stage != "fee_pending":
-        flash("No tutor registration fee is pending on your account.", "info")
-        return redirect(url_for("dashboard"))
-
-    form_data = request.form.to_dict(flat=True) if request.method == "POST" else {}
-
-    if request.method == "POST":
-        if request.form.get("payment_confirmed", "").strip() != "yes":
-            flash("Please confirm the payment before submitting.", "danger")
-            return render_template("tutor_registration_fee.html", form_data=form_data)
-
-        existing_pending = TutorFeeNotice.query.filter_by(
-            tutor_id=current_user.id,
-            status="pending",
-        ).order_by(TutorFeeNotice.created_at.desc()).first()
-
-        if existing_pending:
-            flash("You already have a pending tutor fee notice under review.", "warning")
-            return redirect(url_for("dashboard"))
-
-        screenshot = request.files.get("screenshot")
-        if not screenshot or not screenshot.filename:
-            flash("Please attach payment screenshot.", "danger")
-            return render_template("tutor_registration_fee.html", form_data=form_data)
-
-        filename = f"tutor_fee_{uuid4().hex}_{secure_filename(screenshot.filename)}"
-        screenshot.save(Path(app.config["UPLOAD_FOLDER"]) / filename)
-
-        notice = TutorFeeNotice(
-            tutor_id=current_user.id,
-            amount_sent_pkr=500,
-            sender_name=(request.form.get("sender_name", "") or "").strip(),
-            sender_account=(request.form.get("sender_account", "") or "").strip(),
-            transfer_method=(request.form.get("transfer_method", "easypaisa") or "easypaisa").strip(),
-            screenshot_filename=filename,
-            note=(request.form.get("note", "") or "").strip(),
-            status="pending",
-        )
-        db.session.add(notice)
-        db.session.commit()
-
-        safe_send_email(
-            "superadmin@tutorsonline.pk",
-            "Tutor registration fee notice - TutorsOnline.pk",
-            f"""Tutor: {current_user.full_name} ({current_user.email})
-Amount: PKR 500
-Sender: {notice.sender_name}
-Account: {notice.sender_account}
-Method: {notice.transfer_method}
-Notice ID: {notice.id}
-Screenshot: {filename}
-
-Status: pending
-Action required: Admin approval or decline
-""",
-        )
-
-        flash("Tutor fee notice submitted successfully. Admin will review it shortly.", "success")
-        return redirect(url_for("dashboard"))
-
-    return render_template("tutor_registration_fee.html", form_data=form_data)
-
-
-@app.route("/admin/tutor-fee-notices")
-@login_required
-def admin_tutor_fee_notices():
-    if current_user.role != "admin":
-        flash("Unauthorized.", "danger")
-        return redirect(url_for("dashboard"))
-
-    notices = TutorFeeNotice.query.order_by(TutorFeeNotice.created_at.desc()).all()
-    return render_template("admin_tutor_fee_notices.html", notices=notices)
-
-
-@app.route("/admin/tutor-fee-notices/<int:notice_id>/action", methods=["POST"])
-@login_required
-def admin_tutor_fee_action(notice_id):
-    if current_user.role != "admin":
-        flash("Unauthorized.", "danger")
-        return redirect(url_for("dashboard"))
-
-    notice = TutorFeeNotice.query.get_or_404(notice_id)
-    action = (request.form.get("action", "") or "").strip().lower()
-    reason = (request.form.get("reason", "") or "").strip()
-
-    if notice.status in {"approved", "declined"}:
-        flash("This tutor fee notice has already been finalized.", "warning")
-        return redirect(url_for("admin_tutor_fee_notices"))
-
-    if action == "approve":
-        notice.status = "approved"
-        notice.admin_note = reason
-        notice.reviewed_at = datetime.utcnow()
-
-        tutor = notice.tutor
-        tutor.profile_stage = "approved"
-        tutor.is_verified_tutor = True
-        tutor.is_public_tutor = True
-        tutor.approved_at = datetime.utcnow()
-
-        db.session.commit()
-
-        safe_send_email(
-            tutor.email,
-            "Tutor activation complete - TutorsOnline.pk",
-            f"""Assalam-o-Alaikum {tutor.full_name},
-
-Your PKR 500 registration fee has been verified.
-
-Your tutor profile is now active on TutorsOnline.pk.
-
-{f"Admin note: {reason}" if reason else ""}
-
-Regards,
-TutorsOnline.pk
-superadmin@tutorsonline.pk
-""",
-        )
-
-        flash("Tutor fee approved and tutor activated.", "success")
-        return redirect(url_for("admin_tutor_fee_notices"))
-
-    if action == "decline":
-        notice.status = "declined"
-        notice.admin_note = reason or "Fee proof could not be verified."
-        notice.reviewed_at = datetime.utcnow()
-        db.session.commit()
-
-        safe_send_email(
-            notice.tutor.email,
-            "Tutor fee notice declined - TutorsOnline.pk",
-            f"""Assalam-o-Alaikum {notice.tutor.full_name},
-
-Your tutor registration fee notice could not be approved.
-
-Reason: {notice.admin_note}
-
-Your profile remains pending fee confirmation.
-
-Regards,
-TutorsOnline.pk
-superadmin@tutorsonline.pk
-""",
-        )
-
-        flash("Tutor fee notice declined.", "info")
-        return redirect(url_for("admin_tutor_fee_notices"))
-
-    if action == "on_hold":
-        notice.status = "on_hold"
-        notice.admin_note = reason or "Tutor fee notice is under review."
-        notice.reviewed_at = datetime.utcnow()
-        db.session.commit()
-        flash("Tutor fee notice marked on hold.", "warning")
-        return redirect(url_for("admin_tutor_fee_notices"))
-
-    flash("Invalid action.", "danger")
-    return redirect(url_for("admin_tutor_fee_notices"))
-
 
 
 @login_manager.user_loader
@@ -918,92 +723,6 @@ def validate_tutor_application_form(form):
 
     return None
 
-def tutor_missing_requirements_from_form(form):
-    missing = []
-
-    highest = pick_with_other(form, "qualification")
-    next_choice = (form.get("previous_path_choice", "") or "").strip().lower()
-
-    if not highest:
-        missing.append("highest qualification")
-
-    if highest == "phd" and next_choice not in {"mphil", "masters"}:
-        missing.append("qualification before highest")
-
-    if not normalize_subjects(form, "tutor"):
-        missing.append("subjects")
-
-    if not normalize_levels(form):
-        missing.append("teaching level")
-
-    if not form.get("experience_years", "").strip():
-        missing.append("experience")
-
-    if not form.get("bio", "").strip():
-        missing.append("bio")
-
-    if not form.get("demo_video_url", "").strip():
-        missing.append("demo video")
-
-    if not form.get("degree_title", "").strip():
-        missing.append("highest qualification title")
-
-    if not form.get("degree_institution", "").strip():
-        missing.append("highest qualification institution")
-
-    if not form.get("degree_year", "").strip():
-        missing.append("highest qualification year")
-
-    if not form.get("degree_grade", "").strip():
-        missing.append("highest qualification grade")
-
-    if not form.get("mobile_number", "").strip():
-        missing.append("mobile number")
-
-    if not form.get("cnic_number", "").strip():
-        missing.append("CNIC number")
-
-    def require_if_visible(prefix, label):
-        if not form.get(f"{prefix}_title", "").strip():
-            missing.append(f"{label} title")
-        if not form.get(f"{prefix}_institution", "").strip():
-            missing.append(f"{label} institution")
-        if not form.get(f"{prefix}_year", "").strip():
-            missing.append(f"{label} year")
-        if not form.get(f"{prefix}_grade", "").strip():
-            missing.append(f"{label} grade")
-
-    chain = lower_qualification_chain(highest, next_choice)
-
-    if "mphil" in chain:
-        require_if_visible("mphil", "MPhil")
-    if "masters" in chain:
-        require_if_visible("masters", "Master's")
-    if "bachelor" in chain:
-        require_if_visible("bachelor", "Bachelor's")
-
-    if "inter" in chain:
-        if not form.get("inter_program", "").strip():
-            missing.append("intermediate")
-        if not form.get("inter_institution", "").strip():
-            missing.append("intermediate institution")
-        if not form.get("inter_year", "").strip():
-            missing.append("intermediate year")
-        if not form.get("inter_grade", "").strip():
-            missing.append("intermediate grade")
-
-    if "matric" in chain:
-        if not form.get("matric_program", "").strip():
-            missing.append("matric")
-        if not form.get("matric_institution", "").strip():
-            missing.append("matric institution")
-        if not form.get("matric_year", "").strip():
-            missing.append("matric year")
-        if not form.get("matric_grade", "").strip():
-            missing.append("matric grade")
-
-    return list(dict.fromkeys(missing))
-
 def apply_bonus_if_eligible(tutor: User):
     milestones = [
         (50000, "earnings_milestone_50k", 100),
@@ -1050,594 +769,177 @@ def pick_with_other(form, field_name: str) -> str:
     return value
 
 
+def build_google_user_from_form(form, email: str, fallback_name: str) -> User:
+    role = form.get("role", "student").strip()
 
-
-def get_multi_values(form, field_name: str):
-    values = []
-    getter = getattr(form, "getlist", None)
-    if getter:
-        values.extend([v.strip() for v in getter(field_name) if v and v.strip()])
-    single = form.get(field_name, "").strip()
-    if single and single not in values:
-        values.append(single)
-    return values
-
-def normalize_subjects(form, role="tutor"):
-    if role == "student":
-        selected = get_multi_values(form, "student_subject_needed")
-        manual = [form.get(f"student_other_subject_{i}", "").strip() for i in range(1, 4)]
-    else:
-        selected = get_multi_values(form, "main_subject")
-        manual = [form.get(f"additional_subject_{i}", "").strip() for i in range(1, 4)]
-    merged = []
-    for item in selected + manual:
-        if item and item not in merged:
-            merged.append(item)
-    return merged
-
-def normalize_levels(form):
-    levels = get_multi_values(form, "class_levels")
-    if not levels:
-        single = pick_with_other(form, "class_levels")
-        if single:
-            levels = [single]
-    unique = []
-    for item in levels:
-        if item and item not in unique:
-            unique.append(item)
-    return unique
-
-def qualification_allowed_levels(qualification: str):
-    qualification = (qualification or "").strip().lower()
-    if qualification == "intermediate":
-        return {"grade_1_5", "grade_6_8", "matric"}
-    if qualification == "bachelors":
-        return {"grade_1_5", "grade_6_8", "matric", "intermediate"}
-    if qualification in {"masters", "mphil", "phd"}:
-        return {"grade_1_5", "grade_6_8", "matric", "intermediate", "o_level", "a_level", "university"}
-    return {"grade_1_5", "grade_6_8", "matric", "intermediate"}
-
-def lower_qualification_chain(highest, next_choice=""):
-    highest = (highest or "").strip().lower()
-    next_choice = (next_choice or "").strip().lower()
-
-    if highest == "phd":
-        if next_choice == "mphil":
-            return ["mphil", "masters", "bachelor", "inter", "matric"]
-        if next_choice == "masters":
-            return ["masters", "bachelor", "inter", "matric"]
-        return []
-    if highest == "mphil":
-        return ["masters", "bachelor", "inter", "matric"]
-    if highest == "masters":
-        return ["bachelor", "inter", "matric"]
-    if highest == "bachelors":
-        return ["inter", "matric"]
-    if highest == "intermediate":
-        return ["matric"]
-    if highest == "other":
-        return ["inter", "matric"]
-    return []
-
-
-def media_url(path, fallback="https://picsum.photos/seed/default/300/300"):
-    path = (path or "").strip()
-    if not path:
-        return fallback
-
-    if path.startswith(("http://", "https://", "/uploads/", "/demo_seed/", "/static/")):
-        return path
-
-    return url_for("uploaded_file", filename=path)
-
-
-app.jinja_env.globals["media_url"] = media_url
-
-def tutor_missing_requirements_from_user(user):
-    missing = []
-
-    highest = (user.qualification or "").strip().lower()
-    next_choice = (getattr(user, "previous_path_choice", "") or "").strip().lower()
-
-    if not user.qualification:
-        missing.append("highest qualification")
-
-    if highest == "phd" and next_choice not in {"mphil", "masters"}:
-        missing.append("qualification before highest")
-
-    if not user.main_subject:
-        missing.append("main subject")
-
-    if not user.class_levels:
-        missing.append("teaching level")
-
-    if not user.experience_years:
-        missing.append("experience")
-
-    if not user.bio:
-        missing.append("bio")
-
-    if not user.demo_video_url:
-        missing.append("demo video")
-
-    if not user.degree_title:
-        missing.append("highest qualification title")
-
-    if not user.degree_institution:
-        missing.append("highest qualification institution")
-
-    if not user.degree_year:
-        missing.append("highest qualification year")
-
-    if not user.degree_grade:
-        missing.append("highest qualification grade")
-
-    if not getattr(user, "mobile_number", ""):
-        missing.append("mobile number")
-
-    if not getattr(user, "cnic_number", ""):
-        missing.append("CNIC number")
-
-    def require_if_visible(title, institution, year, grade, label):
-        if not title:
-            missing.append(f"{label} title")
-        if not institution:
-            missing.append(f"{label} institution")
-        if not year:
-            missing.append(f"{label} year")
-        if not grade:
-            missing.append(f"{label} grade")
-
-    chain = lower_qualification_chain(highest, next_choice)
-
-    if "mphil" in chain:
-        require_if_visible(
-            getattr(user, "mphil_title", ""),
-            getattr(user, "mphil_institution", ""),
-            getattr(user, "mphil_year", ""),
-            getattr(user, "mphil_grade", ""),
-            "MPhil",
-        )
-
-    if "masters" in chain:
-        require_if_visible(
-            getattr(user, "masters_title", ""),
-            getattr(user, "masters_institution", ""),
-            getattr(user, "masters_year", ""),
-            getattr(user, "masters_grade", ""),
-            "Master's",
-        )
-
-    if "bachelor" in chain:
-        require_if_visible(
-            getattr(user, "bachelor_title", ""),
-            getattr(user, "bachelor_institution", ""),
-            getattr(user, "bachelor_year", ""),
-            getattr(user, "bachelor_grade", ""),
-            "Bachelor's",
-        )
-
-    if "inter" in chain:
-        if not getattr(user, "inter_program", ""):
-            missing.append("intermediate")
-        if not getattr(user, "inter_institution", ""):
-            missing.append("intermediate institution")
-        if not getattr(user, "inter_year", ""):
-            missing.append("intermediate year")
-        if not getattr(user, "inter_grade", ""):
-            missing.append("intermediate grade")
-
-    if "matric" in chain:
-        if not getattr(user, "matric_program", ""):
-            missing.append("matric")
-        if not getattr(user, "matric_institution", ""):
-            missing.append("matric institution")
-        if not getattr(user, "matric_year", ""):
-            missing.append("matric year")
-        if not getattr(user, "matric_grade", ""):
-            missing.append("matric grade")
-
-    return list(dict.fromkeys(missing))
-
-def validate_tutor_application_form(form):
-    missing = tutor_missing_requirements_from_form(form)
-    if form.get("demo_length_confirmed", "").strip() != "yes":
-        missing.append("demo length confirmation")
-    if form.get("accept_privacy", "").strip() != "yes":
-        missing.append("privacy acceptance")
-    qualification = pick_with_other(form, "qualification")
-    levels = normalize_levels(form)
-    allowed = qualification_allowed_levels(qualification)
-    if levels and any(level not in allowed for level in levels):
-        return "Selected teaching level is above the tutor's qualification allowance."
-    if len(normalize_subjects(form, "tutor")) > 5:
-        return "Please select up to 5 subjects total."
-    if missing:
-        return "Please complete: " + ", ".join(list(dict.fromkeys(missing))) + "."
-    return None
-
-def validate_option_a_student_form(form):
-    missing = []
-    for field, label in [
-        ("full_name", "full name"),
-        ("public_name", "display name"),
-        ("email", "email"),
-        ("password", "password"),
-        ("student_level", "level"),
-    ]:
-        if not form.get(field, "").strip():
-            missing.append(label)
-    if not normalize_subjects(form, "student"):
-        missing.append("subjects you want to study")
-    if form.get("accept_privacy", "").strip() != "yes":
-        missing.append("privacy acceptance")
-    if missing:
-        return "Please complete: " + ", ".join(missing) + "."
-    return None
-
-def get_stage_badge(stage: str):
-    stage = (stage or "quick_profile").strip().lower()
-    mapping = {
-        "quick_profile": ("Quick profile", "Fill teaching and education details to continue."),
-        "basic_complete": ("Quick profile complete", "You can now finish verification and submit for review."),
-        "verification_incomplete": ("Complete verification", "Add the missing verification details below."),
-        "under_review": ("Under review", "Your application is with admin review."),
-        "fee_pending": ("Fee pending", "You were selected. Registration fee is pending."),
-        "approved": ("Approved", "Your tutor profile is live."),
-        "rejected": ("Rejected", "Your application was not approved at this time."),
-    }
-    return mapping.get(stage, (stage.replace("_", " ").title(), ""))
-
-def compute_tutor_profile_stage(user):
-    if user.role != "tutor":
-        return user.profile_stage or "basic_complete"
-    if user.is_verified_tutor or (user.profile_stage == "approved"):
-        return "approved"
-    if user.profile_stage in {"under_review", "fee_pending", "rejected"}:
-        return user.profile_stage
-    if tutor_missing_requirements_from_user(user):
-        return "verification_incomplete"
-    return "basic_complete"
-
-def sync_tutor_stage(user):
-    if user.role == "tutor":
-        user.profile_stage = compute_tutor_profile_stage(user)
-    return user.profile_stage
-
-def build_user_from_option_a_form(form, files, google_email=None, google_name=None):
-    role = form.get("role", "").strip().lower()
-    email = (google_email or form.get("email", "")).strip().lower()
-    full_name = form.get("full_name", google_name or "").strip() or (google_name or "")
-    public_name = form.get("public_name", full_name).strip() or full_name
     gender = pick_with_other(form, "gender")
     city = pick_with_other(form, "city")
-    password_value = form.get("password") or uuid4().hex
+
+    qualification = ""
+    subjects = ""
+    class_levels = ""
+    experience_years = 0
+    bio = ""
+    modest_profile = bool(form.get("modest_profile"))
+    audio_only = bool(form.get("audio_only"))
+    main_subject = ""
+    additional_subjects = ""
+    student_level = ""
+    student_subject_needed = ""
+    preferred_tutor_gender = ""
+    learning_mode = ""
+    teaching_mode = ""
+    hourly_rate = 0
+    demo_video_url = form.get("demo_video_url", "").strip()
+
+    degree_title = ""
+    degree_major = ""
+    degree_institution = ""
+    degree_year = ""
+    degree_grade = ""
+
+    bachelor_title = ""
+    bachelor_institution = ""
+    bachelor_year = ""
+    bachelor_grade = ""
+
+    inter_program = ""
+    inter_institution = ""
+    inter_grade = ""
+    inter_year = ""
+
+    matric_program = ""
+    matric_institution = ""
+    matric_grade = ""
+    matric_year = ""
+
+    full_name = form.get("full_name", fallback_name).strip() or fallback_name
+    public_name = form.get("public_name", full_name).strip() or full_name
 
     if role == "student":
         student_level = pick_with_other(form, "student_level")
-        student_subjects = normalize_subjects(form, "student")
-        user = User(
-            email=email,
-            role="student",
-            full_name=full_name,
-            public_name=public_name,
-            gender=gender,
-            city=city,
-            student_level=student_level,
-            student_subject_needed=", ".join(student_subjects),
-            preferred_tutor_gender=form.get("preferred_tutor_gender", "").strip(),
-            learning_mode="online",
-            teaching_mode="online",
-            bio="Student account",
-            subjects=", ".join(student_subjects),
-            class_levels=student_level,
-        )
-    else:
-        tutor_subjects = normalize_subjects(form, "tutor")
-        levels = normalize_levels(form)
-        user = User(
-            email=email,
-            role="tutor",
-            full_name=full_name,
-            public_name=public_name,
-            qualification=pick_with_other(form, "qualification"),
-            subjects=", ".join(tutor_subjects),
-            class_levels=", ".join(levels),
-            experience_years=int(form.get("experience_years") or 0),
-            bio=form.get("bio", "").strip(),
-            modest_profile=bool(form.get("modest_profile")),
-            audio_only=bool(form.get("audio_only")),
-            gender=gender,
-            city=city,
-            main_subject=", ".join(tutor_subjects[:3]),
-            additional_subjects=", ".join(tutor_subjects[3:]),
-            learning_mode="online",
-            teaching_mode="online",
-            hourly_rate=int(form.get("hourly_rate") or 0),
-            demo_video_url=form.get("demo_video_url", "").strip(),
-            degree_title=form.get("degree_title", ""),
-            degree_major=form.get("degree_major", ""),
-            degree_institution=form.get("degree_institution", ""),
-            degree_year=form.get("degree_year", ""),
-            degree_grade=form.get("degree_grade", ""),
-            previous_path_choice=form.get("previous_path_choice", ""),
-            mphil_title=form.get("mphil_title", ""),
-            mphil_major=form.get("mphil_major", ""),
-            mphil_institution=form.get("mphil_institution", ""),
-            mphil_year=form.get("mphil_year", ""),
-            mphil_grade=form.get("mphil_grade", ""),
-            mphil_additional_note=form.get("mphil_additional_note", ""),
-            masters_title=form.get("masters_title", ""),
-            masters_major=form.get("masters_major", ""),
-            masters_institution=form.get("masters_institution", ""),
-            masters_year=form.get("masters_year", ""),
-            masters_grade=form.get("masters_grade", ""),
-            masters_additional_note=form.get("masters_additional_note", ""),
-            bachelor_title=form.get("bachelor_title", ""),
-            bachelor_major=form.get("bachelor_major", ""),
-            bachelor_institution=form.get("bachelor_institution", ""),
-            bachelor_year=form.get("bachelor_year", ""),
-            bachelor_grade=form.get("bachelor_grade", ""),
-            bachelor_additional_note=form.get("bachelor_additional_note", ""),
-            inter_program=form.get("inter_program", ""),
-            inter_institution=form.get("inter_institution", ""),
-            inter_grade=form.get("inter_grade", ""),
-            inter_year=form.get("inter_year", ""),
-            matric_program=form.get("matric_program", ""),
-            matric_institution=form.get("matric_institution", ""),
-            matric_grade=form.get("matric_grade", ""),
-            matric_year=form.get("matric_year", ""),
-            mobile_number=form.get("mobile_number", "").strip(),
-            cnic_number=form.get("cnic_number", "").strip(),
-        )
+        student_subject_needed = pick_with_other(form, "student_subject_needed")
+        preferred_tutor_gender = form.get("preferred_tutor_gender", "").strip()
+        learning_mode = "online"
+        subjects = student_subject_needed
+        class_levels = student_level
+        bio = "Signed up via Google"
+    elif role == "tutor":
+        qualification = pick_with_other(form, "qualification")
+
+        ms1 = pick_with_other(form, "main_subject")
+        ms2 = pick_with_other(form, "main_subject_2")
+        ms3 = pick_with_other(form, "main_subject_3")
+
+        main_subject_list = [s for s in [ms1, ms2, ms3] if s]
+        main_subject = ", ".join(main_subject_list)
+
+        as1 = pick_with_other(form, "additional_subject_1")
+        as2 = pick_with_other(form, "additional_subject_2")
+
+        additional_subject_list = [s for s in [as1, as2] if s]
+        additional_subjects = ", ".join(additional_subject_list)
+
+        subjects = ", ".join(main_subject_list + additional_subject_list)
+
+        class_levels = pick_with_other(form, "class_levels")
+
+        degree_title = form.get("degree_title", "")
+        degree_major = form.get("degree_major", "")
+        degree_institution = form.get("degree_institution", "")
+        degree_year = form.get("degree_year", "")
+        degree_grade = form.get("degree_grade", "")
+
+        bachelor_title = form.get("bachelor_title", "")
+        bachelor_institution = form.get("bachelor_institution", "")
+        bachelor_year = form.get("bachelor_year", "")
+        bachelor_grade = form.get("bachelor_grade", "")
+
+        inter_program = form.get("inter_program", "")
+        inter_institution = form.get("inter_institution", "")
+        inter_grade = form.get("inter_grade", "")
+        inter_year = form.get("inter_year", "")
+
+        matric_program = form.get("matric_program", "")
+        matric_institution = form.get("matric_institution", "")
+        matric_grade = form.get("matric_grade", "")
+        matric_year = form.get("matric_year", "")
+
+        experience_years = int(form.get("experience_years") or 0)
+        teaching_mode = "online"
+        hourly_rate = int(form.get("hourly_rate") or 0)
+        bio = form.get("bio", "").strip() or "Signed up via Google"
+
+    user = User(
+        email=email,
+        role=role,
+        full_name=full_name,
+        public_name=public_name,
+        qualification=qualification,
+        subjects=subjects,
+        class_levels=class_levels,
+        experience_years=experience_years,
+        bio=bio,
+        modest_profile=modest_profile,
+        audio_only=audio_only,
+        gender=gender,
+        city=city,
+        main_subject=main_subject,
+        additional_subjects=additional_subjects,
+        student_level=student_level,
+        student_subject_needed=student_subject_needed,
+        preferred_tutor_gender=preferred_tutor_gender,
+        learning_mode=learning_mode,
+        teaching_mode=teaching_mode,
+        hourly_rate=hourly_rate,
+        demo_video_url=demo_video_url,
+        degree_title=degree_title,
+        degree_major=degree_major,
+        degree_institution=degree_institution,
+        degree_year=degree_year,
+        degree_grade=degree_grade,
+
+        bachelor_title=bachelor_title,
+        bachelor_institution=bachelor_institution,
+        bachelor_year=bachelor_year,
+        bachelor_grade=bachelor_grade,
+
+        inter_program=inter_program,
+        inter_institution=inter_institution,
+        inter_grade=inter_grade,
+        inter_year=inter_year,
+
+        matric_program=matric_program,
+        matric_institution=matric_institution,
+        matric_grade=matric_grade,
+        matric_year=matric_year,
+    )
+
+    user.tutor_category = classify_teacher(user.subjects, user.class_levels)
+    user.set_password(uuid4().hex)
+
+    if role == "tutor":
         user.is_verified_tutor = False
-        user.profile_stage = "verification_incomplete" if tutor_missing_requirements_from_user(user) else "basic_complete"
-        user.is_public_tutor = False
 
-    user.tutor_category = classify_teacher(user.subjects or "", user.class_levels or "")
-    user.set_password(password_value)
+    if tutor_missing_requirements_from_user(user):
+        user.profile_stage = "verification_incomplete"
+    else:
+        user.profile_stage = "basic_complete"
+    user.is_public_tutor = False
 
-    image_file = files.get("profile_image_file")
+    image_file = request.files.get("profile_image_file")
     if image_file and image_file.filename:
         filename = f"{uuid4().hex}_{secure_filename(image_file.filename)}"
         image_file.save(Path(app.config["UPLOAD_FOLDER"]) / filename)
         user.profile_image = filename
-
-    degree_file = files.get("degree_file")
+        
+    degree_file = request.files.get("degree_file")
     if degree_file and degree_file.filename:
         degree_filename = f"degree_{uuid4().hex}_{secure_filename(degree_file.filename)}"
         degree_file.save(Path(app.config["UPLOAD_FOLDER"]) / degree_filename)
         user.degree_file = degree_filename
 
-    extra_file = files.get("additional_qualification_file")
-    if extra_file and extra_file.filename and hasattr(user, "additional_qualification_file"):
-        extra_filename = f"extra_{uuid4().hex}_{secure_filename(extra_file.filename)}"
-        extra_file.save(Path(app.config["UPLOAD_FOLDER"]) / extra_filename)
-        user.additional_qualification_file = extra_filename
-
     return user
-
-def dashboard_notifications_for(user):
-    notes = []
-    if user.role == "student":
-        for notice in PaymentNotice.query.filter_by(student_id=user.id, status="pending").order_by(PaymentNotice.created_at.desc()).limit(5).all():
-            notes.append(f"Your credit purchase notice for PKR {notice.amount_sent_pkr} is under review.")
-    if user.role == "tutor":
-        if user.profile_stage == "fee_pending":
-            notes.append("You have a pending activation fee action. Please follow the dashboard instructions.")
-        elif user.profile_stage == "under_review":
-            notes.append("Your tutor profile is under admin review.")
-        elif user.profile_stage == "rejected":
-            notes.append("Your tutor profile was not approved yet. Please review the admin note.")
-    return notes
-
-def ensure_user_columns():
-    engine = db.engine
-    if engine.url.get_backend_name() != "sqlite":
-        return
-    wanted = {
-        "previous_path_choice": "VARCHAR(50) DEFAULT ''",
-        "mphil_title": "VARCHAR(255) DEFAULT ''",
-        "mphil_major": "VARCHAR(255) DEFAULT ''",
-        "mphil_institution": "VARCHAR(255) DEFAULT ''",
-        "mphil_year": "VARCHAR(50) DEFAULT ''",
-        "mphil_grade": "VARCHAR(50) DEFAULT ''",
-        "mphil_additional_note": "VARCHAR(255) DEFAULT ''",
-        "masters_title": "VARCHAR(255) DEFAULT ''",
-        "masters_major": "VARCHAR(255) DEFAULT ''",
-        "masters_institution": "VARCHAR(255) DEFAULT ''",
-        "masters_year": "VARCHAR(50) DEFAULT ''",
-        "masters_grade": "VARCHAR(50) DEFAULT ''",
-        "masters_additional_note": "VARCHAR(255) DEFAULT ''",
-        "bachelor_major": "VARCHAR(255) DEFAULT ''",
-        "bachelor_additional_note": "VARCHAR(255) DEFAULT ''",
-        "mobile_number": "VARCHAR(40) DEFAULT ''",
-        "cnic_number": "VARCHAR(40) DEFAULT ''",
-        "additional_qualification_level": "VARCHAR(80) DEFAULT ''",
-        "additional_qualification_title": "VARCHAR(255) DEFAULT ''",
-        "additional_qualification_major": "VARCHAR(255) DEFAULT ''",
-        "additional_qualification_institution": "VARCHAR(255) DEFAULT ''",
-        "additional_qualification_year": "VARCHAR(50) DEFAULT ''",
-        "additional_qualification_grade": "VARCHAR(50) DEFAULT ''",
-        "additional_qualification_file": "VARCHAR(255) DEFAULT ''",
-        "admin_review_note": "TEXT DEFAULT ''",
-    }
-    with engine.begin() as conn:
-        existing = {row[1] for row in conn.execute(text("PRAGMA table_info(user)"))}
-        for name, ddl in wanted.items():
-            if name not in existing:
-                conn.execute(text(f"ALTER TABLE user ADD COLUMN {name} {ddl}"))
-
-def ensure_default_admin():
-    email = os.getenv("DEFAULT_ADMIN_EMAIL", "admin@tutorsonline.pk").strip().lower()
-    password = os.getenv("DEFAULT_ADMIN_PASSWORD", "Admin@12345").strip()
-    name = os.getenv("DEFAULT_ADMIN_NAME", "Super Admin").strip()
-
-    admin = User.query.filter_by(email=email).first()
-
-    if admin:
-        changed = False
-
-        if admin.role != "admin":
-            admin.role = "admin"
-            changed = True
-
-        if not admin.full_name:
-            admin.full_name = name
-            changed = True
-
-        if not admin.public_name:
-            admin.public_name = name
-            changed = True
-
-        if not admin.is_active_user:
-            admin.is_active_user = True
-            changed = True
-
-        # IMPORTANT:
-        # Do NOT reset/re-hash password every startup.
-        # Only set password if hash is missing.
-        if not admin.password_hash:
-            admin.password_hash = generate_password_hash(password, method="pbkdf2:sha256")
-            changed = True
-
-        if changed:
-            db.session.commit()
-
-        return admin
-
-    admin = User(
-        email=email,
-        role="admin",
-        full_name=name,
-        public_name=name,
-        is_active_user=True,
-    )
-    admin.password_hash = generate_password_hash(password, method="pbkdf2:sha256")
-    db.session.add(admin)
-    db.session.commit()
-    return admin
-
-@app.route("/admin/payment-notices")
-@login_required
-def admin_payment_notices():
-    if current_user.role != "admin":
-        flash("Unauthorized.", "danger")
-        return redirect(url_for("dashboard"))
-
-    notices = PaymentNotice.query.order_by(
-        PaymentNotice.created_at.desc()
-    ).all()
-
-    return render_template("admin_payment_notices.html", notices=notices)
-
-@app.route("/admin/payment-notices/<int:notice_id>/action", methods=["POST"])
-@login_required
-def admin_payment_action(notice_id):
-    if current_user.role != "admin":
-        flash("Unauthorized.", "danger")
-        return redirect(url_for("dashboard"))
-
-    notice = PaymentNotice.query.get_or_404(notice_id)
-    action = (request.form.get("action", "") or "").strip().lower()
-    reason = (request.form.get("reason", "") or "").strip()
-
-    if notice.status == "approved":
-        flash("This payment notice has already been approved.", "warning")
-        return redirect(url_for("admin_payment_notices"))
-
-    if notice.status == "declined":
-        flash("This payment notice has already been declined.", "warning")
-        return redirect(url_for("admin_payment_notices"))
-
-    if action == "approve":
-        add_credits(
-            notice.student,
-            notice.claimed_credits,
-            "manual_topup",
-            f"Approved payment notice #{notice.id}",
-            rupees=notice.amount_sent_pkr,
-        )
-        notice.status = "approved"
-        notice.admin_note = reason
-        notice.reviewed_at = datetime.utcnow()
-        db.session.commit()
-
-        safe_send_email(
-            notice.student.email,
-            "Credits approved - TutorsOnline.pk",
-            f"""Assalam-o-Alaikum {notice.student.full_name},
-
-Your payment notice has been approved.
-
-Credits added: {notice.claimed_credits}
-Amount received: PKR {notice.amount_sent_pkr}
-
-{f"Admin note: {reason}" if reason else ""}
-
-Regards,
-TutorsOnline.pk
-superadmin@tutorsonline.pk
-""",
-        )
-
-        flash(f"Approved notice #{notice.id} and added {notice.claimed_credits} credits.", "success")
-        return redirect(url_for("admin_payment_notices"))
-
-    if action == "decline":
-        notice.status = "declined"
-        notice.admin_note = reason or "Payment proof could not be verified."
-        notice.reviewed_at = datetime.utcnow()
-        db.session.commit()
-
-        safe_send_email(
-            notice.student.email,
-            "Payment notice declined - TutorsOnline.pk",
-            f"""Assalam-o-Alaikum {notice.student.full_name},
-
-Your payment notice could not be approved.
-
-Reason: {notice.admin_note}
-
-No credits were added to your account.
-
-Regards,
-TutorsOnline.pk
-superadmin@tutorsonline.pk
-""",
-        )
-
-        flash(f"Declined notice #{notice.id}.", "info")
-        return redirect(url_for("admin_payment_notices"))
-
-    if action == "on_hold":
-        notice.status = "on_hold"
-        notice.admin_note = reason or "Payment notice is being reviewed."
-        notice.reviewed_at = datetime.utcnow()
-        db.session.commit()
-
-        safe_send_email(
-            notice.student.email,
-            "Payment notice on hold - TutorsOnline.pk",
-            f"""Assalam-o-Alaikum {notice.student.full_name},
-
-Your payment notice is currently on hold for review.
-
-{f"Admin note: {notice.admin_note}" if notice.admin_note else ""}
-
-No credits have been added yet.
-
-Regards,
-TutorsOnline.pk
-superadmin@tutorsonline.pk
-""",
-        )
-
-        flash(f"Notice #{notice.id} marked on hold.", "warning")
-        return redirect(url_for("admin_payment_notices"))
-
-    flash("Invalid action.", "danger")
-    return redirect(url_for("admin_payment_notices"))
 
 @app.route("/")
 def index():
@@ -1700,74 +1002,209 @@ def select_tutor(tutor_id):
         level_options=LEVEL_OPTIONS
     )
 
-@app.route("/register")
+@app.route("/register", methods=["GET", "POST"])
 def register():
-    return render_template("register_choice.html")
-
-@app.route("/register/student", methods=["GET", "POST"])
-def register_student():
-    form_data = request.form.to_dict(flat=True) if request.method == "POST" else {}
-    selected_student_subjects = request.form.getlist("student_subject_needed") if request.method == "POST" else []
     if request.method == "POST":
         email = request.form["email"].strip().lower()
         if User.query.filter_by(email=email).first():
             flash("Email already registered.", "danger")
-        else:
-            error = validate_option_a_student_form(request.form)
-            if error:
-                flash(error, "danger")
-            else:
-                user = build_user_from_option_a_form(request.form, request.files)
-                db.session.add(user)
-                db.session.commit()
-                send_signup_emails(user)
-                flash("Registration completed successfully. Please log in.", "success")
-                return redirect(url_for("login"))
-    return render_template(
-        "register_student.html",
-        form_data=form_data,
-        selected_student_subjects=selected_student_subjects,
-        subject_options=SUBJECT_OPTIONS,
-        level_options=LEVEL_OPTIONS,
-    )
+            return redirect(url_for("register"))
 
-@app.route("/register/tutor", methods=["GET", "POST"])
-def register_tutor():
-    form_data = request.form.to_dict(flat=True) if request.method == "POST" else {}
-    selected_tutor_subjects = request.form.getlist("main_subject") if request.method == "POST" else []
-    selected_tutor_levels = request.form.getlist("class_levels") if request.method == "POST" else []
-    form_data.setdefault("active_step", request.args.get("step", "1"))
-    if request.method == "POST":
-        email = request.form["email"].strip().lower()
-        if User.query.filter_by(email=email).first():
-            flash("Email already registered.", "danger")
+        role = request.form["role"]
+
+        gender = pick_with_other(request.form, "gender")
+        city = pick_with_other(request.form, "city")
+
+        degree_title = ""
+        degree_major = ""
+        degree_institution = ""
+        degree_year = ""
+        degree_grade = ""
+
+        bachelor_title = ""
+        bachelor_institution = ""
+        bachelor_year = ""
+        bachelor_grade = ""
+
+        inter_program = ""
+        inter_institution = ""
+        inter_grade = ""
+        inter_year = ""
+
+        matric_program = ""
+        matric_institution = ""
+        matric_grade = ""
+        matric_year = ""
+
+        qualification = ""
+        subjects = ""
+        class_levels = ""
+        experience_years = 0
+        bio = ""
+        modest_profile = bool(request.form.get("modest_profile"))
+        audio_only = bool(request.form.get("audio_only"))
+        main_subject = ""
+        additional_subjects = ""
+        student_level = ""
+        student_subject_needed = ""
+        preferred_tutor_gender = ""
+        learning_mode = ""
+        teaching_mode = ""
+        hourly_rate = 0
+        demo_video_url = request.form.get("demo_video_url", "").strip()
+
+        if role == "student":
+            student_level = pick_with_other(request.form, "student_level")
+            student_subject_needed = pick_with_other(request.form, "student_subject_needed")
+            preferred_tutor_gender = request.form.get("preferred_tutor_gender", "").strip()
+            learning_mode = request.form.get("learning_mode", "").strip()
+            subjects = student_subject_needed
+            class_levels = student_level
+            bio = "Student account"
+
+        elif role == "tutor":
+            qualification = pick_with_other(request.form, "qualification")
+
+            ms1 = pick_with_other(request.form, "main_subject")
+            ms2 = pick_with_other(request.form, "main_subject_2")
+            ms3 = pick_with_other(request.form, "main_subject_3")
+
+            main_subject_list = [s for s in [ms1, ms2, ms3] if s]
+            main_subject = ", ".join(main_subject_list)
+
+            as1 = pick_with_other(request.form, "additional_subject_1")
+            as2 = pick_with_other(request.form, "additional_subject_2")
+
+            additional_subject_list = [s for s in [as1, as2] if s]
+            additional_subjects = ", ".join(additional_subject_list)
+
+            subjects = ", ".join(main_subject_list + additional_subject_list)
+
+            class_levels = pick_with_other(request.form, "class_levels")
+
+            degree_title = request.form.get("degree_title", "")
+            degree_major = request.form.get("degree_major", "")
+            degree_institution = request.form.get("degree_institution", "")
+            degree_year = request.form.get("degree_year", "")
+            degree_grade = request.form.get("degree_grade", "")
+
+            bachelor_title = request.form.get("bachelor_title", "")
+            bachelor_institution = request.form.get("bachelor_institution", "")
+            bachelor_year = request.form.get("bachelor_year", "")
+            bachelor_grade = request.form.get("bachelor_grade", "")
+
+            inter_program = request.form.get("inter_program", "")
+            inter_institution = request.form.get("inter_institution", "")
+            inter_grade = request.form.get("inter_grade", "")
+            inter_year = request.form.get("inter_year", "")
+
+            matric_program = request.form.get("matric_program", "")
+            matric_institution = request.form.get("matric_institution", "")
+            matric_grade = request.form.get("matric_grade", "")
+            matric_year = request.form.get("matric_year", "")
+
+            experience_years = int(request.form.get("experience_years") or 0)
+            teaching_mode = request.form.get("teaching_mode", "").strip()
+            hourly_rate = int(request.form.get("hourly_rate") or 0)
+            bio = request.form.get("bio", "").strip()
+            
+        user = User(
+            email=email,
+            role=role,
+            full_name=request.form["full_name"].strip(),
+            public_name=request.form.get("public_name", request.form["full_name"]).strip(),
+            qualification=qualification,
+            subjects=subjects,
+            class_levels=class_levels,
+            experience_years=experience_years,
+            bio=bio,
+            modest_profile=modest_profile,
+            audio_only=audio_only,
+            gender=gender,
+            city=city,
+            main_subject=main_subject,
+            additional_subjects=additional_subjects,
+            student_level=student_level,
+            student_subject_needed=student_subject_needed,
+            preferred_tutor_gender=preferred_tutor_gender,
+            learning_mode=learning_mode,
+            teaching_mode=teaching_mode,
+            hourly_rate=hourly_rate,
+            demo_video_url=demo_video_url,
+
+            degree_title=degree_title,
+            degree_major=degree_major,
+            degree_institution=degree_institution,
+            degree_year=degree_year,
+            degree_grade=degree_grade,
+
+            bachelor_title=bachelor_title,
+            bachelor_institution=bachelor_institution,
+            bachelor_year=bachelor_year,
+            bachelor_grade=bachelor_grade,
+
+            inter_program=inter_program,
+            inter_institution=inter_institution,
+            inter_grade=inter_grade,
+            inter_year=inter_year,
+
+            matric_program=matric_program,
+            matric_institution=matric_institution,
+            matric_grade=matric_grade,
+            matric_year=matric_year,
+        )
+
+        user.tutor_category = classify_teacher(user.subjects, user.class_levels)
+        user.set_password(request.form["password"])
+
+        image_file = request.files.get("profile_image_file")
+        if image_file and image_file.filename:
+            filename = f"{uuid4().hex}_{secure_filename(image_file.filename)}"
+            image_file.save(Path(app.config["UPLOAD_FOLDER"]) / filename)
+            user.profile_image = filename
+
+        degree_file = request.files.get("degree_file")
+        if degree_file and degree_file.filename:
+            degree_filename = f"degree_{uuid4().hex}_{secure_filename(degree_file.filename)}"
+            degree_file.save(Path(app.config["UPLOAD_FOLDER"]) / degree_filename)
+            user.degree_file = degree_filename
+
+        if role == "tutor":
+            user.is_verified_tutor = False
+
+        if tutor_missing_requirements_from_user(user):
+            user.profile_stage = "verification_incomplete"
         else:
-            error = validate_tutor_application_form(request.form)
-            if error:
-                flash(error, "danger")
-                form_data["active_step"] = request.form.get("active_step", "4")
-            else:
-                user = build_user_from_option_a_form(request.form, request.files)
-                db.session.add(user)
-                db.session.commit()
-                send_signup_emails(user)
-                flash("Tutor application submitted. If selected after review, you will be asked to pay PKR 500 to activate your profile.", "success")
-                return redirect(url_for("login"))
-    return render_template(
-        "register_tutor.html",
-        form_data=form_data,
-        selected_tutor_subjects=selected_tutor_subjects,
-        selected_tutor_levels=selected_tutor_levels,
-        subject_options=SUBJECT_OPTIONS,
-        level_options=LEVEL_OPTIONS,
-    )
+            user.profile_stage = "basic_complete"
+        user.is_public_tutor = False
+
+        db.session.add(user)
+        db.session.commit()
+
+        
+        send_signup_emails(user)
+
+        if role == "tutor":
+            flash(
+                "Tutor application submitted free of cost. If selected after review, you will be asked to pay PKR 500 to activate your profile.",
+                "success",
+            )
+        else:
+            flash("Registration completed successfully. Please log in.", "success")
+        return redirect(url_for("login"))
+
+
+    return render_template("register.html")
+
+
 
 @app.route("/google-login")
 def google_login():
     if not app.config["GOOGLE_CLIENT_ID"]:
         flash("Google login not configured.", "danger")
         return redirect(url_for("login"))
-    redirect_uri = app.config["GOOGLE_REDIRECT_URI"] or url_for("google_callback", _external=True)
+
+    redirect_uri = url_for("google_callback", _external=True)
     return google.authorize_redirect(redirect_uri)
 
 @app.route("/login/google/callback")
@@ -1786,22 +1223,27 @@ def google_callback():
     if user:
         login_user(user)
         flash("Logged in with Google.", "success")
-        next_page = request.args.get("next")
         if user.role == "admin":
             return redirect(url_for("admin_dashboard"))
-        return redirect(next_page or url_for("dashboard"))
+        return redirect(url_for("dashboard"))
 
     session["google_signup"] = {"email": email, "name": name}
     return redirect(url_for("complete_google_signup"))
 
-@app.route("/complete-google-signup")
+
+@app.route("/complete-google-signup", methods=["GET", "POST"])
 def complete_google_signup():
     google_signup = session.get("google_signup")
+    
+ 
     if not google_signup:
         flash("Your Google signup session expired. Please try again.", "warning")
         return redirect(url_for("login"))
 
-    existing_user = User.query.filter_by(email=google_signup["email"]).first()
+    email = google_signup["email"]
+    fallback_name = google_signup["name"]
+
+    existing_user = User.query.filter_by(email=email).first()
     if existing_user:
         login_user(existing_user)
         flash("Account already exists. Logged in successfully.", "success")
@@ -1809,86 +1251,38 @@ def complete_google_signup():
             return redirect(url_for("admin_dashboard"))
         return redirect(url_for("dashboard"))
 
-    return render_template("register_choice.html", google_signup=True)
-
-@app.route("/complete-google-signup/student", methods=["GET", "POST"])
-def complete_google_signup_student():
-    google_signup = session.get("google_signup")
-    if not google_signup:
-        flash("Your Google signup session expired. Please try again.", "warning")
-        return redirect(url_for("login"))
-
-    form_data = request.form.to_dict(flat=True) if request.method == "POST" else {}
-    selected_student_subjects = request.form.getlist("student_subject_needed") if request.method == "POST" else []
-    email = google_signup["email"]
-    fallback_name = google_signup["name"]
-
+    
     if request.method == "POST":
-        error = validate_option_a_student_form(request.form)
-        if error:
-            flash(error, "danger")
-        else:
-            user = build_user_from_option_a_form(request.form, request.files, google_email=email, google_name=fallback_name)
-            db.session.add(user)
-            db.session.commit()
-            send_signup_emails(user)
-            session.pop("google_signup", None)
-            login_user(user)
-            flash("Google signup completed successfully.", "success")
-            return redirect(url_for("dashboard"))
+        role = request.form.get("role", "student").strip().lower()
 
-    return render_template(
-        "google_complete_student.html",
-        form_data=form_data,
-        selected_student_subjects=selected_student_subjects,
-        subject_options=SUBJECT_OPTIONS,
-        level_options=LEVEL_OPTIONS,
-        google_email=email,
-        google_name=fallback_name,
-    )
+        if role == "tutor":
+            tutor_error = validate_tutor_application_form(request.form)
+            if tutor_error:
+                flash(tutor_error, "danger")
+                return redirect(url_for("complete_google_signup"))
 
-@app.route("/complete-google-signup/tutor", methods=["GET", "POST"])
-def complete_google_signup_tutor():
-    google_signup = session.get("google_signup")
-    if not google_signup:
-        flash("Your Google signup session expired. Please try again.", "warning")
-        return redirect(url_for("login"))
+        user = build_google_user_from_form(request.form, email=email, fallback_name=fallback_name)
+        db.session.add(user)
+        db.session.commit()
 
-    form_data = request.form.to_dict(flat=True) if request.method == "POST" else {}
-    selected_tutor_subjects = request.form.getlist("main_subject") if request.method == "POST" else []
-    selected_tutor_levels = request.form.getlist("class_levels") if request.method == "POST" else []
-    form_data.setdefault("active_step", request.args.get("step", "1"))
-    email = google_signup["email"]
-    fallback_name = google_signup["name"]
+        send_signup_emails(user)
 
-    if request.method == "POST":
-        error = validate_tutor_application_form(request.form)
-        if error:
-            flash(error, "danger")
-            form_data["active_step"] = request.form.get("active_step", "4")
-        else:
-            user = build_user_from_option_a_form(request.form, request.files, google_email=email, google_name=fallback_name)
-            db.session.add(user)
-            db.session.commit()
-            send_signup_emails(user)
-            session.pop("google_signup", None)
-            login_user(user)
+        session.pop("google_signup", None)
+        login_user(user)
+        if user.role == "tutor":
             flash("Google signup completed. Tutor profile created and sent for review.", "success")
-            return redirect(url_for("dashboard"))
+        else:
+            flash("Google signup completed successfully.", "success")
+        return redirect(url_for("dashboard"))
 
     return render_template(
-        "google_complete_tutor.html",
-        form_data=form_data,
-        selected_tutor_subjects=selected_tutor_subjects,
-        selected_tutor_levels=selected_tutor_levels,
-        subject_options=SUBJECT_OPTIONS,
-        level_options=LEVEL_OPTIONS,
+        "google_complete_profile.html",
         google_email=email,
         google_name=fallback_name,
     )
+
 
 @app.route("/login", methods=["GET", "POST"])
-
 
 def login():
     if request.method == "POST":
@@ -1899,8 +1293,7 @@ def login():
             flash("Logged in successfully.", "success")
             if user.role == "admin":
                 return redirect(url_for("admin_dashboard"))
-            next_page = request.args.get("next")
-            return redirect(next_page or url_for("dashboard"))
+            return redirect(url_for("dashboard"))
         flash("Invalid credentials.", "danger")
         next_page = request.args.get("next")
         return redirect(next_page or url_for("dashboard"))
@@ -1921,7 +1314,7 @@ def dashboard():
     if current_user.role == "admin":
         return redirect(url_for("admin_dashboard"))
 
-    bookings = (
+    upcoming = (
         Booking.query.filter(
             ((Booking.student_id == current_user.id) | (Booking.tutor_id == current_user.id))
         )
@@ -1931,30 +1324,23 @@ def dashboard():
     )
     pending_notices = []
     if current_user.role == "student":
-        pending_notices = (
-            PaymentNotice.query.filter_by(student_id=current_user.id, status="pending")
-            .order_by(PaymentNotice.created_at.desc())
-            .all()
-        )
-
+        pending_notices = PaymentNotice.query.filter_by(
+        student_id=current_user.id,
+        status="pending"
+        ).order_by(PaymentNotice.created_at.desc()).all()
+    pending_notices=pending_notices,
     completion_data = None
     if current_user.role == "tutor":
-        sync_tutor_stage(current_user)
         completion_data = get_tutor_completion_status(current_user)
-
-    notifications = dashboard_notifications_for(current_user)
 
     return render_template(
         "dashboard.html",
         bookings=bookings,
         pending_notices=pending_notices,
-        completion_data=completion_data,
-        notifications=notifications,
-        tutor_fee_instructions="Deposit PKR 500 to the instructed account and wait for admin confirmation.",
-    )
+        completion_data=completion_data
+)
 
 @app.route("/tutors")
-
 def tutors():
     level = request.args.get("level", "").strip()
     subject = request.args.get("subject", "").strip()
@@ -2141,63 +1527,10 @@ def book_tutor(tutor_id):
 def terms():
     return render_template("terms.html")
 
-@app.route("/privacy", endpoint="privacy")
-@app.route("/privacy-policy", endpoint="privacy_policy")
-def privacy_policy():
+
+@app.route("/privacy")
+def privacy():
     return render_template("privacy.html")
-
-
-@app.route("/admin/credits")
-@login_required
-def admin_credit_notices():
-    if current_user.role != "admin":
-        return redirect(url_for("dashboard"))
-
-    notices = PaymentNotice.query.order_by(PaymentNotice.created_at.desc()).all()
-    return render_template("admin_credit_notices.html", notices=notices)
-
-
-
-@app.route("/admin/credits/<int:notice_id>/review", methods=["POST"])
-@login_required
-def admin_review_credit_notice(notice_id):
-    if current_user.role != "admin":
-        return redirect(url_for("dashboard"))
-
-    notice = PaymentNotice.query.get_or_404(notice_id)
-    action = request.form.get("action", "").strip()
-    reason = request.form.get("reason", "").strip()
-
-    if notice.status != "pending":
-        flash("This payment notice has already been reviewed.", "warning")
-        return redirect(url_for("admin_credit_notices"))
-
-    if action == "approve":
-        add_credits(
-            notice.student,
-            notice.claimed_credits,
-            "manual_topup",
-            f"Approved payment notice #{notice.id}",
-            rupees=notice.amount_sent_pkr,
-        )
-        notice.status = "approved"
-        notice.admin_note = reason
-        notice.reviewed_at = datetime.utcnow()
-        db.session.commit()
-        flash("Credits approved and added successfully.", "success")
-
-    elif action == "decline":
-        notice.status = "declined"
-        notice.admin_note = reason
-        notice.reviewed_at = datetime.utcnow()
-        db.session.commit()
-        flash("Payment notice declined.", "info")
-
-    else:
-        flash("Invalid action.", "danger")
-
-    return redirect(url_for("admin_credit_notices"))
-
 
 
 @app.route("/accessibility")
@@ -2216,115 +1549,54 @@ def buy_credits():
         flash("Only students can buy credits.", "danger")
         return redirect(url_for("dashboard"))
 
-    form_data = request.form.to_dict(flat=True) if request.method == "POST" else {}
-    credit_rate = app.config.get("CREDIT_RATE", 10)
-
     if request.method == "POST":
-        selected = (request.form.get("credits_requested", "") or "").strip()
-
-        try:
-            if selected == "other":
-                credits = int((request.form.get("credits_requested_other") or "0").strip())
-            else:
-                credits = int(selected or 0)
-        except ValueError:
-            flash("Please enter a valid credit amount.", "danger")
-            return render_template(
-                "buy_credits_v2.html",
-                form_data=form_data,
-                credit_rate=credit_rate,
-            )
-
-        if credits < 10:
+        credits_requested = int(request.form.get("amount_sent_pkr", 0)) // app.config["CREDIT_RATE"]
+        if credits_requested < 10:
             flash("Minimum purchase is 10 credits.", "danger")
-            return render_template(
-                "buy_credits_v2.html",
-                form_data=form_data,
-                credit_rate=credit_rate,
-            )
-
-        if request.form.get("payment_confirmed", "").strip() != "yes":
-            flash("Please confirm the transfer before submitting.", "danger")
-            return render_template(
-                "buy_credits_v2.html",
-                form_data=form_data,
-                credit_rate=credit_rate,
-            )
-
-        # Prevent duplicate pending notices for the same student/amount before admin review
-        existing_pending = PaymentNotice.query.filter_by(
-            student_id=current_user.id,
-            claimed_credits=credits,
-            status="pending",
-        ).order_by(PaymentNotice.created_at.desc()).first()
-
-        if existing_pending:
-            flash(
-                "You already have a pending payment notice for this credit request. Please wait for admin review.",
-                "warning",
-            )
-            return redirect(url_for("student_wallet"))
-
+            return redirect(url_for("buy_credits"))
+        amount = int(request.form["amount_sent_pkr"])
+        credits = amount // app.config["CREDIT_RATE"]
         screenshot = request.files.get("screenshot")
-        if not screenshot or not screenshot.filename:
-            flash("Please attach transfer screenshot.", "danger")
-            return render_template(
-                "buy_credits_v2.html",
-                form_data=form_data,
-                credit_rate=credit_rate,
-            )
+        filename = ""
 
-        amount = credits * credit_rate
-        filename = f"payment_{uuid4().hex}_{secure_filename(screenshot.filename)}"
-        screenshot.save(Path(app.config["UPLOAD_FOLDER"]) / filename)
+        if screenshot and screenshot.filename:
+            filename = f"{uuid4().hex}_{secure_filename(screenshot.filename)}"
+            screenshot.save(Path(app.config["UPLOAD_FOLDER"]) / filename)
 
         notice = PaymentNotice(
             student_id=current_user.id,
             amount_sent_pkr=amount,
             claimed_credits=credits,
-            sender_name=(request.form.get("sender_name", "") or "").strip(),
-            sender_account=(request.form.get("sender_account", "") or "").strip(),
-            transfer_method=(request.form.get("transfer_method", "easypaisa") or "easypaisa").strip(),
+            sender_name=request.form.get("sender_name", ""),
+            sender_account=request.form.get("sender_account", ""),
+            transfer_method=request.form.get("transfer_method", "bank"),
             screenshot_filename=filename,
-            note=(request.form.get("note", "") or "").strip(),
-            status="pending",
+            note=request.form.get("note", ""),
         )
         db.session.add(notice)
         db.session.commit()
 
-        # IMPORTANT: No credits are added here.
-        # Credits must only be granted from admin approval route.
-        safe_send_email(
-            "superadmin@tutorsonline.pk",
-            "TutorsOnline.pk Credit Purchase Notice",
-            f"""Student: {current_user.full_name} ({current_user.email})
-Requested credits: {credits}
-Amount: PKR {amount}
-Sender: {notice.sender_name}
-Account: {notice.sender_account}
-Method: {notice.transfer_method}
-Notice ID: {notice.id}
-Screenshot: {filename}
-
-Status: pending
-Action required: Admin approval or decline
-""",
+        fallback = send_notification_email(
+            "TutorsOnline.pk Payment Notice",
+            f"Student: {current_user.full_name} ({current_user.email})\n"
+            f"Amount: PKR {amount}\n"
+            f"Claimed credits: {credits}\n"
+            f"Sender account: {notice.sender_account}\n"
+            f"Method: {notice.transfer_method}",
         )
-
-        flash(
-            "Payment notice submitted successfully. Your credits will be added only after admin approval.",
-            "success",
-        )
+        if fallback:
+            flash(
+                "Notice saved. SMTP not configured; email logged to email_outbox.log",
+                "warning",
+            )
+        else:
+            flash("Payment notice submitted and admin notified.", "success")
         return redirect(url_for("student_wallet"))
 
-    return render_template(
-        "buy_credits_v2.html",
-        form_data=form_data,
-        credit_rate=credit_rate,
-    )
+    return render_template("buy_credits.html")
+
 
 @app.route("/wallet")
-
 @login_required
 def student_wallet():
     if current_user.role == "student":
@@ -2348,18 +1620,59 @@ def student_wallet():
     return render_template("tutor_wallet.html", txs=txs)
 
 
-@app.route("/live/<int:booking_id>", methods=["GET"])
+@app.route("/live/<int:booking_id>", methods=["GET", "POST"])
 @login_required
 def live_session(booking_id):
     booking = Booking.query.get_or_404(booking_id)
-
-    if current_user.role != "admin" and current_user.id not in [booking.student_id, booking.tutor_id]:
+    if current_user.role not in ["admin"] and current_user.id not in [
+        booking.student_id,
+        booking.tutor_id,
+    ]:
         flash("Unauthorized.", "danger")
         return redirect(url_for("dashboard"))
 
     log = LiveSessionLog.query.filter_by(booking_id=booking.id).first()
+    if not log:
+        log = LiveSessionLog(booking_id=booking.id, room_code=booking.room_code)
+        db.session.add(log)
+
+    if current_user.role == "student":
+        log.student_joined = True
+    elif current_user.role == "tutor":
+        log.tutor_joined = True
+    elif current_user.role == "admin":
+        log.admin_joined = True
+        log.last_activity_note = "Admin observer joined transparently"
+
+    db.session.commit()
+
+    if request.method == "POST":
+        message = request.form.get("message", "").strip()
+        reason = None
+        for pattern in PHONE_OR_EMAIL_PATTERNS:
+            if pattern.search(message):
+                reason = "Possible off-platform contact sharing"
+                break
+
+        if reason:
+            db.session.add(
+                ChatFlag(
+                    booking_id=booking.id,
+                    sender_id=current_user.id,
+                    message=message,
+                    reason=reason,
+                )
+            )
+            db.session.commit()
+            flash(
+                "Message blocked. Contact sharing is not allowed on TutorsOnline.pk.",
+                "danger",
+            )
+        else:
+            flash("Message accepted in this MVP room shell.", "success")
 
     return render_template("live_session.html", booking=booking, log=log)
+
 
 @app.route("/bookings/<int:booking_id>/complete/student", methods=["POST"])
 @login_required
@@ -2569,47 +1882,53 @@ def admin_review_user(user_id):
     user = User.query.get_or_404(user_id)
     action = request.form.get("action", "").strip()
     reason = request.form.get("reason", "").strip()
-    user.admin_review_note = reason
 
     if action == "request_fee":
         if user.role == "tutor":
             user.is_verified_tutor = False
-            user.profile_stage = "fee_pending"
         flash("Tutor selected. Registration fee request email sent.", "success")
 
     elif action == "activate":
         if user.role == "tutor":
             user.is_verified_tutor = True
-            user.profile_stage = "approved"
-            user.is_public_tutor = True
-            user.approved_at = datetime.utcnow()
         flash("Tutor activated successfully.", "success")
 
     elif action == "reject":
         if user.role == "tutor":
             user.is_verified_tutor = False
-            user.profile_stage = "rejected"
-            user.is_public_tutor = False
-            user.rejected_at = datetime.utcnow()
         flash(f"User marked rejected.{f' Reason: {reason}' if reason else ''}", "warning")
 
     elif action == "pend":
         if user.role == "tutor":
             user.is_verified_tutor = False
-            user.profile_stage = "under_review"
         flash("User marked pending review.", "info")
 
     else:
         flash("Invalid review action.", "danger")
         return redirect(url_for("admin_user_detail", user_id=user.id))
 
+    if action == "request_fee":
+        user.profile_stage = "fee_pending"
+
+    elif action == "activate":
+        user.profile_stage = "approved"
+        user.is_verified_tutor = True
+        user.is_public_tutor = True
+        user.approved_at = datetime.utcnow()
+
+    elif action == "reject":
+        user.profile_stage = "rejected"
+        user.rejected_at = datetime.utcnow()
+
+    elif action == "pend":
+        user.profile_stage = "under_review"
+
     db.session.commit()
-    if user.role == "tutor":
-        send_tutor_review_email(user, action, reason)
+    send_tutor_review_email(user, action, reason)
+
     return redirect(url_for("admin_user_detail", user_id=user.id))
 
 @app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
-
 @login_required
 def admin_delete_user(user_id):
     if current_user.role != "admin":
@@ -2696,6 +2015,16 @@ def admin_verify_tutor(user_id):
 
     return redirect(url_for("admin_users"))
 
+
+@app.route("/admin/payment-notices")
+
+@login_required
+def admin_payment_notices():
+    if current_user.role != "admin":
+        return redirect(url_for("dashboard"))
+
+    notices = PaymentNotice.query.order_by(PaymentNotice.created_at.desc()).all()
+    return render_template("admin_payment_notices.html", notices=notices)
 
 
 @app.route("/admin/payment-notices/<int:notice_id>/approve", methods=["POST"])
@@ -2791,17 +2120,6 @@ def admin_live_sessions():
 def uploaded_file(filename):
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
-@app.route("/demo_seed/<path:filename>")
-def demo_seed_file(filename):
-    demo_dir = BASE_DIR / "demo_seed"
-    if demo_dir.exists():
-        candidate = demo_dir / filename
-        if candidate.exists():
-            return send_from_directory(str(demo_dir), filename)
-
-    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
-
-app.register_blueprint(rtc_bp, url_prefix="/rtc")
 
 @app.route("/seed")
 def seed():
@@ -2832,7 +2150,7 @@ def seed():
         bio="Preparing for board exams.",
         credits_balance=1000,
     )
-    student.set_password("Demo@12345")
+    student.set_password("password123")
     db.session.add(student)
 
     tutor_data = [
@@ -2931,25 +2249,15 @@ def seed():
             rating_count=12,
             sessions_completed=20,
         )
-        tutor.set_password("Demo@12345")
+        tutor.set_password("password123")
         db.session.add(tutor)
 
     db.session.commit()
     flash("Database seeded successfully.", "success")
     return redirect(url_for("index"))
 
-@app.route("/seed-admin")
-def seed_admin():
-    with app.app_context():
-        db.create_all()
-        ensure_user_columns()
-        ensure_default_admin()
-    return "Default admin ensured."
 
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-        ensure_user_columns()
-        ensure_default_admin()
     app.run(host="0.0.0.0", port=5000, debug=True)
-
