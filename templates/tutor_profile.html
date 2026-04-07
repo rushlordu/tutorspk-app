@@ -44,72 +44,74 @@
       </div>
     </div>
 
-    <div class="tutor-profile-cta-row">
-      {% if tutor.demo_video_file %}
-        <a class="btn btn-light" href="{{ url_for('uploaded_file', filename=tutor.demo_video_file) }}" target="_blank" rel="noopener">Watch Demo</a>
-      {% elif tutor.demo_video_url %}
-        <a class="btn btn-light" href="{{ tutor.demo_video_url }}" target="_blank" rel="noopener">Watch Demo</a>
-      {% endif %}
-
-      {% if current_user.is_authenticated and current_user.role == 'student' %}
-        <div class="tutor-cta-box">
-
-  <a class="btn btn-primary"
-     {% if current_user.is_authenticated %}
+ <div class="tutor-cta-box">
+  {% if current_user.is_authenticated and current_user.role == 'student' %}
     <a class="btn btn-primary"
-     href="{{ url_for('select_tutor', tutor_id=tutor.id) }}">
-     Select Tutor
+       href="{{ url_for('select_tutor', tutor_id=tutor.id) }}">
+      Select Tutor
     </a>
-      {% else %}
-        <a class="btn btn-primary"
-          href="{{ url_for('login', next=url_for('tutor_profile', tutor_id=tutor.id)) }}">
-          Login to Book
-        </a>
-      {% endif %}
-  </a>
+  {% else %}
+    <a class="btn btn-primary"
+       href="{{ url_for('login', next=url_for('tutor_profile', tutor_id=tutor.id)) }}">
+      Login to Book
+    </a>
+  {% endif %}
 
   <p class="muted small">
     Choose subject, level and session details before booking
   </p>
-
 </div>
-      {% endif %}
+  </div>
     </div>
+
   </div>
 
   <div class="profile-side-stack">
-    <section class="card">
-      <h2>Why parents feel comfortable</h2>
-      <ul class="clean-list">
-        <li>Public profile uses platform-safe display details.</li>
-        <li>Institution names and current job roles stay hidden.</li>
-        <li>Female-friendly options can be shown when enabled.</li>
-        <li>All sessions are conducted online.</li>
-      </ul>
-    </section>
 
-    <section class="card">
-      <h2>Public profile rules</h2>
-      <ul class="clean-list">
-        <li>Qualification may be shown, but not institution names.</li>
-        <li>Current workplaces and roles are not displayed.</li>
-        <li>Profiles can stay modest and privacy-conscious.</li>
-        <li>Reviews shown here come from platform records.</li>
-      </ul>
-    </section>
+  <!-- 🎥 DEMO VIDEO -->
+  <section class="card">
+    <h2>Demo Session</h2>
 
-    <section class="card">
-      <h2>Recent Feedback</h2>
-      {% for item in tutor.feedback_received[:5] %}
-        <div class="review">
-          <strong>{{ item.student.public_name }}</strong> · ⭐ {{ item.rating }}
-          <p>{{ item.comment or 'Positive learning experience.' }}</p>
-        </div>
-      {% else %}
-        <p>No public reviews yet.</p>
-      {% endfor %}
-    </section>
-  </div>
+    {% if tutor.demo_video_file %}
+      <video controls style="width:100%; border-radius:12px;">
+        <source src="{{ url_for('uploaded_file', filename=tutor.demo_video_file) }}">
+      </video>
+
+    {% elif youtube_embed %}
+      <div style="position:relative; padding-top:56.25%;">
+        <iframe
+          src="{{ youtube_embed }}"
+          style="position:absolute; top:0; left:0; width:100%; height:100%; border-radius:12px; border:0;"
+          allowfullscreen>
+        </iframe>
+      </div>
+
+    {% elif tutor.demo_video_url %}
+      <a class="btn btn-light" href="{{ tutor.demo_video_url }}" target="_blank">
+        Watch Demo
+      </a>
+
+    {% else %}
+      <p class="muted">No demo video available yet.</p>
+    {% endif %}
+
+  </section>
+
+
+  <!-- ⭐ FEEDBACK (keep this only) -->
+  <section class="card">
+    <h2>Recent Feedback</h2>
+    {% for item in tutor.feedback_received[:5] %}
+      <div class="review">
+        <strong>{{ item.student.public_name }}</strong> · ⭐ {{ item.rating }}
+        <p>{{ item.comment or 'Positive learning experience.' }}</p>
+      </div>
+    {% else %}
+      <p>No public reviews yet.</p>
+    {% endfor %}
+  </section>
+
+</div>
 </section>
 
 {% if current_user.is_authenticated and current_user.role == 'student' and completed_bookings %}

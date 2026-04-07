@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<section class="card">
+  <h1>Edit Availability</h1>
+
+  <form method="post" class="form-grid two-col">
+    <div>
+      <label class="small-label">Start Time</label>
+      <input type="time" name="start_time" value="{{ rule.start_time }}" required>
+    </div>
+
+    <div>
+      <label class="small-label">End Time</label>
+      <input type="time" name="end_time" value="{{ rule.end_time }}" required>
+    </div>
+
+    <div>
+      <label class="small-label">Slot Length (minutes)</label>
+      <input type="number" name="slot_minutes" value="{{ rule.slot_minutes }}" min="15" step="15">
+    </div>
+
+    <div class="full-width">
+      <button class="btn btn-primary" type="submit">Save Changes</button>
+    </div>
+  </form>
+</section>
+
+{% endblock %}

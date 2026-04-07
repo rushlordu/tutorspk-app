@@ -37,6 +37,19 @@ from authlib.integrations.flask_client import OAuth
 
 load_dotenv()
 
+def get_youtube_embed(url):
+    if not url:
+        return ""
+
+    # youtu.be/xxxxx
+    if "youtu.be/" in url:
+        return url.replace("youtu.be/", "www.youtube.com/embed/")
+
+    # youtube.com/watch?v=xxxxx
+    if "watch?v=" in url:
+        return url.replace("watch?v=", "embed/")
+
+    return url
 
 def send_email(to_email, subject, body, is_html=False, reply_to=None):
     try:
@@ -954,6 +967,23 @@ def add_credits(user: User, credits: int, tx_type: str, note: str = "", rupees: 
         )
     )
 
+
+def get_youtube_embed(url):
+    if not url:
+        return ""
+
+    url = url.strip()
+
+    if "youtu.be/" in url:
+        return url.replace("youtu.be/", "https://www.youtube.com/embed/")
+
+    if "youtube.com/watch?v=" in url:
+        return url.replace("youtube.com/watch?v=", "youtube.com/embed/")
+
+    if "youtube.com/embed/" in url:
+        return url
+
+    return ""
 
 def validate_tutor_application_form(form):
     missing = tutor_missing_requirements_from_form(form)
@@ -2297,11 +2327,13 @@ def tutor_profile(tutor_id):
             tutor_id=tutor.id,
             status="completed",
         ).all()
-
+    youtube_embed = get_youtube_embed(tutor.demo_video_url)
+    
     return render_template(
-        "tutor_profile.html",
-        tutor=tutor,
-        completed_bookings=completed_bookings,
+    "tutor_profile.html",
+    tutor=tutor,
+    completed_bookings=completed_bookings,
+    youtube_embed=youtube_embed
     )
 
 @app.route("/submit-tutor", methods=["POST"])
@@ -2854,6 +2886,38 @@ def admin_review_user(user_id):
     return redirect(url_for("admin_user_detail", user_id=user.id))
 
 @app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
+
+@app.route("/settings/availability/<int:rule_id>/edit", methods=["GET", "POST"])
+@login_required
+def edit_availability_rule(rule_id):
+    if current_user.role != "tutor":
+        flash("Unauthorized.", "danger")
+        return redirect(url_for("settings"))
+
+    rule = TutorAvailabilityRule.query.get_or_404(rule_id)
+
+    if rule.tutor_id != current_user.id:
+        flash("Unauthorized.", "danger")
+        return redirect(url_for("settings"))
+
+    if request.method == "POST":
+        start_time = (request.form.get("start_time") or "").strip()
+        end_time = (request.form.get("end_time") or "").strip()
+        slot_minutes = int(request.form.get("slot_minutes") or 60)
+
+        if not start_time or not end_time:
+            flash("Invalid time values.", "danger")
+            return redirect(request.url)
+
+        rule.start_time = start_time
+        rule.end_time = end_time
+        rule.slot_minutes = slot_minutes if slot_minutes > 0 else 60
+
+        db.session.commit()
+        flash("Availability updated.", "success")
+        return redirect(url_for("settings"))
+
+    return render_template("edit_availability.html", rule=rule)
 
 @login_required
 def admin_delete_user(user_id):
