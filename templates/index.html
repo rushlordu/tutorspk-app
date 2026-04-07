@@ -405,7 +405,7 @@ select {
       {% for tutor in featured_tutors %}
       <div class="tutor">
         <a href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">
-          <img src="{{ tutor.profile_image or 'https://picsum.photos/seed/default/400/400' }}" alt="{{ tutor.public_name }}">
+        <img src="{{ media_url(tutor.profile_image, 'https://picsum.photos/seed/default/400/400') }}" alt="{{ tutor.public_name }}"> 
         </a>
 
         <div class="tutor-body">

@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<section class="card">
+  <h1>Settings</h1>
+  <p class="muted">Update your profile details and media.</p>
+
+  <form method="post" enctype="multipart/form-data" class="form-grid two-col">
+    <div>
+      <label class="small-label">Full Name</label>
+      <input type="text" name="full_name" value="{{ current_user.full_name or '' }}">
+    </div>
+
+    <div>
+      <label class="small-label">Public Name</label>
+      <input type="text" name="public_name" value="{{ current_user.public_name or '' }}">
+    </div>
+
+    <div>
+      <label class="small-label">Mobile Number</label>
+      <input type="text" name="mobile_number" value="{{ current_user.mobile_number or '' }}">
+    </div>
+
+    <div>
+      <label class="small-label">City</label>
+      <input type="text" name="city" value="{{ current_user.city or '' }}">
+    </div>
+
+    <div class="full-width">
+      <label class="small-label">Bio</label>
+      <textarea name="bio" rows="5">{{ current_user.bio or '' }}</textarea>
+    </div>
+
+    <div>
+      <label class="small-label">Profile Image</label>
+      <input type="file" name="profile_image" accept="image/*">
+    </div>
+
+    {% if current_user.role == 'tutor' %}
+      <div>
+        <label class="small-label">Demo Video Link</label>
+        <input type="url" name="demo_video_url" value="{{ current_user.demo_video_url or '' }}" placeholder="https://...">
+      </div>
+
+      <div>
+        <label class="small-label">Upload Demo Video</label>
+        <input type="file" name="demo_video_file" accept="video/*">
+      </div>
+
+      <div>
+        <label class="small-label">
+          <input type="checkbox" name="audio_only" {% if current_user.audio_only %}checked{% endif %}>
+          Audio-first profile
+        </label>
+      </div>
+
+      <div>
+        <label class="small-label">
+          <input type="checkbox" name="modest_profile" {% if current_user.modest_profile %}checked{% endif %}>
+          Modest / privacy-conscious profile
+        </label>
+      </div>
+    {% endif %}
+
+    <div class="full-width">
+      <button class="btn btn-primary" type="submit">Save Settings</button>
+    </div>
+  </form>
+</section>
+
+{% endblock %}

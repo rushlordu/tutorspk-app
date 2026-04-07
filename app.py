@@ -334,6 +334,24 @@ db.init_app(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
+@app.template_filter("dt")
+def format_dt(value, fmt="%d %b %Y, %I:%M %p"):
+    if not value:
+        return ""
+    try:
+        return value.strftime(fmt)
+    except Exception:
+        return str(value)
+
+
+@app.template_filter("pkr")
+def format_pkr(value):
+    try:
+        value = int(value or 0)
+        return f"{value:,}"
+    except Exception:
+        return str(value or 0)
+    
 PHONE_OR_EMAIL_PATTERNS = [
     re.compile(r"\b\+?\d[\d\s\-]{7,}\b"),
     re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
@@ -451,6 +469,7 @@ class User(UserMixin, db.Model):
     additional_qualification_grade = db.Column(db.String(50), default="")
     additional_qualification_file = db.Column(db.String(255), default="")
     demo_video_url = db.Column(db.String(255), default="")
+    demo_video_file = db.Column(db.String(255), default="")
     modest_profile = db.Column(db.Boolean, default=False)
     audio_only = db.Column(db.Boolean, default=False)
     is_active_user = db.Column(db.Boolean, default=True)
@@ -1467,6 +1486,7 @@ def ensure_user_columns():
         "additional_qualification_grade": "VARCHAR(50) DEFAULT ''",
         "additional_qualification_file": "VARCHAR(255) DEFAULT ''",
         "admin_review_note": "TEXT DEFAULT ''",
+        "demo_video_file": "VARCHAR(255) DEFAULT ''",
     }
     with engine.begin() as conn:
         existing = {row[1] for row in conn.execute(text("PRAGMA table_info(user)"))}
@@ -1958,6 +1978,46 @@ def dashboard():
         notifications=notifications,
         tutor_fee_instructions="Deposit PKR 500 to the instructed account and wait for admin confirmation.",
     )
+
+@app.route("/profile")
+@login_required
+def profile():
+    return render_template("profile.html")
+
+
+@app.route("/settings", methods=["GET", "POST"])
+@login_required
+def settings():
+    if request.method == "POST":
+        current_user.full_name = (request.form.get("full_name", "") or "").strip() or current_user.full_name
+        current_user.public_name = (request.form.get("public_name", "") or "").strip() or current_user.public_name
+        current_user.mobile_number = (request.form.get("mobile_number", "") or "").strip()
+        current_user.city = (request.form.get("city", "") or "").strip()
+        current_user.bio = (request.form.get("bio", "") or "").strip()
+
+        if current_user.role == "tutor":
+            current_user.demo_video_url = (request.form.get("demo_video_url", "") or "").strip()
+            current_user.audio_only = bool(request.form.get("audio_only"))
+            current_user.modest_profile = bool(request.form.get("modest_profile"))
+
+        profile_image = request.files.get("profile_image")
+        if profile_image and profile_image.filename:
+            image_name = f"profile_{uuid4().hex}_{secure_filename(profile_image.filename)}"
+            profile_image.save(Path(app.config["UPLOAD_FOLDER"]) / image_name)
+            current_user.profile_image = image_name
+
+        if current_user.role == "tutor":
+            demo_video = request.files.get("demo_video_file")
+            if demo_video and demo_video.filename:
+                video_name = f"demo_{uuid4().hex}_{secure_filename(demo_video.filename)}"
+                demo_video.save(Path(app.config["UPLOAD_FOLDER"]) / video_name)
+                current_user.demo_video_file = video_name
+
+        db.session.commit()
+        flash("Settings updated successfully.", "success")
+        return redirect(url_for("settings"))
+
+    return render_template("settings.html")
 
 @app.route("/tutors")
 
