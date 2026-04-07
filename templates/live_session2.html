@@ -19,7 +19,7 @@
       <div class="booking-badge">
         <strong id="booking-status">{{ booking.status }}</strong>
       </div>
-      <span class="topbar-note">End Call is available on the video controls.</span>
+      <button class="leave-btn" type="button" onclick="leaveSession()">Leave</button>
     </div>
   </div>
 
@@ -34,34 +34,29 @@
       </div>
 
       <div class="video-stage">
-        <div id="video-surface" class="video-surface">
-          <div id="remote-player-main" class="remote-video-box is-empty">
-            <div class="video-placeholder">Waiting for remote participant</div>
-          </div>
+        <div id="remote-player-main" class="remote-video-box">
+          Waiting for remote participant
+        </div>
 
-          <div class="video-label remote-label">Remote</div>
+        <div class="video-label remote-label">Remote</div>
 
-          <div id="local-pip-wrap" class="local-pip-wrap" role="button" tabindex="0" aria-label="Move your video preview">
-            <div id="local-player" class="local-pip is-empty">
-              <div class="video-placeholder video-placeholder-small">
-                {% if current_user.role == 'admin' %}
-                  Admin observer
-                {% else %}
-                  Your video
-                {% endif %}
-              </div>
-            </div>
-            <div class="video-label pip-label">You</div>
+        <div class="local-pip-wrap">
+          <div id="local-player" class="local-pip">
+            {% if current_user.role == 'admin' %}
+              Admin observer
+            {% else %}
+              Your video
+            {% endif %}
           </div>
+          <div class="video-label pip-label">You</div>
+        </div>
 
-          <div class="call-controls call-controls-overlay">
-            <button class="control-btn" id="join-btn" type="button" onclick="joinSession()">Join</button>
-            <button class="control-btn" id="mute-btn" type="button" onclick="toggleMute()">Mute</button>
-            <button class="control-btn" id="camera-btn" type="button" onclick="toggleCamera()">Camera Off</button>
-            <button class="control-btn" type="button" onclick="activateTab('chat')">Chat</button>
-            <button class="control-btn" type="button" onclick="activateTab('files')">Files</button>
-            <button class="control-btn danger-btn" type="button" onclick="leaveSession()">End Call</button>
-          </div>
+        <div class="call-controls">
+          <button class="control-btn" id="join-btn" type="button" onclick="joinSession()">Join</button>
+          <button class="control-btn" id="mute-btn" type="button" onclick="toggleMute()">Mute</button>
+          <button class="control-btn" id="camera-btn" type="button" onclick="toggleCamera()">Camera Off</button>
+          <button class="control-btn" type="button" onclick="activateTab('chat')">Chat</button>
+          <button class="control-btn" type="button" onclick="activateTab('files')">Files</button>
         </div>
       </div>
     </section>
@@ -172,9 +167,14 @@
     font-size: 13px;
   }
 
-  .topbar-note {
-    font-size: 12px;
-    color: #6b7280;
+  .leave-btn {
+    border: none;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #ef4444;
+    color: #fff;
   }
 
   .observer-banner {
@@ -209,66 +209,31 @@
   }
 
   .video-stage {
-    background: #0f172a;
-  }
-
-  .video-surface {
     position: relative;
-    min-height: clamp(320px, 68vh, 760px);
-    background:
-      radial-gradient(circle at top, rgba(30, 41, 59, 0.35), transparent 45%),
-      #0f172a;
-    overflow: hidden;
+    background: #0f172a;
+    min-height: 250px;
   }
 
   .remote-video-box {
-    position: absolute;
-    inset: 0;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    min-height: 250px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
     background: #111827;
     overflow: hidden;
-  }
-
-  .local-pip {
-    width: 100%;
-    height: 100%;
-    border-radius: 16px;
-    overflow: hidden;
-    background: #000;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 2px solid rgba(255,255,255,0.92);
-    box-shadow: 0 18px 45px rgba(0,0,0,0.35);
-  }
-
-  .video-placeholder {
-    padding: 16px;
-    text-align: center;
-    color: rgba(255,255,255,0.82);
-    font-size: 14px;
-    line-height: 1.4;
-    pointer-events: none;
-  }
-
-  .video-placeholder-small {
-    font-size: 12px;
-    padding: 10px;
+    border-radius: 0;
   }
 
   .video-label {
     position: absolute;
-    z-index: 3;
     padding: 4px 8px;
     border-radius: 999px;
     font-size: 12px;
     background: rgba(0,0,0,0.55);
     color: #fff;
-    backdrop-filter: blur(8px);
   }
 
   .remote-label {
@@ -280,20 +245,22 @@
     position: absolute;
     top: 12px;
     right: 12px;
-    z-index: 4;
-    width: min(31vw, 126px);
-    height: min(42vw, 168px);
-    min-width: 86px;
-    min-height: 118px;
-    max-width: 150px;
-    max-height: 200px;
-    cursor: grab;
-    user-select: none;
-    touch-action: none;
+    width: 28%;
+    max-width: 130px;
+    min-width: 90px;
   }
 
-  .local-pip-wrap.dragging {
-    cursor: grabbing;
+  .local-pip {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #000;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(255,255,255,0.85);
   }
 
   .pip-label {
@@ -303,85 +270,28 @@
   }
 
   .call-controls {
+    position: absolute;
+    left: 50%;
+    bottom: 12px;
+    transform: translateX(-50%);
     display: flex;
     gap: 8px;
+    padding: 8px 10px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.84);
+    backdrop-filter: blur(8px);
     overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 2px;
-  }
-
-  .call-controls-overlay {
-    position: absolute;
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
-    z-index: 5;
-    padding: 10px;
-    border-radius: 18px;
-    background: rgba(8, 15, 28, 0.76);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 12px 30px rgba(0,0,0,0.22);
+    max-width: calc(100% - 20px);
   }
 
   .control-btn {
-    flex: 0 0 auto;
     border: none;
     border-radius: 999px;
-    padding: 10px 14px;
+    padding: 10px 12px;
     font-size: 13px;
-    font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
     background: #fff;
-    color: #111827;
-  }
-
-  .danger-btn {
-    background: #ef4444;
-    color: #fff;
-  }
-
-  .remote-video-box video,
-  .remote-video-box .agora_video_player,
-  .remote-video-box .agora_video_player video,
-  .remote-video-box > div,
-  .local-pip video,
-  .local-pip .agora_video_player,
-  .local-pip .agora_video_player video,
-  .local-pip > div {
-    width: 100% !important;
-    height: 100% !important;
-    border-radius: inherit;
-    overflow: hidden;
-    background: #000;
-  }
-
-  .remote-video-box video,
-  .remote-video-box .agora_video_player video,
-  .remote-video-box > div > video {
-    object-fit: contain !important;
-    object-position: center center !important;
-  }
-
-  .local-pip video,
-  .local-pip .agora_video_player video,
-  .local-pip > div > video {
-    object-fit: cover !important;
-    object-position: center center !important;
-    transform: scaleX(-1);
-  }
-
-  .remote-video-box.is-empty,
-  .local-pip.is-empty {
-    background:
-      linear-gradient(180deg, rgba(30, 41, 59, 0.22), rgba(15, 23, 42, 0.96)),
-      #111827;
-  }
-
-  .remote-video-box:not(.is-empty) .video-placeholder,
-  .local-pip:not(.is-empty) .video-placeholder {
-    display: none;
   }
 
   .panel-tabs {
@@ -495,38 +405,6 @@
     font-size: 14px;
   }
 
-  @media (max-width: 680px) {
-    .session-topbar {
-      align-items: flex-start;
-      flex-direction: column;
-    }
-
-    .topbar-actions {
-      width: 100%;
-      justify-content: space-between;
-    }
-
-    .video-surface {
-      min-height: clamp(360px, 72vh, 640px);
-    }
-
-    .local-pip-wrap {
-      top: 10px;
-      right: 10px;
-      width: min(30vw, 110px);
-      height: min(40vw, 146px);
-      min-width: 82px;
-      min-height: 108px;
-    }
-
-    .call-controls-overlay {
-      left: 10px;
-      right: 10px;
-      bottom: 10px;
-      padding: 8px;
-    }
-  }
-
   @media (min-width: 960px) {
     .live-room-grid {
       grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr);
@@ -534,20 +412,16 @@
     }
 
     .bottom-panel {
-      min-height: 640px;
+      min-height: 560px;
     }
 
     .chat-messages {
-      max-height: 510px;
-    }
-
-    .video-surface {
-      min-height: 620px;
+      max-height: 430px;
     }
 
     .local-pip-wrap {
-      width: 150px;
-      height: 200px;
+      width: 22%;
+      max-width: 150px;
     }
   }
 </style>
@@ -573,80 +447,6 @@
   const chatInput = document.getElementById("chat-input");
   const fileInput = document.getElementById("file-input");
   const filesBox = document.getElementById("files-box");
-  const remotePlayerEl = document.getElementById(remoteMainPlayerId);
-  const localPlayerEl = document.getElementById(localPlayerId);
-  const localPipWrapEl = document.getElementById("local-pip-wrap");
-  const videoSurfaceEl = document.getElementById("video-surface");
-
-  const pipState = {
-    dragging: false,
-    pointerId: null,
-    startX: 0,
-    startY: 0,
-    originLeft: null,
-    originTop: null,
-  };
-
-  function clamp(value, min, max) {
-    return Math.min(Math.max(value, min), max);
-  }
-
-  function setPipPosition(left, top) {
-    const surfaceRect = videoSurfaceEl.getBoundingClientRect();
-    const pipRect = localPipWrapEl.getBoundingClientRect();
-    const maxLeft = Math.max(0, surfaceRect.width - pipRect.width);
-    const maxTop = Math.max(0, surfaceRect.height - pipRect.height);
-
-    const nextLeft = clamp(left, 0, maxLeft);
-    const nextTop = clamp(top, 0, maxTop);
-
-    localPipWrapEl.style.left = `${nextLeft}px`;
-    localPipWrapEl.style.top = `${nextTop}px`;
-    localPipWrapEl.style.right = "auto";
-    localPipWrapEl.style.bottom = "auto";
-  }
-
-  function resetPipToDefault() {
-    localPipWrapEl.style.left = "auto";
-    localPipWrapEl.style.top = "12px";
-    localPipWrapEl.style.right = "12px";
-    localPipWrapEl.style.bottom = "auto";
-  }
-
-  function handlePipPointerDown(event) {
-    if (event.target.closest("button") || event.target.closest("a") || event.target.closest("input")) return;
-
-    const surfaceRect = videoSurfaceEl.getBoundingClientRect();
-    const pipRect = localPipWrapEl.getBoundingClientRect();
-
-    pipState.dragging = true;
-    pipState.pointerId = event.pointerId;
-    pipState.startX = event.clientX;
-    pipState.startY = event.clientY;
-    pipState.originLeft = pipRect.left - surfaceRect.left;
-    pipState.originTop = pipRect.top - surfaceRect.top;
-
-    localPipWrapEl.classList.add("dragging");
-    if (localPipWrapEl.setPointerCapture) {
-      localPipWrapEl.setPointerCapture(event.pointerId);
-    }
-    event.preventDefault();
-  }
-
-  function handlePipPointerMove(event) {
-    if (!pipState.dragging || event.pointerId !== pipState.pointerId) return;
-
-    const deltaX = event.clientX - pipState.startX;
-    const deltaY = event.clientY - pipState.startY;
-    setPipPosition(pipState.originLeft + deltaX, pipState.originTop + deltaY);
-  }
-
-  function handlePipPointerUp(event) {
-    if (event.pointerId !== pipState.pointerId) return;
-    pipState.dragging = false;
-    pipState.pointerId = null;
-    localPipWrapEl.classList.remove("dragging");
-  }
 
   function activateTab(tabName) {
     document.getElementById("tab-chat").classList.remove("active");
@@ -671,29 +471,8 @@
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/\"/g, "&quot;")
+      .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
-  }
-
-  function markRemoteEmpty(message = "Waiting for remote participant") {
-    remotePlayerEl.classList.add("is-empty");
-    remotePlayerEl.innerHTML = `<div class="video-placeholder">${escapeHtml(message)}</div>`;
-    remoteMainUid = null;
-  }
-
-  function markLocalEmpty(message = currentRole === "admin" ? "Admin observer" : "Your video") {
-    localPlayerEl.classList.add("is-empty");
-    localPlayerEl.innerHTML = `<div class="video-placeholder video-placeholder-small">${escapeHtml(message)}</div>`;
-  }
-
-  function markRemoteActive() {
-    remotePlayerEl.classList.remove("is-empty");
-    remotePlayerEl.innerHTML = "";
-  }
-
-  function markLocalActive() {
-    localPlayerEl.classList.remove("is-empty");
-    localPlayerEl.innerHTML = "";
   }
 
   function renderFiles(messages) {
@@ -850,7 +629,9 @@
   }
 
   function clearRemoteMain() {
-    markRemoteEmpty();
+    const remoteMain = document.getElementById(remoteMainPlayerId);
+    remoteMain.innerHTML = "Waiting for remote participant";
+    remoteMainUid = null;
   }
 
   async function confirmConnected() {
@@ -885,8 +666,7 @@
 
         if (mediaType === "video") {
           remoteMainUid = user.uid;
-          markRemoteActive();
-          user.videoTrack.play(remoteMainPlayerId, { fit: "contain" });
+          user.videoTrack.play(remoteMainPlayerId);
         }
 
         if (mediaType === "audio") {
@@ -910,12 +690,11 @@
 
       if (rtc.role === "host") {
         localTracks.audio = await AgoraRTC.createMicrophoneAudioTrack();
-        localTracks.video = await AgoraRTC.createCameraVideoTrack({ encoderConfig: "720p_2" });
-        markLocalActive();
+        localTracks.video = await AgoraRTC.createCameraVideoTrack();
         await client.publish([localTracks.audio, localTracks.video]);
-        localTracks.video.play(localPlayerId, { fit: "cover", mirror: true });
+        localTracks.video.play(localPlayerId);
       } else {
-        markLocalEmpty("Admin observer");
+        document.getElementById(localPlayerId).innerText = "Admin observer";
       }
 
       const connectedData = await confirmConnected();
@@ -940,8 +719,6 @@
 
       client = null;
       joined = false;
-      clearRemoteMain();
-      markLocalEmpty();
     }
   }
 
@@ -966,7 +743,8 @@
 
       joined = false;
       clearRemoteMain();
-      markLocalEmpty();
+      document.getElementById(localPlayerId).innerHTML =
+        currentRole === "admin" ? "Admin observer" : "Your video";
 
       await checkSessionStatus();
       appendSystemMessage("You left the session.");
@@ -1004,21 +782,6 @@
     }
   });
 
-  localPipWrapEl.addEventListener("pointerdown", handlePipPointerDown);
-  localPipWrapEl.addEventListener("pointermove", handlePipPointerMove);
-  localPipWrapEl.addEventListener("pointerup", handlePipPointerUp);
-  localPipWrapEl.addEventListener("pointercancel", handlePipPointerUp);
-  window.addEventListener("resize", () => {
-    if (localPipWrapEl.style.left && localPipWrapEl.style.left !== "auto") {
-      const currentLeft = parseFloat(localPipWrapEl.style.left || "0");
-      const currentTop = parseFloat(localPipWrapEl.style.top || "0");
-      setPipPosition(currentLeft, currentTop);
-    }
-  });
-
-  resetPipToDefault();
-  markRemoteEmpty();
-  markLocalEmpty();
   loadMessages();
   checkSessionStatus();
   startStatusPolling();

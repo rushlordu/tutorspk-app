@@ -49,29 +49,24 @@
         <a class="btn btn-light" href="{{ tutor.demo_video_url }}" target="_blank" rel="noopener">Watch Demo</a>
       {% endif %}
 
-      {% if current_user.is_authenticated and current_user.role == 'student' %}
-        <div class="tutor-cta-box">
-
-  <a class="btn btn-primary"
-     {% if current_user.is_authenticated %}
+      <div class="tutor-cta-box">
+  {% if current_user.is_authenticated and current_user.role == 'student' %}
     <a class="btn btn-primary"
-     href="{{ url_for('select_tutor', tutor_id=tutor.id) }}">
-     Select Tutor
+       href="{{ url_for('select_tutor', tutor_id=tutor.id) }}">
+      Select Tutor
     </a>
-      {% else %}
-        <a class="btn btn-primary"
-          href="{{ url_for('login', next=url_for('tutor_profile', tutor_id=tutor.id)) }}">
-          Login to Book
-        </a>
-      {% endif %}
-  </a>
+  {% else %}
+    <a class="btn btn-primary"
+       href="{{ url_for('login', next=url_for('tutor_profile', tutor_id=tutor.id)) }}">
+      Login to Book
+    </a>
+  {% endif %}
 
   <p class="muted small">
     Choose subject, level and session details before booking
   </p>
-
 </div>
-      {% endif %}
+
     </div>
   </div>
 
