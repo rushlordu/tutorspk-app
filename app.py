@@ -535,6 +535,30 @@ class Booking(db.Model):
     room_code = db.Column(db.String(50), default=lambda: uuid4().hex[:10])
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class TutorAvailabilityRule(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    tutor_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    weekday = db.Column(db.Integer, nullable=False)  # 0 = Monday, 6 = Sunday
+    start_time = db.Column(db.String(5), nullable=False)  # HH:MM
+    end_time = db.Column(db.String(5), nullable=False)    # HH:MM
+    slot_minutes = db.Column(db.Integer, default=60)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    tutor = db.relationship("User", backref="availability_rules")
+
+
+class TutorAvailabilityException(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    tutor_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    exception_date = db.Column(db.Date, nullable=False)
+    start_time = db.Column(db.String(5), default="")      # optional HH:MM
+    end_time = db.Column(db.String(5), default="")        # optional HH:MM
+    is_blocked = db.Column(db.Boolean, default=True)      # True = blocked/unavailable
+    note = db.Column(db.String(255), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    tutor = db.relationship("User", backref="availability_exceptions")
 
 class CreditTransaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -2017,10 +2041,165 @@ def settings():
         flash("Settings updated successfully.", "success")
         return redirect(url_for("settings"))
 
-    return render_template("settings.html")
+    availability_rules = []
+    availability_exceptions = []
+
+    if current_user.role == "tutor":
+        availability_rules = (
+            TutorAvailabilityRule.query
+            .filter_by(tutor_id=current_user.id)
+            .order_by(TutorAvailabilityRule.weekday.asc(), TutorAvailabilityRule.start_time.asc())
+            .all()
+        )
+        availability_exceptions = (
+            TutorAvailabilityException.query
+            .filter_by(tutor_id=current_user.id)
+            .order_by(TutorAvailabilityException.exception_date.desc())
+            .all()
+        )
+
+    return render_template(
+        "settings.html",
+        availability_rules=availability_rules,
+        availability_exceptions=availability_exceptions,
+    )
+
+@app.route("/settings/availability/add", methods=["POST"])
+@login_required
+def add_availability_rule():
+    if current_user.role != "tutor":
+        flash("Only tutors can manage availability.", "danger")
+        return redirect(url_for("settings"))
+
+    weekday_raw = (request.form.get("weekday", "") or "").strip()
+    start_time = (request.form.get("start_time", "") or "").strip()
+    end_time = (request.form.get("end_time", "") or "").strip()
+    slot_minutes_raw = (request.form.get("slot_minutes", "") or "60").strip()
+
+    if weekday_raw == "" or not start_time or not end_time:
+        flash("Please fill weekday, start time, and end time.", "danger")
+        return redirect(url_for("settings"))
+
+    try:
+        weekday = int(weekday_raw)
+        slot_minutes = int(slot_minutes_raw or 60)
+    except ValueError:
+        flash("Invalid availability values.", "danger")
+        return redirect(url_for("settings"))
+
+    if weekday < 0 or weekday > 6:
+        flash("Weekday must be between 0 and 6.", "danger")
+        return redirect(url_for("settings"))
+
+    rule = TutorAvailabilityRule(
+        tutor_id=current_user.id,
+        weekday=weekday,
+        start_time=start_time,
+        end_time=end_time,
+        slot_minutes=slot_minutes if slot_minutes > 0 else 60,
+        is_active=True,
+    )
+    db.session.add(rule)
+    db.session.commit()
+
+    flash("Availability rule added.", "success")
+    return redirect(url_for("settings"))
+
+
+@app.route("/settings/availability/<int:rule_id>/delete", methods=["POST"])
+@login_required
+def delete_availability_rule(rule_id):
+    if current_user.role != "tutor":
+        flash("Only tutors can manage availability.", "danger")
+        return redirect(url_for("settings"))
+
+    rule = TutorAvailabilityRule.query.get_or_404(rule_id)
+    if rule.tutor_id != current_user.id:
+        flash("Unauthorized.", "danger")
+        return redirect(url_for("settings"))
+
+    db.session.delete(rule)
+    db.session.commit()
+
+    flash("Availability rule deleted.", "success")
+    return redirect(url_for("settings"))
+
+@app.route("/settings/availability/preset", methods=["POST"])
+@login_required
+def apply_availability_preset():
+    if current_user.role != "tutor":
+        flash("Only tutors can manage availability.", "danger")
+        return redirect(url_for("settings"))
+
+    preset = (request.form.get("preset", "") or "").strip()
+
+    preset_map = {
+        "weekdays_9_5": [
+            (0, "09:00", "17:00"),
+            (1, "09:00", "17:00"),
+            (2, "09:00", "17:00"),
+            (3, "09:00", "17:00"),
+            (4, "09:00", "17:00"),
+        ],
+        "weekends_10_8": [
+            (5, "10:00", "20:00"),
+            (6, "10:00", "20:00"),
+        ],
+        "allweek_9_5": [
+            (0, "09:00", "17:00"),
+            (1, "09:00", "17:00"),
+            (2, "09:00", "17:00"),
+            (3, "09:00", "17:00"),
+            (4, "09:00", "17:00"),
+            (5, "09:00", "17:00"),
+            (6, "09:00", "17:00"),
+        ],
+        "allweek_6_10": [
+            (0, "18:00", "22:00"),
+            (1, "18:00", "22:00"),
+            (2, "18:00", "22:00"),
+            (3, "18:00", "22:00"),
+            (4, "18:00", "22:00"),
+            (5, "18:00", "22:00"),
+            (6, "18:00", "22:00"),
+        ],
+    }
+
+    if preset not in preset_map:
+        flash("Invalid preset selected.", "danger")
+        return redirect(url_for("settings"))
+
+    slot_minutes_raw = (request.form.get("slot_minutes", "") or "60").strip()
+    try:
+        slot_minutes = int(slot_minutes_raw or 60)
+    except ValueError:
+        slot_minutes = 60
+
+    for weekday, start_time, end_time in preset_map[preset]:
+        existing = TutorAvailabilityRule.query.filter_by(
+            tutor_id=current_user.id,
+            weekday=weekday,
+            start_time=start_time,
+            end_time=end_time,
+        ).first()
+
+        if not existing:
+            db.session.add(
+                TutorAvailabilityRule(
+                    tutor_id=current_user.id,
+                    weekday=weekday,
+                    start_time=start_time,
+                    end_time=end_time,
+                    slot_minutes=slot_minutes if slot_minutes > 0 else 60,
+                    is_active=True,
+                )
+            )
+
+    db.session.commit()
+    flash("Availability preset applied. You can now tailor individual days if needed.", "success")
+    return redirect(url_for("settings"))
 
 @app.route("/tutors")
-
 def tutors():
     level = request.args.get("level", "").strip()
     subject = request.args.get("subject", "").strip()

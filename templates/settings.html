@@ -66,6 +66,96 @@
       <button class="btn btn-primary" type="submit">Save Settings</button>
     </div>
   </form>
+  {% if current_user.role == 'tutor' %}
+  <hr style="margin:24px 0;">
+
+  <h2>Weekly Availability</h2>
+  <p class="muted">Add the time windows when students can request sessions from you.</p>
+
+<div style="margin-top:20px; margin-bottom:24px;">
+  <h3>Quick Setup Templates</h3>
+  <p class="muted">Apply a ready-made schedule in one click, then adjust individual days below.</p>
+
+  <form method="post" action="{{ url_for('apply_availability_preset') }}" class="form-grid two-col">
+    <div>
+      <label class="small-label">Template</label>
+      <select name="preset" required>
+        <option value="">Select template</option>
+        <option value="weekdays_9_5">Weekdays · 9 AM to 5 PM</option>
+        <option value="weekends_10_8">Weekends · 10 AM to 8 PM</option>
+        <option value="allweek_9_5">All week · 9 AM to 5 PM</option>
+        <option value="allweek_6_10">All week · 6 PM to 10 PM</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="small-label">Slot Length (minutes)</label>
+      <input type="number" name="slot_minutes" value="60" min="15" step="15">
+    </div>
+
+    <div class="full-width">
+      <button class="btn btn-light" type="submit">Apply Template</button>
+    </div>
+  </form>
+</div>
+
+  <form method="post" action="{{ url_for('add_availability_rule') }}" class="form-grid two-col" style="margin-top:16px;">
+    <div>
+      <label class="small-label">Weekday</label>
+      <select name="weekday" required>
+        <option value="">Select day</option>
+        <option value="0">Monday</option>
+        <option value="1">Tuesday</option>
+        <option value="2">Wednesday</option>
+        <option value="3">Thursday</option>
+        <option value="4">Friday</option>
+        <option value="5">Saturday</option>
+        <option value="6">Sunday</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="small-label">Slot Length (minutes)</label>
+      <input type="number" name="slot_minutes" value="60" min="15" step="15">
+    </div>
+
+    <div>
+      <label class="small-label">Start Time</label>
+      <input type="time" name="start_time" required>
+    </div>
+
+    <div>
+      <label class="small-label">End Time</label>
+      <input type="time" name="end_time" required>
+    </div>
+
+    <div class="full-width">
+      <button class="btn btn-primary" type="submit">Add Availability Rule</button>
+    </div>
+  </form>
+
+  <div style="margin-top:24px;">
+    <h3>Current Availability Rules</h3>
+
+    {% set weekday_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] %}
+
+    {% for rule in availability_rules %}
+      <div class="list-row" style="margin-bottom:10px;">
+        <div>
+          <strong>{{ weekday_names[rule.weekday] }}</strong>
+          <p class="muted">{{ rule.start_time }} to {{ rule.end_time }} · {{ rule.slot_minutes }} min slots</p>
+        </div>
+        <div class="text-right">
+          <form method="post" action="{{ url_for('delete_availability_rule', rule_id=rule.id) }}" style="display:inline;">
+            <button class="btn btn-light" type="submit">Delete</button>
+          </form>
+        </div>
+      </div>
+    {% else %}
+          <p class="muted">No availability rules added yet.</p>
+        {% endfor %}
+      </div>
+    {% endif %}
 </section>
 
 {% endblock %}
