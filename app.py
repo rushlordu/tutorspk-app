@@ -1,7 +1,7 @@
 import os
 import re
 import smtplib
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from pathlib import Path
 from uuid import uuid4
 from dotenv import load_dotenv
@@ -10,6 +10,7 @@ from email.mime.multipart import MIMEMultipart
 from sqlalchemy import text
 from rtc.extensions import db
 from rtc import rtc_bp
+import calendar
 
 from flask import (
     Flask,
@@ -50,6 +51,120 @@ def get_youtube_embed(url):
         return url.replace("watch?v=", "embed/")
 
     return url
+
+def hhmm_to_minutes(value: str) -> int:
+    try:
+        hours, minutes = value.split(":")
+        return int(hours) * 60 + int(minutes)
+    except Exception:
+        return 0
+
+
+def minutes_to_hhmm(total_minutes: int) -> str:
+    hours = total_minutes // 60
+    minutes = total_minutes % 60
+    return f"{hours:02d}:{minutes:02d}"
+
+
+def build_slots_for_date(tutor, target_date):
+    weekday = target_date.weekday()
+
+    rules = (
+        TutorAvailabilityRule.query
+        .filter_by(tutor_id=tutor.id, weekday=weekday, is_active=True)
+        .order_by(TutorAvailabilityRule.start_time.asc())
+        .all()
+    )
+
+    exceptions = (
+        TutorAvailabilityException.query
+        .filter_by(tutor_id=tutor.id, exception_date=target_date)
+        .all()
+    )
+
+    slots = []
+
+    for rule in rules:
+        start_minutes = hhmm_to_minutes(rule.start_time)
+        end_minutes = hhmm_to_minutes(rule.end_time)
+        slot_minutes = int(rule.slot_minutes or 60)
+
+        current = start_minutes
+        while current + slot_minutes <= end_minutes:
+            slot_start = minutes_to_hhmm(current)
+            slot_end = minutes_to_hhmm(current + slot_minutes)
+
+            blocked = False
+            for ex in exceptions:
+                if ex.is_blocked:
+                    if not ex.start_time and not ex.end_time:
+                        blocked = True
+                        break
+
+                    ex_start = hhmm_to_minutes(ex.start_time or "00:00")
+                    ex_end = hhmm_to_minutes(ex.end_time or "23:59")
+                    slot_start_m = hhmm_to_minutes(slot_start)
+                    slot_end_m = hhmm_to_minutes(slot_end)
+
+                    if slot_start_m < ex_end and slot_end_m > ex_start:
+                        blocked = True
+                        break
+
+            if not blocked:
+                slots.append({
+                    "start": slot_start,
+                    "end": slot_end,
+                    "datetime_local": f"{target_date.isoformat()}T{slot_start}",
+                    "label": f"{slot_start} - {slot_end}",
+                })
+
+            current += slot_minutes
+
+    return slots
+
+
+def build_calendar_for_tutor(tutor, year: int, month: int):
+    cal = calendar.Calendar(firstweekday=0)
+    weeks = []
+    month_matrix = cal.monthdatescalendar(year, month)
+
+    for week in month_matrix:
+        week_cells = []
+        for day_obj in week:
+            in_month = day_obj.month == month
+            day_slots = build_slots_for_date(tutor, day_obj) if in_month else []
+            week_cells.append({
+                "date": day_obj,
+                "day": day_obj.day,
+                "in_month": in_month,
+                "slots": day_slots,
+                "slot_count": len(day_slots),
+                "has_slots": len(day_slots) > 0,
+                "timing_preview": ", ".join(
+                    f"{slot['start']}" for slot in day_slots[:2]
+                ) + ("..." if len(day_slots) > 2 else "")
+            })
+        weeks.append(week_cells)
+
+    return weeks
+
+def build_week_schedule_for_tutor(tutor, anchor_date):
+    week_start = anchor_date - timedelta(days=anchor_date.weekday())
+    week_days = []
+
+    for offset in range(7):
+        day_obj = week_start + timedelta(days=offset)
+        slots = build_slots_for_date(tutor, day_obj)
+        week_days.append({
+            "date": day_obj,
+            "day_name": calendar.day_abbr[day_obj.weekday()],
+            "day_number": day_obj.day,
+            "slots": slots,
+            "has_slots": len(slots) > 0,
+        })
+
+    return week_start, week_days
+
 
 def send_email(to_email, subject, body, is_html=False, reply_to=None):
     try:
@@ -2327,13 +2442,69 @@ def tutor_profile(tutor_id):
             tutor_id=tutor.id,
             status="completed",
         ).all()
+
     youtube_embed = get_youtube_embed(tutor.demo_video_url)
-    
+
+    today = date.today()
+
+    selected_date_str = request.args.get("selected_date", "").strip()
+    week_start_str = request.args.get("week_start", "").strip()
+
+    anchor_date = today
+    if week_start_str:
+        try:
+            anchor_date = datetime.strptime(week_start_str, "%Y-%m-%d").date()
+        except ValueError:
+            anchor_date = today
+    elif selected_date_str:
+        try:
+            anchor_date = datetime.strptime(selected_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            anchor_date = today
+
+    week_start, week_days = build_week_schedule_for_tutor(tutor, anchor_date)
+    week_end = week_start + timedelta(days=6)
+
+    selected_date = None
+    selected_slots = []
+
+    if selected_date_str:
+        try:
+            selected_date = datetime.strptime(selected_date_str, "%Y-%m-%d").date()
+            selected_slots = build_slots_for_date(tutor, selected_date)
+        except ValueError:
+            selected_date = None
+            selected_slots = []
+
+    if not selected_date:
+        first_day_with_slots = next((d for d in week_days if d["has_slots"]), None)
+        if first_day_with_slots:
+            selected_date = first_day_with_slots["date"]
+            selected_slots = first_day_with_slots["slots"]
+
+    prev_week_start = week_start - timedelta(days=7)
+    next_week_start = week_start + timedelta(days=7)
+
+    if week_start.month == week_end.month:
+        schedule_range_label = f"{calendar.month_abbr[week_start.month]} {week_start.day}–{week_end.day}, {week_end.year}"
+    else:
+        schedule_range_label = (
+            f"{calendar.month_abbr[week_start.month]} {week_start.day} – "
+            f"{calendar.month_abbr[week_end.month]} {week_end.day}, {week_end.year}"
+        )
+
     return render_template(
     "tutor_profile.html",
     tutor=tutor,
     completed_bookings=completed_bookings,
-    youtube_embed=youtube_embed
+    youtube_embed=youtube_embed,
+    week_days=week_days,
+    week_start=week_start,
+    prev_week_start=prev_week_start,
+    next_week_start=next_week_start,
+    schedule_range_label=schedule_range_label,
+    selected_date=selected_date,
+    selected_slots=selected_slots,
     )
 
 @app.route("/submit-tutor", methods=["POST"])
@@ -2370,7 +2541,7 @@ def book_tutor(tutor_id):
 
     subject = request.args.get("subject", "")
     level = request.args.get("level", "")
-
+    scheduled_at_prefill = request.args.get("scheduled_at", "").strip()
 
     if request.method == "POST":
         credits_cost = int(request.form.get("credits_cost", 100))
@@ -2410,7 +2581,8 @@ def book_tutor(tutor_id):
                 subject_options=SUBJECT_OPTIONS,
                 level_options=LEVEL_OPTIONS,
                 subject_prefill=subject,
-                level_prefill=level
+                level_prefill=level,
+                scheduled_at_prefill=scheduled_at_prefill,
         )
     
 

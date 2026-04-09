@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<section class="grid two profile-layout tutor-profile-layout-refined">
+
+  <div class="card tutor-profile-main">
+    <div class="tutor-profile-top">
+      <img class="profile-pic profile-pic-large" src="{{ media_url(tutor.profile_image) }}" alt="{{ tutor.public_name }}">
+      <div class="tutor-profile-intro">
+        <div class="profile-title-row">
+          <h1>{{ tutor.public_name }}</h1>
+          {% if tutor.is_verified_tutor %}
+            <span class="verified-pill">Verified</span>
+          {% endif %}
+        </div>
+
+        <p class="muted tutor-profile-qual">{{ tutor.qualification or 'Qualified tutor' }}</p>
+
+        <div class="badges">
+          {% if tutor.tutor_category %}<span class="badge">{{ tutor.tutor_category }}</span>{% endif %}
+          {% if tutor.audio_only %}<span class="badge alt">Audio-first</span>{% endif %}
+          {% if tutor.modest_profile %}<span class="badge alt">Modest / veiled option</span>{% endif %}
+        </div>
+
+        <p class="tutor-bio-text">{{ tutor.bio or 'Qualified online tutor available through TutorsOnline.pk.' }}</p>
+      </div>
+    </div>
+
+    <div class="profile-stat-grid">
+      <div class="profile-stat-card">
+        <span class="profile-stat-label">Subjects</span>
+        <strong>{{ tutor.subjects or 'Not added yet' }}</strong>
+      </div>
+      <div class="profile-stat-card">
+        <span class="profile-stat-label">Levels</span>
+        <strong>{{ tutor.class_levels or 'Not added yet' }}</strong>
+      </div>
+      <div class="profile-stat-card">
+        <span class="profile-stat-label">Experience</span>
+        <strong>{{ tutor.experience_years or 0 }} years</strong>
+      </div>
+      <div class="profile-stat-card">
+        <span class="profile-stat-label">Rating</span>
+        <strong>⭐ {{ '%.1f'|format(tutor.rating_avg) }}{% if tutor.rating_count %} ({{ tutor.rating_count }} reviews){% endif %}</strong>
+      </div>
+    </div>
+
+    <div class="tutor-cta-box">
+      {% if current_user.is_authenticated and current_user.role == 'student' %}
+        <a class="btn btn-primary" href="{{ url_for('select_tutor', tutor_id=tutor.id) }}">
+          Select Tutor
+        </a>
+      {% else %}
+        <a class="btn btn-primary" href="{{ url_for('login', next=url_for('tutor_profile', tutor_id=tutor.id)) }}">
+          Login to Book
+        </a>
+      {% endif %}
+
+      <p class="muted small">
+        Choose subject, level and session details before booking
+      </p>
+    </div>
+  </div>
+
+ <div class="profile-side-stack">
+
+  <section class="card">
+    <h2>Demo Session</h2>
+
+    {% if tutor.demo_video_file %}
+      <div style="margin-bottom:16px;">
+        <video controls style="width:100%; max-height:320px; object-fit:contain; border-radius:12px; background:#000;">
+          <source src="{{ url_for('uploaded_file', filename=tutor.demo_video_file) }}">
+        </video>
+      </div>
+    {% endif %}
+
+    {% if youtube_embed %}
+      <div style="position:relative; padding-top:56.25%; margin-bottom:16px;">
+        <iframe
+          src="{{ youtube_embed }}"
+          style="position:absolute; top:0; left:0; width:100%; height:100%; border-radius:12px; border:0;"
+          allowfullscreen>
+        </iframe>
+      </div>
+    {% elif tutor.demo_video_url %}
+      <div style="margin-bottom:16px;">
+        <a class="btn btn-light" href="{{ tutor.demo_video_url }}" target="_blank" rel="noopener">
+          Open Demo Link
+        </a>
+      </div>
+    {% endif %}
+
+    {% if not tutor.demo_video_file and not tutor.demo_video_url %}
+      <p class="muted">No demo video available yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <div class="calendar-head">
+      <h2>Availability</h2>
+      <div class="calendar-nav">
+        <a class="btn btn-light small-btn" href="{{ url_for('tutor_profile', tutor_id=tutor.id, month=prev_month, year=prev_year) }}">←</a>
+        <span class="muted">{{ calendar_month_label }}</span>
+        <a class="btn btn-light small-btn" href="{{ url_for('tutor_profile', tutor_id=tutor.id, month=next_month, year=next_year) }}">→</a>
+      </div>
+    </div>
+
+    <div class="calendar-weekdays">
+      <span>Mon</span>
+      <span>Tue</span>
+      <span>Wed</span>
+      <span>Thu</span>
+      <span>Fri</span>
+      <span>Sat</span>
+      <span>Sun</span>
+    </div>
+
+    <div class="availability-calendar">
+      {% for week in calendar_weeks %}
+        {% for cell in week %}
+          {% if cell.in_month %}
+            <a
+              href="{{ url_for('tutor_profile', tutor_id=tutor.id, month=current_month, year=current_year, selected_date=cell.date.isoformat()) }}"
+              class="calendar-cell {% if cell.has_slots %}is-available{% endif %} {% if selected_date and cell.date == selected_date %}is-selected{% endif %}">
+              <strong>{{ cell.day }}</strong>
+              <small>
+                {% if cell.has_slots %}
+                  {{ cell.timing_preview or (cell.slot_count ~ ' slots') }}
+                {% else %}
+                  -
+                {% endif %}
+              </small>
+            </a>
+          {% else %}
+            <div class="calendar-cell is-muted">
+              <strong>{{ cell.day }}</strong>
+            </div>
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+    </div>
+
+    {% if selected_date %}
+      <div class="selected-slots-wrap">
+        <h3>Available Slots — {{ selected_date.strftime('%d %b %Y') }}</h3>
+
+        {% if selected_slots %}
+          <div class="slot-list">
+            {% for slot in selected_slots %}
+              <a
+                class="slot-chip"
+                href="{{ url_for('book_tutor', tutor_id=tutor.id, scheduled_at=slot.datetime_local) }}">
+                {{ slot.label }}
+              </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="muted">No slots available on this date.</p>
+        {% endif %}
+      </div>
+    {% endif %}
+  </section>
+
+</div>
+
+</section>
+
+<section class="card">
+  <h2>Recent Feedback</h2>
+  {% for item in tutor.feedback_received[:5] %}
+    <div class="review">
+      <strong>{{ item.student.public_name }}</strong> · ⭐ {{ item.rating }}
+      <p>{{ item.comment or 'Positive learning experience.' }}</p>
+    </div>
+  {% else %}
+    <p>No public reviews yet.</p>
+  {% endfor %}
+</section>
+
+{% if current_user.is_authenticated and current_user.role == 'student' and completed_bookings %}
+<section class="card feedback-form-card">
+  <h2>Leave Feedback</h2>
+  <p class="muted">Share your experience to help other students and parents.</p>
+
+  <form method="post" class="form-grid two-col">
+    <select name="booking_id" required>
+      {% for booking in completed_bookings %}
+      <option value="{{ booking.id }}">Booking #{{ booking.id }} - {{ booking.subject }}</option>
+      {% endfor %}
+    </select>
+
+    <input name="rating" type="number" min="1" max="5" placeholder="Overall rating" required>
+    <input name="punctuality" type="number" min="1" max="5" placeholder="Punctuality" required>
+    <input name="explanation" type="number" min="1" max="5" placeholder="Explanation clarity" required>
+    <input name="professionalism" type="number" min="1" max="5" placeholder="Professionalism" required>
+
+    <textarea name="comment" placeholder="Write a short comment"></textarea>
+
+    <button class="btn" type="submit">Submit Feedback</button>
+  </form>
+</section>
+{% endif %}
+
+{% endblock %}
