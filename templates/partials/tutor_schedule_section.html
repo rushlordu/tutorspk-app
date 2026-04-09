@@ -1,0 +1,57 @@
+<section class="preply-card schedule-card" id="schedule">
+  <h2>Schedule</h2>
+
+  <div class="schedule-note">
+    Pick a day to view available lesson slots.
+  </div>
+
+  <div class="calendar-head">
+    <div>
+      <strong>{{ schedule_range_label }}</strong>
+    </div>
+
+    <div class="calendar-nav">
+      <a
+        class="btn btn-light small-btn js-schedule-link"
+        href="{{ url_for('tutor_profile', tutor_id=tutor.id, week_start=prev_week_start.isoformat(), fragment='schedule') }}"
+      >
+        ← Prev
+      </a>
+
+      <a
+        class="btn btn-light small-btn js-schedule-link"
+        href="{{ url_for('tutor_profile', tutor_id=tutor.id, week_start=next_week_start.isoformat(), fragment='schedule') }}"
+      >
+        Next →
+      </a>
+    </div>
+  </div>
+
+  <div class="week-strip">
+    {% for day in week_days %}
+      <div class="week-day-card {% if day.has_slots %}has-slots{% endif %} {% if selected_date and day.date == selected_date %}is-active{% endif %}">
+        <a
+          class="week-day-head js-schedule-link"
+          href="{{ url_for('tutor_profile', tutor_id=tutor.id, week_start=week_start.isoformat(), selected_date=day.date.isoformat(), fragment='schedule') }}"
+          style="text-decoration:none;"
+        >
+          <span class="week-day-name">{{ day.day_name }}</span>
+          <span class="week-day-number">{{ day.day_number }}</span>
+        </a>
+
+        <div class="week-day-slots">
+          {% if day.slots %}
+            {% for slot in day.slots %}
+              <a
+                class="week-slot-link"
+                href="{{ url_for('book_tutor', tutor_id=tutor.id, scheduled_at=slot.datetime_local) }}"
+              >
+                {{ slot.start }}
+              </a>
+            {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</section>

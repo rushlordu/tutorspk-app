@@ -122,6 +122,68 @@ def build_slots_for_date(tutor, target_date):
 
     return slots
 
+def get_tutor_schedule_context(tutor):
+    today = date.today()
+
+    selected_date_str = request.args.get("selected_date", "").strip()
+    week_start_str = request.args.get("week_start", "").strip()
+
+    anchor_date = today
+    if week_start_str:
+        try:
+            anchor_date = datetime.strptime(week_start_str, "%Y-%m-%d").date()
+        except ValueError:
+            anchor_date = today
+    elif selected_date_str:
+        try:
+            anchor_date = datetime.strptime(selected_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            anchor_date = today
+
+    week_start, week_days = build_week_schedule_for_tutor(tutor, anchor_date)
+    week_end = week_start + timedelta(days=6)
+
+    selected_date = None
+    selected_slots = []
+
+    if selected_date_str:
+        try:
+            selected_date = datetime.strptime(selected_date_str, "%Y-%m-%d").date()
+            selected_slots = build_slots_for_date(tutor, selected_date)
+        except ValueError:
+            selected_date = None
+            selected_slots = []
+
+    if not selected_date:
+        first_day_with_slots = next((d for d in week_days if d["has_slots"]), None)
+        if first_day_with_slots:
+            selected_date = first_day_with_slots["date"]
+            selected_slots = first_day_with_slots["slots"]
+
+    prev_week_start = week_start - timedelta(days=7)
+    next_week_start = week_start + timedelta(days=7)
+
+    if week_start.month == week_end.month:
+        schedule_range_label = f"{calendar.month_abbr[week_start.month]} {week_start.day}–{week_end.day}, {week_end.year}"
+    else:
+        schedule_range_label = (
+            f"{calendar.month_abbr[week_start.month]} {week_start.day} – "
+            f"{calendar.month_abbr[week_end.month]} {week_end.day}, {week_end.year}"
+        )
+
+    return {
+        "week_days": week_days,
+        "week_start": week_start,
+        "prev_week_start": prev_week_start,
+        "next_week_start": next_week_start,
+        "schedule_range_label": schedule_range_label,
+        "selected_date": selected_date,
+        "selected_slots": selected_slots,
+    }
+
+
+def is_htmx_like_request():
+    return request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
 def build_calendar_for_tutor(tutor, year: int, month: int):
     cal = calendar.Calendar(firstweekday=0)
@@ -2444,68 +2506,19 @@ def tutor_profile(tutor_id):
         ).all()
 
     youtube_embed = get_youtube_embed(tutor.demo_video_url)
+    schedule_ctx = get_tutor_schedule_context(tutor)
 
-    today = date.today()
-
-    selected_date_str = request.args.get("selected_date", "").strip()
-    week_start_str = request.args.get("week_start", "").strip()
-
-    anchor_date = today
-    if week_start_str:
-        try:
-            anchor_date = datetime.strptime(week_start_str, "%Y-%m-%d").date()
-        except ValueError:
-            anchor_date = today
-    elif selected_date_str:
-        try:
-            anchor_date = datetime.strptime(selected_date_str, "%Y-%m-%d").date()
-        except ValueError:
-            anchor_date = today
-
-    week_start, week_days = build_week_schedule_for_tutor(tutor, anchor_date)
-    week_end = week_start + timedelta(days=6)
-
-    selected_date = None
-    selected_slots = []
-
-    if selected_date_str:
-        try:
-            selected_date = datetime.strptime(selected_date_str, "%Y-%m-%d").date()
-            selected_slots = build_slots_for_date(tutor, selected_date)
-        except ValueError:
-            selected_date = None
-            selected_slots = []
-
-    if not selected_date:
-        first_day_with_slots = next((d for d in week_days if d["has_slots"]), None)
-        if first_day_with_slots:
-            selected_date = first_day_with_slots["date"]
-            selected_slots = first_day_with_slots["slots"]
-
-    prev_week_start = week_start - timedelta(days=7)
-    next_week_start = week_start + timedelta(days=7)
-
-    if week_start.month == week_end.month:
-        schedule_range_label = f"{calendar.month_abbr[week_start.month]} {week_start.day}–{week_end.day}, {week_end.year}"
-    else:
-        schedule_range_label = (
-            f"{calendar.month_abbr[week_start.month]} {week_start.day} – "
-            f"{calendar.month_abbr[week_end.month]} {week_end.day}, {week_end.year}"
-        )
-
-    return render_template(
-    "tutor_profile.html",
+    context = dict(
     tutor=tutor,
     completed_bookings=completed_bookings,
     youtube_embed=youtube_embed,
-    week_days=week_days,
-    week_start=week_start,
-    prev_week_start=prev_week_start,
-    next_week_start=next_week_start,
-    schedule_range_label=schedule_range_label,
-    selected_date=selected_date,
-    selected_slots=selected_slots,
+    **schedule_ctx,
     )
+
+    if is_htmx_like_request() and request.args.get("fragment") == "schedule":
+        return render_template("partials/tutor_schedule_section.html", **context)
+
+    return render_template("tutor_profile.html", **context)
 
 @app.route("/submit-tutor", methods=["POST"])
 @login_required

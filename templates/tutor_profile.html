@@ -555,38 +555,71 @@
   font-weight: 500;
 }
 
-.week-slots-grid {
+.week-strip {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
-  margin-bottom: 22px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  align-items: start;
+  margin-top: 14px;
 }
 
-.week-slot-column {
-  min-height: 120px;
+.week-day-card {
+  min-width: 0;
+  text-align: center;
+}
+
+.week-day-head {
+  display: block;
+  padding-top: 10px;
+  border-top: 4px solid #efc6d8;
+  color: inherit;
+}
+
+.week-day-card.has-slots .week-day-head {
+  border-top-color: #ea6aa9;
+}
+
+.week-day-card.is-active .week-day-head {
+  border-top-color: #9ca3af;
+}
+
+.week-day-name {
+  display: block;
+  font-size: 18px;
+  color: #52607a;
+  margin-top: 10px;
+}
+
+.week-day-number {
+  display: block;
+  font-size: 18px;
+  color: #14213d;
+  margin-top: 8px;
+}
+
+.week-day-slots {
+  margin-top: 70px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
   align-items: center;
-  padding-top: 6px;
+  min-height: 180px;
 }
 
-.week-slot-column.is-selected-column {
-  background: rgba(239, 110, 168, 0.04);
-  border-radius: 14px;
-}
-
-.week-slot-chip {
-  color: #111827;
-  font-weight: 700;
+.week-slot-link {
   font-size: 18px;
+  font-weight: 700;
+  color: #111827;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
-.week-slot-empty {
-  display: block;
-  height: 28px;
+.week-slot-link:hover {
+  color: var(--brand);
+}
+
+.selected-slots-wrap {
+  display: none;
 }
 
 @media (max-width: 980px) {
@@ -704,76 +737,9 @@
         </div>
       </section>
 
-      <section class="preply-card schedule-card" id="schedule">
-      <h2>Schedule</h2>
-
-      <div class="schedule-note">
-        Choose the time for your first lesson. The timings are displayed in your local timezone.
-      </div>
-
-      <div class="schedule-toolbar">
-        <div class="schedule-arrows">
-          <a class="schedule-arrow-btn" href="{{ url_for('tutor_profile', tutor_id=tutor.id, week_start=prev_week_start.isoformat()) }}#schedule">‹</a>
-          <a class="schedule-arrow-btn" href="{{ url_for('tutor_profile', tutor_id=tutor.id, week_start=next_week_start.isoformat()) }}#schedule">›</a>
-        </div>
-
-        <div class="schedule-range-label">{{ schedule_range_label }}</div>
-
-        <div class="schedule-timezone">
-          <strong>Asia/Karachi</strong>
-          <span>GMT +5:00</span>
-        </div>
-      </div>
-
-      <div class="week-strip">
-        {% for day in week_days %}
-          <a
-            href="{{ url_for('tutor_profile', tutor_id=tutor.id, week_start=week_start.isoformat(), selected_date=day.date.isoformat()) }}#schedule"
-            class="week-day-card {% if day.has_slots %}has-slots{% endif %} {% if selected_date and day.date == selected_date %}is-active{% endif %}">
-            <span class="week-day-name">{{ day.day_name }}</span>
-            <span class="week-day-number">{{ day.day_number }}</span>
-          </a>
-        {% endfor %}
-      </div>
-
-      <div class="week-slots-grid">
-        {% for day in week_days %}
-          <div class="week-slot-column {% if selected_date and day.date == selected_date %}is-selected-column{% endif %}">
-            {% if day.slots %}
-              {% for slot in day.slots[:4] %}
-                <a
-                  class="week-slot-chip"
-                  href="{{ url_for('book_tutor', tutor_id=tutor.id, scheduled_at=slot.datetime_local) }}">
-                  {{ slot.start }}
-                </a>
-              {% endfor %}
-            {% else %}
-              <span class="week-slot-empty"></span>
-            {% endif %}
-          </div>
-        {% endfor %}
-      </div>
-
-      {% if selected_date %}
-        <div class="selected-slots-wrap">
-          <h3>Available slots — {{ selected_date.strftime('%d %b %Y') }}</h3>
-
-          {% if selected_slots %}
-            <div class="slot-list">
-              {% for slot in selected_slots %}
-                <a
-                  class="slot-chip"
-                  href="{{ url_for('book_tutor', tutor_id=tutor.id, scheduled_at=slot.datetime_local) }}">
-                  {{ slot.label }}
-                </a>
-              {% endfor %}
-            </div>
-          {% else %}
-            <p class="muted">No slots available on this date.</p>
-          {% endif %}
-        </div>
-      {% endif %}
-    </section>
+    <div id="schedule-container">
+    {% include 'partials/tutor_schedule_section.html' %}
+    </div>
 
       <section class="preply-card resume-card" id="resume">
         <h2>Resume</h2>
@@ -870,5 +836,49 @@
   </form>
 </section>
 {% endif %}
+<script>
+function bindScheduleAjax() {
+  const links = document.querySelectorAll('.js-schedule-link');
 
+  links.forEach(link => {
+    link.addEventListener('click', async function (e) {
+      e.preventDefault();
+
+      const container = document.getElementById('schedule-container');
+      if (!container) return;
+
+      container.style.opacity = '0.55';
+
+      try {
+        const res = await fetch(this.href, {
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        });
+
+        const html = await res.text();
+
+        container.innerHTML = html;
+        container.style.opacity = '1';
+
+        bindScheduleAjax();
+
+        const scheduleEl = document.getElementById('schedule');
+        if (scheduleEl) {
+          scheduleEl.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+
+      } catch (err) {
+        container.style.opacity = '1';
+        window.location.href = this.href;
+      }
+    });
+  });
+}
+
+document.addEventListener('DOMContentLoaded', bindScheduleAjax);
+</script>
 {% endblock %}
