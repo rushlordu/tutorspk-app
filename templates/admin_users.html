@@ -29,31 +29,22 @@
       <td>{{ 'Active' if user.is_active_user else 'Suspended' }}</td>
       <td>{{ 'Yes' if user.is_verified_tutor else '-' }}</td>
       <td>
-        <div class="admin-user-actions">
+        <td>
+          <a class="btn btn-light small-btn"
+            href="{{ url_for('admin_user_detail', user_id=user.id) }}">
+            Open
+          </a>
 
-        <a class="btn btn-sm btn-light" href="{{ url_for('admin_user_detail', user_id=user.id) }}">
-          View
-        </a>
-
-        <form method="post" action="{{ url_for('admin_delete_user', user_id=user.id) }}" style="display:inline;" onsubmit="return confirm('Delete this user? This cannot be undone.');">
-          <button class="btn btn-sm btn-danger" type="submit">Delete</button>
-        </form>
-
-        <button class="btn btn-sm" onclick="openContactModal({{ user.id }}, '{{ user.email }}')">
-          Contact
-        </button>
-
-        </div>
-
-        <form method="post" action="{{ url_for('admin_toggle_user', user_id=user.id) }}" style="display:inline">
-          <button class="btn btn-sm" type="submit">Toggle</button>
-        </form>
-
-        {% if user.role == 'tutor' and not user.is_verified_tutor %}
-        <form method="post" action="{{ url_for('admin_verify_tutor', user_id=user.id) }}" style="display:inline">
-          <button class="btn btn-sm btn-light" type="submit">Quick verify</button>
-        </form>
-        {% endif %}
+          {% if user.role != 'admin' %}
+          <form method="post"
+                action="{{ url_for('admin_delete_user', user_id=user.id) }}"
+                style="display:inline;"
+                onsubmit="return confirm('Delete this user?');">
+            <button class="btn btn-danger small-btn" type="submit">
+              Delete
+            </button>
+          </form>
+          {% endif %}
       </td>
     </tr>
     {% endfor %}

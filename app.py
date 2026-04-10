@@ -11,6 +11,7 @@ from sqlalchemy import text
 from rtc.extensions import db
 from rtc import rtc_bp
 import calendar
+import random 
 
 from flask import (
     Flask,
@@ -2361,6 +2362,14 @@ def book_tutor(tutor_id):
         db.session.add(booking)
         db.session.commit()
 
+        # auto-create / reuse conversation linked to this booking
+        convo = get_or_create_conversation(
+            student_id=current_user.id,
+            tutor_id=tutor.id,
+            booking_id=booking.id
+        )
+        db.session.commit()
+
         send_booking_emails(booking)
 
         return render_template(
@@ -2642,12 +2651,33 @@ def dashboard():
 
     notifications = dashboard_notifications_for(current_user)
 
+    recent_conversations = []
+
+    if current_user.role == "student":
+        recent_conversations = (
+            Conversation.query
+            .filter_by(student_id=current_user.id)
+            .order_by(Conversation.updated_at.desc())
+            .limit(5)
+            .all()
+        )
+
+    elif current_user.role == "tutor":
+        recent_conversations = (
+            Conversation.query
+            .filter_by(tutor_id=current_user.id)
+            .order_by(Conversation.updated_at.desc())
+            .limit(5)
+            .all()
+        )
+
     return render_template(
         "dashboard.html",
         bookings=bookings,
         pending_notices=pending_notices,
         completion_data=completion_data,
         notifications=notifications,
+        recent_conversations=recent_conversations,
         tutor_fee_instructions="Deposit PKR 500 to the instructed account and wait for admin confirmation.",
     )
 
@@ -3491,26 +3521,23 @@ def edit_availability_rule(rule_id):
 
     return render_template("edit_availability.html", rule=rule)
 
+@app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
 @login_required
 def admin_delete_user(user_id):
     if current_user.role != "admin":
+        flash("Unauthorized.", "danger")
         return redirect(url_for("dashboard"))
 
     user = User.query.get_or_404(user_id)
 
-    if user.id == current_user.id:
-        flash("You cannot delete your own admin account.", "danger")
+    if user.role == "admin":
+        flash("Admin user cannot be deleted.", "danger")
         return redirect(url_for("admin_users"))
 
-    try:
-        db.session.delete(user)
-        db.session.commit()
-        flash("User deleted successfully.", "success")
-    except Exception as e:
-        db.session.rollback()
-        print("❌ Delete error:", str(e))
-        flash("Failed to delete user.", "danger")
+    db.session.delete(user)
+    db.session.commit()
 
+    flash("User deleted successfully.", "success")
     return redirect(url_for("admin_users"))
 
 @app.route("/admin/users/<int:user_id>/contact", methods=["POST"])
@@ -3940,3 +3967,435 @@ def unread_message_count_for(user):
         Message.sender_id != user.id,
         Message.is_read == False
     ).count()
+
+    print("Seeding demo users...")
+
+    # Avoid duplicate seed runs
+    if User.query.filter(User.email.like("demo_tutor_%@test.com")).first():
+        print("Demo users already exist. Skipping.")
+        return
+
+    demo_img = "demo_seed/demo_user.png"
+
+    tutor_subject_sets = [
+        ("mathematics, physics", "o_level, a_level"),
+        ("chemistry, biology", "matric, intermediate"),
+        ("english, spoken_english", "grade_6_8, matric"),
+        ("computer_science, ai_courses", "intermediate, university"),
+        ("urdu, pakistan_studies", "matric, intermediate"),
+        ("ielts, english", "language_learning, university"),
+        ("quran, islamiat", "grade_1_5, grade_6_8"),
+        ("french, english", "language_learning, o_level"),
+        ("arabic, quran", "grade_1_5, language_learning"),
+        ("biology, chemistry", "a_level, intermediate"),
+    ]
+
+    tutor_cities = ["Islamabad", "Rawalpindi", "Lahore", "Karachi", "Peshawar"]
+    student_cities = ["Lahore", "Islamabad", "Rawalpindi", "Karachi", "Multan"]
+
+    tutors = []
+    students = []
+    bookings = []
+
+    # -------------------------
+    # CREATE 10 DEMO TUTORS
+    # -------------------------
+    for i in range(10):
+        subjects, levels = tutor_subject_sets[i]
+
+        tutor = User(
+            email=f"demo_tutor_{i+1}@test.com",
+            password_hash=generate_password_hash("123456"),
+            role="tutor",
+            full_name=f"Demo Tutor {i+1}",
+            public_name=f"Tutor {i+1}",
+            qualification=random.choice(["Masters", "MPhil", "PhD"]),
+            subjects=subjects,
+            class_levels=levels,
+            experience_years=random.randint(3, 15),
+            bio="Experienced online tutor helping students improve grades with a calm and structured teaching style.",
+            gender=random.choice(["male", "female"]),
+            city=random.choice(tutor_cities),
+            main_subject=subjects.split(",")[0].strip(),
+            teaching_mode="online",
+            hourly_rate=random.choice([1200, 1500, 1800, 2000, 2500, 3000]),
+            mobile_number=f"0300{random.randint(1000000, 9999999)}",
+            cnic_number=f"{random.randint(10000,99999)}-{random.randint(1000000,9999999)}-{random.randint(1,9)}",
+            profile_image=demo_img,
+            demo_video_url="",
+            demo_video_file="",
+            modest_profile=random.choice([True, False]),
+            audio_only=random.choice([True, False]),
+            is_active_user=True,
+            is_verified_tutor=True,
+            profile_stage="approved",
+            approved_at=datetime.utcnow(),
+            is_public_tutor=True,
+            tutor_category=random.choice(["Exam Specialist", "School Tutor", "Language Tutor", "STEM Tutor"]),
+            bonus_credits=random.choice([0, 50, 100]),
+            total_earnings_pkr=random.randint(20000, 150000),
+            monthly_earnings_pkr=random.randint(5000, 30000),
+            sessions_completed=random.randint(5, 80),
+            rating_avg=round(random.uniform(4.1, 5.0), 1),
+            rating_count=random.randint(3, 25),
+            credits_balance=random.randint(0, 300),
+            pending_payout_pkr=random.randint(0, 15000),
+            payout_method="bank",
+            payout_account_title=f"Demo Tutor {i+1}",
+            payout_account_number=f"03{random.randint(100000000, 999999999)}",
+            payout_iban=f"PK{random.randint(10,99)}DEMO{random.randint(1000000000,9999999999)}",
+        )
+        db.session.add(tutor)
+        db.session.flush()
+        tutors.append(tutor)
+
+        # Weekly availability: Monday-Friday
+        for day in range(5):
+            start_hour = random.choice([9, 10, 11])
+            end_hour = random.choice([15, 16, 17, 18])
+            if end_hour <= start_hour:
+                end_hour = start_hour + 4
+
+            db.session.add(
+                TutorAvailabilityRule(
+                    tutor_id=tutor.id,
+                    weekday=day,
+                    start_time=f"{start_hour:02d}:00",
+                    end_time=f"{end_hour:02d}:00",
+                    slot_minutes=60,
+                    is_active=True,
+                )
+            )
+
+        # A couple of date overrides
+        blocked_date = date.today() + timedelta(days=random.randint(2, 10))
+        db.session.add(
+            TutorAvailabilityException(
+                tutor_id=tutor.id,
+                exception_date=blocked_date,
+                start_time="",
+                end_time="",
+                is_blocked=True,
+                note="Unavailable on this date",
+            )
+        )
+
+        extra_date = date.today() + timedelta(days=random.randint(3, 12))
+        db.session.add(
+            TutorAvailabilityException(
+                tutor_id=tutor.id,
+                exception_date=extra_date,
+                start_time="18:00",
+                end_time="20:00",
+                is_blocked=False,
+                note="Extra evening slots",
+            )
+        )
+
+    db.session.commit()
+
+    # -------------------------
+    # CREATE 10 DEMO STUDENTS
+    # -------------------------
+    for i in range(10):
+        student = User(
+            email=f"demo_student_{i+1}@test.com",
+            password_hash=generate_password_hash("123456"),
+            role="student",
+            full_name=f"Demo Student {i+1}",
+            public_name=f"Student {i+1}",
+            qualification="",
+            subjects="",
+            class_levels="",
+            experience_years=0,
+            bio="Student account for platform testing.",
+            gender=random.choice(["male", "female"]),
+            city=random.choice(student_cities),
+            student_level=random.choice(["Matric", "Intermediate", "O Level", "A Level", "Grade 6–8"]),
+            student_subject_needed=random.choice(["Mathematics", "Physics", "English", "Chemistry", "Biology"]),
+            preferred_tutor_gender=random.choice(["male", "female", "no_preference"]),
+            learning_mode="online",
+            teaching_mode="",
+            hourly_rate=0,
+            mobile_number=f"0310{random.randint(1000000, 9999999)}",
+            cnic_number="",
+            profile_image=demo_img,
+            is_active_user=True,
+            is_verified_tutor=False,
+            profile_stage="basic_complete",
+            is_public_tutor=False,
+            credits_balance=random.choice([500, 800, 1000, 1200, 1500]),
+        )
+        db.session.add(student)
+        db.session.flush()
+        students.append(student)
+
+    db.session.commit()
+
+    # -------------------------
+    # CREDIT TRANSACTIONS
+    # -------------------------
+    for student in students:
+        db.session.add(
+            CreditTransaction(
+                user_id=student.id,
+                credits_change=student.credits_balance,
+                rupee_amount=student.credits_balance * 10,
+                tx_type="demo_topup",
+                note="Initial demo credit balance",
+            )
+        )
+
+    db.session.commit()
+
+    # -------------------------
+    # BOOKINGS
+    # -------------------------
+    for _ in range(14):
+        student = random.choice(students)
+        tutor = random.choice(tutors)
+
+        target_day = date.today() + timedelta(days=random.randint(1, 10))
+        available_slots = build_slots_for_date(tutor, target_day)
+
+        if available_slots:
+            slot = random.choice(available_slots)
+            scheduled_at = datetime.strptime(slot["datetime_local"], "%Y-%m-%dT%H:%M")
+        else:
+            scheduled_at = datetime.now() + timedelta(days=random.randint(1, 10), hours=random.randint(1, 6))
+
+        booking = Booking(
+            student_id=student.id,
+            tutor_id=tutor.id,
+            subject=random.choice([s.strip() for s in tutor.subjects.split(",") if s.strip()]),
+            class_level=random.choice([l.strip() for l in tutor.class_levels.split(",") if l.strip()]),
+            scheduled_at=scheduled_at,
+            duration_minutes=random.choice([60, 90]),
+            credits_cost=random.choice([100, 150]),
+            status=random.choice(["scheduled", "scheduled", "scheduled", "completed"]),
+            student_marked_complete=False,
+            tutor_marked_complete=False,
+            payout_released=False,
+        )
+        db.session.add(booking)
+        db.session.flush()
+        bookings.append(booking)
+
+    db.session.commit()
+
+    # -------------------------
+    # FEEDBACK FOR COMPLETED BOOKINGS
+    # -------------------------
+    completed_bookings = [b for b in bookings if b.status == "completed"]
+    for booking in completed_bookings[:8]:
+        rating = random.randint(4, 5)
+        feedback = Feedback(
+            booking_id=booking.id,
+            tutor_id=booking.tutor_id,
+            student_id=booking.student_id,
+            rating=rating,
+            punctuality=random.randint(4, 5),
+            explanation=random.randint(4, 5),
+            professionalism=random.randint(4, 5),
+            comment=random.choice([
+                "Very helpful and easy to understand.",
+                "Great tutor, calm teaching style.",
+                "My concepts improved a lot.",
+                "Professional and punctual tutor.",
+            ]),
+        )
+        db.session.add(feedback)
+
+    db.session.commit()
+
+    # -------------------------
+    # CONVERSATIONS + MESSAGES
+    # -------------------------
+    for _ in range(10):
+        student = random.choice(students)
+        tutor = random.choice(tutors)
+
+        convo = Conversation(
+            student_id=student.id,
+            tutor_id=tutor.id,
+            booking_id=None,
+        )
+        db.session.add(convo)
+        db.session.flush()
+
+        sample_messages = [
+            ("student", "Assalam-o-Alaikum, I wanted to ask about your teaching style."),
+            ("tutor", "Walaikum Assalam. I focus on concept clarity and regular practice."),
+            ("student", "Do you teach O Level Math online?"),
+            ("tutor", "Yes, I do. We can also schedule a trial session."),
+        ]
+
+        for role, text_msg in sample_messages[:random.randint(2, 4)]:
+            sender_id = student.id if role == "student" else tutor.id
+            msg = Message(
+                conversation_id=convo.id,
+                sender_id=sender_id,
+                body=text_msg,
+                is_read=random.choice([True, False]),
+                created_at=datetime.utcnow() - timedelta(days=random.randint(0, 5)),
+            )
+            db.session.add(msg)
+
+        convo.updated_at = datetime.utcnow() - timedelta(days=random.randint(0, 5))
+
+    db.session.commit()
+
+    # -------------------------
+    # PAYMENT NOTICES
+    # -------------------------
+    for student in students[:5]:
+        db.session.add(
+            PaymentNotice(
+                student_id=student.id,
+                amount_sent_pkr=random.choice([1000, 1500, 2000]),
+                claimed_credits=random.choice([100, 150, 200]),
+                sender_name=student.full_name,
+                sender_account=student.mobile_number,
+                transfer_method=random.choice(["bank", "easypaisa"]),
+                screenshot_filename="",
+                note="Demo payment notice",
+                status=random.choice(["pending", "approved"]),
+            )
+        )
+
+    db.session.commit()
+
+    print("Demo data seeded successfully!")
+    print("Tutor login example: demo_tutor_1@test.com / 123456")
+    print("Student login example: demo_student_1@test.com / 123456")
+    print("Seeding demo users...")
+
+    # Prevent duplicate seeding
+    if User.query.filter(User.email.like("demo_student_%")).first():
+        print("Demo users already exist. Skipping.")
+        return
+
+    demo_img = "demo_seed/demo_user.png"
+
+    subjects = ["Math", "Physics", "Chemistry", "Biology", "English"]
+    levels = ["O Level", "A Level", "Matric", "Intermediate"]
+
+    tutors = []
+    students = []
+
+    # -------- CREATE TUTORS --------
+    for i in range(10):
+        tutor = User(
+            full_name=f"Demo Tutor {i+1}",
+            public_name=f"Tutor {i+1}",
+            email=f"demo_tutor_{i+1}@test.com",
+            password_hash=generate_password_hash("123456"),
+            role="tutor",
+            gender="male",
+            city="Islamabad",
+            bio="Experienced tutor helping students achieve top grades.",
+            profile_stage="approved",
+            is_verified_tutor=True,
+            is_active_user=True,
+            profile_image=demo_img,
+            hourly_rate=random.randint(1500, 4000),
+        )
+
+        db.session.add(tutor)
+        db.session.flush()
+        tutors.append(tutor)
+
+        # Availability rules (Mon–Fri 9–5)
+        for day in range(5):
+            db.session.add(TutorAvailabilityRule(
+                tutor_id=tutor.id,
+                weekday=day,
+                start_time="09:00",
+                end_time="17:00",
+                slot_minutes=60,
+                is_active=True
+            ))
+
+    # -------- CREATE STUDENTS --------
+    for i in range(10):
+        student = User(
+            full_name=f"Demo Student {i+1}",
+            public_name=f"Student {i+1}",
+            email=f"demo_student_{i+1}@test.com",
+            password=generate_password_hash("123456"),
+            role="student",
+            gender="female",
+            city="Lahore",
+            bio="Student preparing for exams.",
+            is_active_user=True,
+            credits_balance=1000,
+            profile_image=demo_img
+        )
+
+        db.session.add(student)
+        db.session.flush()
+        students.append(student)
+
+    db.session.commit()
+
+    # -------- BOOKINGS --------
+    bookings = []
+    for _ in range(12):
+        student = random.choice(students)
+        tutor = random.choice(tutors)
+
+        dt = datetime.now() + timedelta(days=random.randint(1, 10))
+
+        booking = Booking(
+            student_id=student.id,
+            tutor_id=tutor.id,
+            subject=random.choice(subjects),
+            class_level=random.choice(levels),
+            scheduled_at=dt,
+            duration_minutes=60,
+            credits_cost=100,
+            status="scheduled"
+        )
+        db.session.add(booking)
+        bookings.append(booking)
+
+    db.session.commit()
+
+    # -------- CONVERSATIONS + MESSAGES --------
+    for i in range(10):
+        student = random.choice(students)
+        tutor = random.choice(tutors)
+
+        convo = Conversation(
+            student_id=student.id,
+            tutor_id=tutor.id
+        )
+        db.session.add(convo)
+        db.session.flush()
+
+        for j in range(3):
+            msg = Message(
+                conversation_id=convo.id,
+                sender_id=random.choice([student.id, tutor.id]),
+                body=f"Sample message {j+1}",
+                is_read=random.choice([True, False]),
+                created_at=datetime.now()
+            )
+            db.session.add(msg)
+
+    db.session.commit()
+
+    # -------- REVIEWS --------
+    for _ in range(8):
+        booking = random.choice(bookings)
+
+        review = Feedback(
+            booking_id=booking.id,
+            rating=random.randint(3, 5),
+            comment="Great tutor, very helpful!"
+        )
+        db.session.add(review)
+
+    db.session.commit()
+
+    print("Demo data seeded successfully!")

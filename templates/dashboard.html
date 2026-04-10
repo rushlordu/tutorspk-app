@@ -111,16 +111,56 @@
   <a class="btn" href="{{ url_for('messages_inbox') }}">Open Inbox</a>
 </section>
 
+{% if recent_conversations %}
+<section class="card">
+  <h2>Recent Chats</h2>
+
+  <ul class="clean-list">
+    {% for convo in recent_conversations %}
+      {% set other = convo.tutor if current_user.id == convo.student_id else convo.student %}
+      {% set last_msg = convo.messages[-1] if convo.messages else None %}
+
+      <li style="margin-bottom:14px;">
+        <strong>{{ other.public_name }}</strong><br>
+
+        {% if last_msg %}
+          <span class="muted">
+            {{ last_msg.body[:80] }}{% if last_msg.body|length > 80 %}...{% endif %}
+          </span><br>
+        {% else %}
+          <span class="muted">No messages yet.</span><br>
+        {% endif %}
+
+        <a href="{{ url_for('message_thread', conversation_id=convo.id) }}">
+          Open chat
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 <section class="card">
   <h2>Recent bookings</h2>
   <table class="table">
-    <tr><th>Subject</th><th>When</th><th>Status</th><th>Room</th></tr>
+    <tr>
+      <th>Subject</th>
+      <th>When</th>
+      <th>Status</th>
+      <th>Room</th>
+      <th>Chat</th>
+    </tr>
     {% for booking in bookings %}
     <tr>
       <td>{{ booking.subject }}</td>
       <td>{{ booking.scheduled_at.strftime('%Y-%m-%d %H:%M') if booking.scheduled_at else '-' }}</td>
       <td>{{ booking.status }}</td>
       <td><a href="{{ url_for('live_session', booking_id=booking.id) }}">Open session</a></td>
+      <td>
+        <a href="{{ url_for('start_conversation', tutor_id=(booking.tutor_id if current_user.role == 'student' else booking.student_id)) }}">
+          Chat
+        </a>
+      </td>
     </tr>
     {% else %}
     <tr><td colspan="4">No bookings yet.</td></tr>

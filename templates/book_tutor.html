@@ -241,9 +241,18 @@
     </div>
 
     <div class="booking-success-actions">
-      <a class="btn btn-primary" href="{{ url_for('dashboard') }}">Go to Dashboard</a>
-      <a class="btn btn-light" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">Back to Tutor Profile</a>
-    </div>
+    <a class="btn btn-primary" href="{{ url_for('dashboard') }}">Go to Dashboard</a>
+
+    <a class="btn btn-light"
+      href="{{ url_for('start_conversation', tutor_id=tutor.id) }}">
+      Open Chat
+    </a>
+
+    <a class="btn btn-light"
+      href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">
+      Back to Tutor Profile
+    </a>
+  </div>
   </section>
 {% else %}
   <section class="booking-shell">
