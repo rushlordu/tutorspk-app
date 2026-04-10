@@ -1,0 +1,494 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+:root {
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --primary: #0f172a;
+  --accent: #2563eb;
+  --radius: 20px;
+}
+
+body {
+  background: var(--bg);
+}
+
+.home {
+  max-width: 1200px;
+  margin: auto;
+  padding: 24px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 24px;
+  align-items: stretch;
+}
+
+.hero-left,
+.hero-right {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+}
+
+.hero-left {
+  padding: 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.hero-left h1 {
+  font-size: 42px;
+  line-height: 1.05;
+  margin: 0 0 12px;
+  color: var(--text);
+  max-width: 10ch;
+}
+
+.hero-left p {
+  color: var(--muted);
+  margin: 0 0 24px;
+  font-size: 16px;
+}
+
+.packages {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.package {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  text-decoration: none;
+  color: var(--text);
+  background: #fff;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.package:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+}
+
+.package strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.package span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.package.primary {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.package.primary span {
+  color: rgba(255,255,255,0.72);
+}
+
+.hero-right {
+  padding: 24px;
+}
+
+.hero-right h2 {
+  margin: 0 0 8px;
+  color: var(--text);
+}
+
+.hero-right .sub {
+  color: var(--muted);
+  margin: 0 0 16px;
+  font-size: 14px;
+}
+
+.toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.toggle button {
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  background: #f1f5f9;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--text);
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.toggle button.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+select {
+  width: 100%;
+  padding: 11px 12px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+}
+
+.cta {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: var(--accent);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.18s ease, filter 0.18s ease;
+}
+
+.cta:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.98);
+}
+
+.section {
+  margin-top: 32px;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.section-head h2 {
+  margin: 0;
+}
+
+.section-head a {
+  text-decoration: none;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.tutors {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.tutor {
+  background: white;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tutor:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+}
+
+.tutor img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+  background: #eef2f7;
+}
+
+.tutor-body {
+  padding: 14px;
+}
+
+.tutor-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.tutor-top h3 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.tutor-top h3 a {
+  text-decoration: none;
+  color: var(--text);
+}
+
+.rating {
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.meta {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+  margin-bottom: 6px;
+}
+
+.meta.small {
+  font-size: 12px;
+}
+
+.tutor-footer {
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.price {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.view-btn {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+@media (max-width: 1000px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .tutors {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .packages {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .home {
+    padding: 16px;
+  }
+
+  .hero-left,
+  .hero-right {
+    padding: 18px;
+  }
+
+  .hero-left h1 {
+    font-size: 32px;
+    max-width: 100%;
+  }
+
+  .tutors {
+    grid-template-columns: 1fr;
+  }
+
+  .section-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+</style>
+
+<div class="home">
+
+  <div class="hero">
+    <div class="hero-left">
+      <h1>Find your tutor. Start learning.</h1>
+      <p>Online tutoring for school, exams, and languages.</p>
+
+      <div class="packages">
+        <a href="/student-packages" class="package">
+          <strong>Single Lessons</strong>
+          <span>Flexible</span>
+        </a>
+
+        <a href="/student-packages" class="package primary">
+          <strong>Monthly</strong>
+          <span>Best value</span>
+        </a>
+
+        <a href="{{ url_for('register') }}" class="package">
+          <strong>Teach</strong>
+          <span>Join platform</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <h2>Select an option</h2>
+      <p class="sub">Choose whether you want to study or teach.</p>
+
+      <div class="toggle">
+        <button id="studyBtn" class="active" onclick="setIntent('study')">Study</button>
+        <button id="teachBtn" onclick="setIntent('teach')">Teach</button>
+      </div>
+
+      <div id="studyPanel">
+        <select id="studySubject" onchange="showLevel()">
+          <option value="">Select subject</option>
+          <option value="mathematics">Mathematics</option>
+          <option value="physics">Physics</option>
+          <option value="chemistry">Chemistry</option>
+          <option value="biology">Biology</option>
+          <option value="english">English</option>
+          <option value="urdu">Urdu</option>
+          <option value="computer_science">Computer Science</option>
+          <option value="pakistan_studies">Pakistan Studies</option>
+          <option value="islamiat">Islamiat</option>
+          <option value="ielts">IELTS</option>
+          <option value="spoken_english">Spoken English</option>
+          <option value="arabic">Arabic</option>
+          <option value="french">French</option>
+          <option value="other">Other</option>
+        </select>
+
+        <select id="studyLevel" style="display:none;">
+          <option value="">Select level</option>
+          <option value="grade_1_5">Grade 1–5</option>
+          <option value="grade_6_8">Grade 6–8</option>
+          <option value="matric">Matric</option>
+          <option value="intermediate">Intermediate</option>
+          <option value="o_level">O Level</option>
+          <option value="a_level">A Level</option>
+          <option value="university">University</option>
+          <option value="language_learning">Language Learning</option>
+          <option value="other">Other</option>
+        </select>
+
+        <button class="cta" id="searchBtn" style="display:none;" onclick="goStudySearch()">Find Tutor</button>
+      </div>
+
+      <div id="teachPanel" style="display:none;">
+        <button class="cta" onclick="location.href='{{ url_for('register') }}'">
+          Start Teaching
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <h2>Featured Tutors</h2>
+      <a href="{{ url_for('tutors') }}">View all</a>
+    </div>
+
+    <div class="tutors">
+      {% for tutor in featured_tutors %}
+      <div class="tutor">
+        <a href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">
+        <img src="{{ media_url(tutor.profile_image, 'https://picsum.photos/seed/default/400/400') }}" alt="{{ tutor.public_name }}"> 
+        </a>
+
+        <div class="tutor-body">
+          <div class="tutor-top">
+            <h3>
+              <a href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">{{ tutor.public_name }}</a>
+            </h3>
+            <span class="rating">⭐ {{ '%.1f'|format(tutor.rating_avg or 0) }}</span>
+          </div>
+
+          <div class="meta">{{ tutor.subjects }}</div>
+          <div class="meta small">{{ tutor.qualification }}</div>
+
+          <div class="tutor-footer">
+            <span class="price">Rs {{ tutor.hourly_rate if tutor.hourly_rate else '—' }}/hr</span>
+            <a href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}" class="view-btn">View</a>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="tutor">
+        <div class="tutor-body">
+          <h3>No featured tutors yet.</h3>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<script>
+function setIntent(intent) {
+  const studyBtn = document.getElementById('studyBtn');
+  const teachBtn = document.getElementById('teachBtn');
+  const studyPanel = document.getElementById('studyPanel');
+  const teachPanel = document.getElementById('teachPanel');
+
+  studyBtn.classList.toggle('active', intent === 'study');
+  teachBtn.classList.toggle('active', intent === 'teach');
+
+  studyPanel.style.display = intent === 'study' ? 'block' : 'none';
+  teachPanel.style.display = intent === 'teach' ? 'block' : 'none';
+
+  if (intent === 'study') {
+    document.getElementById('studyLevel').style.display = 'none';
+    document.getElementById('searchBtn').style.display = 'none';
+  }
+}
+
+function showLevel() {
+  const subject = document.getElementById("studySubject").value;
+  const levelEl = document.getElementById("studyLevel");
+  const btn = document.getElementById("searchBtn");
+
+  if (subject) {
+    levelEl.style.display = "block";
+  } else {
+    levelEl.style.display = "none";
+    btn.style.display = "none";
+    levelEl.value = "";
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  setIntent('study');
+  document.getElementById("studyLevel").addEventListener("change", function() {
+    const subject = document.getElementById("studySubject").value;
+    const level = document.getElementById("studyLevel").value;
+    document.getElementById("searchBtn").style.display = (subject && level) ? "block" : "none";
+  });
+});
+
+function goStudySearch() {
+  const subject = document.getElementById("studySubject").value;
+  const level = document.getElementById("studyLevel").value;
+
+  const params = new URLSearchParams();
+  if (subject) params.append("subject", subject);
+  if (level) params.append("level", level);
+
+  window.location.href = "{{ url_for('tutors') }}" + (params.toString() ? "?" + params.toString() : "");
+}
+</script>
+
+{% endblock %}

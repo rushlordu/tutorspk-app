@@ -8,7 +8,14 @@
     gap: 28px;
     align-items: start;
   }
+#schedule-container {
+  transition: opacity 0.25s ease;
+}
 
+#schedule-container.schedule-loading {
+  opacity: 0.45;
+  pointer-events: none;
+}
   .preply-main {
     min-width: 0;
   }
@@ -631,11 +638,219 @@
     min-width: auto;
   }
 }
+.schedule-card {
+  padding: 24px;
+  border-radius: 28px;
+}
 
-@media (max-width: 720px) {
-  .week-strip,
-  .week-slots-grid {
-    grid-template-columns: repeat(2, 1fr);
+.schedule-card h2 {
+  margin: 0 0 18px;
+  font-size: 58px;
+  line-height: 0.95;
+  letter-spacing: -1.2px;
+  color: #0f172a;
+}
+
+.schedule-note-preply {
+  margin: 0 0 22px;
+  background: #d7e5fb;
+  border-radius: 0;
+  padding: 16px 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  color: #1f2a44;
+  line-height: 1.5;
+}
+
+.schedule-note-icon {
+  font-size: 24px;
+  line-height: 1;
+  margin-top: 1px;
+  color: #111827;
+  flex: 0 0 auto;
+}
+
+.preply-calendar-head {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.preply-nav-wrap {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.preply-arrow-group {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #d7dbe5;
+  border-radius: 12px;
+  background: #f5f4f8;
+}
+
+.preply-arrow-btn {
+  width: 52px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  color: #111827;
+  text-decoration: none;
+  background: #f5f4f8;
+}
+
+.preply-arrow-btn + .preply-arrow-btn {
+  border-left: 1px solid #d7dbe5;
+  background: #ffffff;
+}
+
+.preply-range-label {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+  white-space: nowrap;
+}
+
+.preply-timezone-box {
+  position: relative;
+  border: 1px solid #d7dbe5;
+  border-radius: 12px;
+  background: #fff;
+  min-height: 58px;
+  padding: 10px 42px 10px 18px;
+}
+
+.preply-timezone-main {
+  font-size: 17px;
+  font-weight: 500;
+  color: #1f2937;
+  line-height: 1.2;
+}
+
+.preply-timezone-sub {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.2;
+}
+
+.preply-timezone-caret {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 22px;
+  color: #111827;
+  pointer-events: none;
+}
+
+.preply-week-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  align-items: start;
+}
+
+.week-day-card {
+  min-width: 0;
+  text-align: center;
+}
+
+.week-day-head {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  border-top: 4px solid #efc6d8;
+  padding-top: 18px;
+}
+
+.week-day-card.has-slots .week-day-head {
+  border-top-color: #ef6ea8;
+}
+
+.week-day-card.is-active .week-day-head {
+  border-top-color: #98a2b3;
+}
+
+.week-day-name {
+  display: block;
+  font-size: 16px;
+  color: #5f6b7a;
+  line-height: 1.2;
+}
+
+.week-day-number {
+  display: block;
+  margin-top: 8px;
+  font-size: 18px;
+  color: #243047;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.week-day-slots {
+  margin-top: 42px;
+  min-height: 250px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+}
+
+.week-slot-link {
+  display: inline-block;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
+  color: #111827;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.week-slot-link:hover {
+  color: #111827;
+  text-decoration-thickness: 2px;
+}
+
+@media (max-width: 1080px) {
+  .preply-calendar-head {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .preply-timezone-box {
+    max-width: 320px;
+  }
+}
+
+@media (max-width: 760px) {
+  .schedule-card h2 {
+    font-size: 40px;
+  }
+
+  .preply-nav-wrap {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .preply-week-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 20px;
+  }
+
+  .week-day-slots {
+    min-height: 0;
+    margin-top: 24px;
+    gap: 16px;
   }
 }
 </style>
@@ -802,6 +1017,12 @@
       <div class="booking-secondary">
         <a href="#schedule">View schedule</a>
         <a href="#reviews">See reviews</a>
+
+        {% if current_user.is_authenticated and current_user.role == 'student' %}
+          <a href="{{ url_for('start_conversation', tutor_id=tutor.id) }}">
+            Message tutor
+          </a>
+        {% endif %}
       </div>
 
       <div class="booking-note">
@@ -836,49 +1057,85 @@
   </form>
 </section>
 {% endif %}
+
 <script>
+function formatOffset(minutes) {
+  const sign = minutes >= 0 ? '+' : '-';
+  const abs = Math.abs(minutes);
+  const hh = String(Math.floor(abs / 60)).padStart(2, '0');
+  const mm = String(abs % 60).padStart(2, '0');
+  return `GMT ${sign}${hh}:${mm}`;
+}
+
+function detectBrowserTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Karachi';
+  } catch {
+    return 'Asia/Karachi';
+  }
+}
+
+function updateTimezoneBox() {
+  const main = document.getElementById('timezone-main');
+  const sub = document.getElementById('timezone-sub');
+  if (!main || !sub) return;
+
+  const tz = detectBrowserTimezone();
+  main.textContent = tz;
+
+  const offset = -new Date().getTimezoneOffset();
+  sub.textContent = formatOffset(offset);
+}
+
 function bindScheduleAjax() {
-  const links = document.querySelectorAll('.js-schedule-link');
+  const container = document.getElementById('schedule-container');
+  if (!container) return;
+
+  const links = container.querySelectorAll('.js-schedule-link');
 
   links.forEach(link => {
-    link.addEventListener('click', async function (e) {
-      e.preventDefault();
-
-      const container = document.getElementById('schedule-container');
-      if (!container) return;
-
-      container.style.opacity = '0.55';
-
-      try {
-        const res = await fetch(this.href, {
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-          }
-        });
-
-        const html = await res.text();
-
-        container.innerHTML = html;
-        container.style.opacity = '1';
-
-        bindScheduleAjax();
-
-        const scheduleEl = document.getElementById('schedule');
-        if (scheduleEl) {
-          scheduleEl.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-          });
-        }
-
-      } catch (err) {
-        container.style.opacity = '1';
-        window.location.href = this.href;
-      }
-    });
+    link.removeEventListener('click', handleScheduleClick);
+    link.addEventListener('click', handleScheduleClick);
   });
 }
 
-document.addEventListener('DOMContentLoaded', bindScheduleAjax);
+async function handleScheduleClick(e) {
+  e.preventDefault();
+
+  const container = document.getElementById('schedule-container');
+  if (!container) return;
+
+  const targetUrl = this.href;
+
+  try {
+    container.classList.add('schedule-loading');
+
+    const res = await fetch(targetUrl, {
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
+
+    if (!res.ok) throw new Error('Failed');
+
+    const html = await res.text();
+
+    container.innerHTML = html;
+
+    bindScheduleAjax();
+    updateTimezoneBox();
+
+  } catch (err) {
+    console.error('Schedule AJAX failed:', err);
+  } finally {
+    container.classList.remove('schedule-loading');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  bindScheduleAjax();
+  updateTimezoneBox();
+});
 </script>
+
 {% endblock %}

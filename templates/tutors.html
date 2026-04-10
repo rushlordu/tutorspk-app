@@ -1,5 +1,34 @@
 {% extends 'base.html' %}
 {% block content %}
+<style>
+.next-available-chip {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #eefaf2;
+  border: 1px solid #d7f1df;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #166534;
+}
+
+.next-available-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex: 0 0 auto;
+}
+
+.muted-unavailable {
+  background: #f8fafc;
+  border-color: #e5e7eb;
+  color: #64748b;
+}
+</style>
 
 <section class="card tutors-hero-card">
   <div class="tutors-hero-top">
@@ -92,8 +121,20 @@
         <p><strong>Levels:</strong> {{ tutor.class_levels or 'Not added yet' }}</p>
       </div>
 
-      <p class="tutor-rating-line">⭐ {{ '%.1f'|format(tutor.rating_avg) }} · {{ tutor.sessions_completed }} sessions</p>
+      <p class="tutor-rating-line">
+  ⭐ {{ '%.1f'|format(tutor.rating_avg) }} · {{ tutor.sessions_completed }} sessions
+</p>
 
+{% if tutor.next_available %}
+  <div class="next-available-chip">
+    <span class="next-available-dot"></span>
+    Next available: {{ tutor.next_available.label }}
+  </div>
+{% else %}
+  <div class="next-available-chip muted-unavailable">
+    No slots in next 2 weeks
+  </div>
+{% endif %}
       <div class="tutor-card-actions">
         <a class="btn btn-sm" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">View Profile</a>
       </div>

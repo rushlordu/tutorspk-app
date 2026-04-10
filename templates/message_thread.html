@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+  .thread-shell {
+    max-width: 980px;
+    margin: 0 auto;
+  }
+
+  .thread-head {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 20px 20px 0 0;
+    padding: 18px 20px;
+  }
+
+  .thread-head h1 {
+    margin: 0;
+    font-size: 28px;
+    color: #111827;
+  }
+
+  .thread-box {
+    background: #fff;
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    min-height: 420px;
+    padding: 20px;
+    display: grid;
+    gap: 14px;
+  }
+
+  .thread-msg {
+    max-width: 72%;
+    padding: 14px 16px;
+    border-radius: 18px;
+    line-height: 1.6;
+  }
+
+  .thread-msg.mine {
+    margin-left: auto;
+    background: #eef6f0;
+    color: #16351f;
+  }
+
+  .thread-msg.theirs {
+    margin-right: auto;
+    background: #f6f7fb;
+    color: #243047;
+  }
+
+  .thread-meta {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 8px;
+  }
+
+  .thread-form {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-top: 0;
+    border-radius: 0 0 20px 20px;
+    padding: 18px 20px;
+  }
+
+  .thread-form textarea {
+    min-height: 110px;
+  }
+
+  .thread-note {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+</style>
+
+<section class="thread-shell">
+  <div class="thread-head">
+    <h1>Chat with {{ other_user.public_name }}</h1>
+    <p class="muted" style="margin:6px 0 0;">Keep all communication on the platform.</p>
+  </div>
+
+  <div class="thread-box">
+    {% for msg in messages %}
+      <div class="thread-msg {% if msg.sender_id == current_user.id %}mine{% else %}theirs{% endif %}">
+        <div>{{ msg.body }}</div>
+        <div class="thread-meta">
+          {{ msg.sender.public_name }} · {{ msg.created_at.strftime('%d %b %Y, %I:%M %p') }}
+        </div>
+      </div>
+    {% else %}
+      <p class="muted">No messages yet. Start the conversation below.</p>
+    {% endfor %}
+  </div>
+
+  <form method="post" class="thread-form">
+    <label class="small-label">Type your message</label>
+    <textarea name="body" placeholder="Ask about goals, availability, or teaching approach..." required></textarea>
+    <div class="thread-note">
+      Phone numbers, email addresses, and off-platform contact prompts are blocked.
+    </div>
+    <button class="btn btn-primary" type="submit" style="margin-top:14px;">Send Message</button>
+  </form>
+</section>
+
+{% endblock %}

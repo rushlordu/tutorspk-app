@@ -21,13 +21,14 @@
 
         {% if current_user.is_authenticated %}
           <a href="{{ url_for('dashboard') }}">My Account</a>
+          <a href="{{ url_for('messages_inbox') }}" class="nav-messages-link">
+            Messages
+            {% if global_unread_messages and global_unread_messages > 0 %}
+              <span class="nav-msg-badge">{{ global_unread_messages }}</span>
+            {% endif %}
+          </a>
           <a href="{{ url_for('profile') }}">Profile</a>
           <a href="{{ url_for('settings') }}">Settings</a>
-          {% if current_user.role == 'admin' %}
-            <a href="{{ url_for('admin_dashboard') }}">Admin</a>
-          {% endif %}
-          <a href="{{ url_for('logout') }}">Logout</a>
-        {% else %}
           <a href="{{ url_for('login') }}">Login</a>
           <a href="{{ url_for('register') }}" class="nav-join-btn">Join</a>
         {% endif %}
@@ -73,5 +74,27 @@
       </div>
     </div>
   </footer>
+  <style>
+  .nav-messages-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-msg-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #ef6ea8;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+</style>
 </body>
 </html>

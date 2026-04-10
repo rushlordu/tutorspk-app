@@ -1,61 +1,436 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<div class="card narrow">
-  <h1>Book {{ tutor.public_name }}</h1>
+<style>
+  .booking-shell {
+    max-width: 1120px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 24px;
+    align-items: start;
+  }
 
-  <form method="post" class="form-grid"
-        onsubmit="return confirm('You are about to book this session and spend credits. Continue?');">
+  .booking-main-card,
+  .booking-side-card,
+  .booking-success-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    box-shadow: 0 10px 24px rgba(14, 32, 73, 0.05);
+  }
 
-    <!-- SUBJECT -->
-    <div>
-      <label>Subject</label>
-      <select name="subject" required>
-        {% for val, label in subject_options %}
-          <option value="{{ val }}" {% if val == subject_prefill %}selected{% endif %}>
-            {{ label }}
-          </option>
-        {% endfor %}
-      </select>
+  .booking-main-card,
+  .booking-success-card {
+    padding: 28px;
+  }
+
+  .booking-side-card {
+    padding: 22px;
+    position: sticky;
+    top: 104px;
+  }
+
+  .booking-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #eef6f0;
+    color: var(--brand);
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+
+  .booking-title {
+    margin: 0 0 10px;
+    font-size: 42px;
+    line-height: 1.02;
+    color: #111827;
+    letter-spacing: -0.8px;
+  }
+
+  .booking-sub {
+    margin: 0 0 22px;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.65;
+  }
+
+  .booking-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .booking-field-full {
+    grid-column: 1 / -1;
+  }
+
+  .booking-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .booking-helper {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .booking-inline-note {
+    margin-top: 18px;
+    padding: 14px 16px;
+    background: #eef4ff;
+    border: 1px solid #dbe8ff;
+    border-radius: 16px;
+    color: #1f2a44;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .booking-summary-title {
+    margin: 0 0 18px;
+    font-size: 22px;
+    color: #111827;
+  }
+
+  .booking-summary-list {
+    display: grid;
+    gap: 14px;
+  }
+
+  .booking-summary-item {
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .booking-summary-item:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .booking-summary-item span {
+    display: block;
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+
+  .booking-summary-item strong {
+    display: block;
+    color: #111827;
+    font-size: 17px;
+    line-height: 1.45;
+  }
+
+  .booking-credit-box {
+    margin-top: 18px;
+    padding: 16px;
+    border-radius: 18px;
+    background: #f8fafc;
+    border: 1px solid var(--line);
+  }
+
+  .booking-credit-box strong {
+    display: block;
+    font-size: 24px;
+    color: #111827;
+    margin-bottom: 6px;
+  }
+
+  .booking-submit {
+    width: 100%;
+    min-height: 58px;
+    margin-top: 18px;
+    border-radius: 16px;
+    font-size: 17px;
+    font-weight: 800;
+  }
+
+  .booking-topup {
+    margin-top: 10px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .booking-success-card h1 {
+    margin: 0 0 12px;
+    font-size: 38px;
+    color: #111827;
+    line-height: 1.05;
+  }
+
+  .booking-success-card p {
+    color: var(--muted);
+    line-height: 1.7;
+  }
+
+  .booking-success-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 22px;
+  }
+
+  @media (max-width: 980px) {
+    .booking-shell {
+      grid-template-columns: 1fr;
+    }
+
+    .booking-side-card {
+      position: static;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .booking-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .booking-title {
+      font-size: 34px;
+    }
+  }
+</style>
+
+{% if booking_success %}
+  <section class="booking-success-card" style="max-width: 860px; margin: 0 auto;">
+    <div class="booking-kicker">Session booked</div>
+    <h1>Your lesson is confirmed with {{ tutor.public_name }}</h1>
+    <p>
+      The booking has been created successfully and your credits have been deducted.
+      A confirmation email has also been sent.
+    </p>
+
+    <div class="booking-summary-list" style="margin-top: 22px;">
+      <div class="booking-summary-item">
+        <span>Tutor</span>
+        <strong>{{ tutor.public_name }}</strong>
+      </div>
+      <div class="booking-summary-item">
+        <span>Subject</span>
+        <strong>{{ booked_session.subject }}</strong>
+      </div>
+      <div class="booking-summary-item">
+        <span>Level</span>
+        <strong>{{ booked_session.class_level }}</strong>
+      </div>
+      <div class="booking-summary-item">
+        <span>Date & Time</span>
+        <strong>{{ booked_session.scheduled_at_label }}</strong>
+      </div>
+      <div class="booking-summary-item">
+        <span>Duration</span>
+        <strong>{{ booked_session.duration_minutes }} minutes</strong>
+      </div>
+      <div class="booking-summary-item">
+        <span>Credits used</span>
+        <strong>{{ booked_session.credits_cost }} credits</strong>
+      </div>
     </div>
 
-    <!-- LEVEL -->
-    <div>
-      <label>Class Level</label>
-      <select name="class_level" required>
-        {% for val, label in level_options %}
-          <option value="{{ val }}" {% if val == level_prefill %}selected{% endif %}>
-            {{ label }}
-          </option>
-        {% endfor %}
-      </select>
+    <div class="booking-success-actions">
+      <a class="btn btn-primary" href="{{ url_for('dashboard') }}">Go to Dashboard</a>
+      <a class="btn btn-light" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">Back to Tutor Profile</a>
+    </div>
+  </section>
+{% else %}
+  <section class="booking-shell">
+    <div class="booking-main-card">
+      <div class="booking-kicker">Book trial lesson</div>
+      <h1 class="booking-title">Book {{ tutor.public_name }}</h1>
+      <p class="booking-sub">
+        Confirm your subject, class level, selected slot, and lesson length before booking.
+      </p>
+
+      <form method="post" id="bookingForm">
+        <div class="booking-grid">
+          <div>
+            <label class="booking-label">Subject</label>
+            <select name="subject" id="subject" required>
+              {% for val, label in subject_options %}
+                <option value="{{ val }}" {% if val == subject_prefill %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="booking-label">Class level</label>
+            <select name="class_level" id="class_level" required>
+              {% for val, label in level_options %}
+                <option value="{{ val }}" {% if val == level_prefill %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="booking-field-full">
+            <label class="booking-label">Selected date & time</label>
+            <input
+              name="scheduled_at"
+              id="scheduled_at"
+              type="datetime-local"
+              value="{{ scheduled_at_prefill or '' }}"
+              required
+            >
+            <p class="booking-helper">This is usually prefilled when you click a slot from the tutor profile.</p>
+          </div>
+
+          <div>
+            <label class="booking-label">Duration</label>
+            <select name="duration_minutes" id="duration_minutes" required>
+              <option value="30" {% if duration_prefill == 30 %}selected{% endif %}>30 minutes</option>
+              <option value="60" {% if duration_prefill == 60 %}selected{% endif %}>60 minutes</option>
+              <option value="90" {% if duration_prefill == 90 %}selected{% endif %}>90 minutes</option>
+              <option value="120" {% if duration_prefill == 120 %}selected{% endif %}>120 minutes</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="booking-label">Credits cost</label>
+            <input
+              name="credits_cost"
+              id="credits_cost"
+              type="number"
+              value="{{ credits_prefill }}"
+              readonly
+            >
+            <p class="booking-helper">Auto-calculated from duration. {{ credit_rate }} PKR = 1 credit.</p>
+          </div>
+        </div>
+
+        <div class="booking-inline-note" id="bookingPreviewBox">
+          Review the booking summary on the right, then confirm your session.
+        </div>
+
+        <button class="btn btn-primary booking-submit" type="submit">
+          Confirm Booking
+        </button>
+      </form>
     </div>
 
-    <!-- DATE & TIME -->
-    <div>
-      <label>Date & Time</label>
-      <input name="scheduled_at" type="datetime-local" value="{{ scheduled_at_prefill or '' }}" required>
-    </div>
+    <aside class="booking-side-card">
+      <h2 class="booking-summary-title">Booking Summary</h2>
 
-    <!-- DURATION -->
-    <div>
-      <label>Duration (minutes)</label>
-      <input name="duration_minutes" type="number" min="30" value="60" required>
-    </div>
+      <div class="booking-summary-list">
+        <div class="booking-summary-item">
+          <span>Tutor</span>
+          <strong>{{ tutor.public_name }}</strong>
+        </div>
+        <div class="booking-summary-item">
+          <span>Credits balance</span>
+          <strong>{{ current_user.credits_balance }} credits</strong>
+        </div>
+        <div class="booking-summary-item">
+          <span>Selected subject</span>
+          <strong id="summarySubject">{{ subject_prefill or '—' }}</strong>
+        </div>
+        <div class="booking-summary-item">
+          <span>Selected level</span>
+          <strong id="summaryLevel">{{ level_prefill or '—' }}</strong>
+        </div>
+        <div class="booking-summary-item">
+          <span>Selected date & time</span>
+          <strong id="summaryDateTime">{{ scheduled_at_prefill or '—' }}</strong>
+        </div>
+        <div class="booking-summary-item">
+          <span>Lesson duration</span>
+          <strong id="summaryDuration">{{ duration_prefill }} minutes</strong>
+        </div>
+      </div>
 
-    <!-- CREDITS -->
-    <div>
-      <label>Credits Cost</label>
-      <input name="credits_cost" type="number" min="1" value="100" required>
-      <p class="muted small">1 credit = PKR 10</p>
-    </div>
+      <div class="booking-credit-box">
+        <strong id="summaryCredits">{{ credits_prefill }} credits</strong>
+        <div class="muted">will be deducted on confirmation</div>
+      </div>
 
-    <!-- SUBMIT -->
-    <button class="btn btn-primary" type="submit">
-      Confirm Booking
-    </button>
+      <a class="btn btn-light booking-topup" href="{{ url_for('buy_credits') }}">
+        Top up credits
+      </a>
+    </aside>
+  </section>
 
-  </form>
-</div>
+  <script>
+    function creditCostForDuration(duration) {
+      const d = parseInt(duration || '60', 10);
+      if (d <= 30) return 50;
+      if (d <= 60) return 100;
+      if (d <= 90) return 150;
+      return 200;
+    }
+
+    function syncBookingSummary() {
+      const subjectEl = document.getElementById('subject');
+      const levelEl = document.getElementById('class_level');
+      const dtEl = document.getElementById('scheduled_at');
+      const durationEl = document.getElementById('duration_minutes');
+      const creditsEl = document.getElementById('credits_cost');
+
+      const summarySubject = document.getElementById('summarySubject');
+      const summaryLevel = document.getElementById('summaryLevel');
+      const summaryDateTime = document.getElementById('summaryDateTime');
+      const summaryDuration = document.getElementById('summaryDuration');
+      const summaryCredits = document.getElementById('summaryCredits');
+
+      const duration = durationEl.value || '60';
+      const credits = creditCostForDuration(duration);
+
+      creditsEl.value = credits;
+
+      summarySubject.textContent = subjectEl.options[subjectEl.selectedIndex]?.text || '—';
+      summaryLevel.textContent = levelEl.options[levelEl.selectedIndex]?.text || '—';
+      summaryDateTime.textContent = dtEl.value || '—';
+      summaryDuration.textContent = duration + ' minutes';
+      summaryCredits.textContent = credits + ' credits';
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      syncBookingSummary();
+
+      ['subject', 'class_level', 'scheduled_at', 'duration_minutes'].forEach(function(id) {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('change', syncBookingSummary);
+          el.addEventListener('input', syncBookingSummary);
+        }
+      });
+
+      const form = document.getElementById('bookingForm');
+      if (form) {
+        form.addEventListener('submit', function(e) {
+          const subjectText = document.getElementById('summarySubject').textContent;
+          const levelText = document.getElementById('summaryLevel').textContent;
+          const dateTimeText = document.getElementById('summaryDateTime').textContent;
+          const durationText = document.getElementById('summaryDuration').textContent;
+          const creditsText = document.getElementById('summaryCredits').textContent;
+
+          const ok = confirm(
+            'Please confirm your booking:\\n\\n' +
+            'Tutor: {{ tutor.public_name }}\\n' +
+            'Subject: ' + subjectText + '\\n' +
+            'Level: ' + levelText + '\\n' +
+            'Date & Time: ' + dateTimeText + '\\n' +
+            'Duration: ' + durationText + '\\n' +
+            'Credits: ' + creditsText
+          );
+
+          if (!ok) {
+            e.preventDefault();
+          }
+        });
+      }
+    });
+  </script>
+{% endif %}
 
 {% endblock %}

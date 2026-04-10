@@ -60,6 +60,103 @@
           Modest / privacy-conscious profile
         </label>
       </div>
+
+{% if current_user.role == 'tutor' %}
+<section class="card" style="margin-top:24px;">
+  <h2>Special Dates / Overrides</h2>
+  <p class="muted">
+    Use this for Eid, exams, travel days, holidays, or extra one-off slots.
+  </p>
+
+  <form method="post" action="{{ url_for('add_availability_exception') }}" class="form-grid two-col">
+    <div>
+      <label class="small-label">Date</label>
+      <input type="date" name="exception_date" required>
+    </div>
+
+    <div>
+      <label class="small-label">Override type</label>
+      <select name="mode" id="override_mode" onchange="toggleOverrideTimeFields()">
+        <option value="block_full_day">Block full day</option>
+        <option value="block_range">Block time range</option>
+        <option value="custom_slots">Add custom available slots</option>
+      </select>
+    </div>
+
+    <div id="override_start_wrap" style="display:none;">
+      <label class="small-label">Start time</label>
+      <input type="time" name="start_time">
+    </div>
+
+    <div id="override_end_wrap" style="display:none;">
+      <label class="small-label">End time</label>
+      <input type="time" name="end_time">
+    </div>
+
+    <div class="full-width">
+      <label class="small-label">Note</label>
+      <input type="text" name="note" placeholder="e.g. Eid holiday, exam, extra evening slot">
+    </div>
+
+    <div class="full-width">
+      <button class="btn btn-primary" type="submit">Add Override</button>
+    </div>
+  </form>
+
+  <hr style="margin:24px 0; border:none; border-top:1px solid var(--line);">
+
+  <h3 style="margin-top:0;">Existing Overrides</h3>
+
+  {% if availability_exceptions %}
+    <div class="form-grid single-col">
+      {% for ex in availability_exceptions %}
+        <div class="card" style="padding:16px;">
+          <div class="list-row top">
+            <div>
+              <strong>{{ ex.exception_date.strftime('%d %b %Y') }}</strong>
+              <p class="muted" style="margin:6px 0 0;">
+                {% if ex.is_blocked %}
+                  {% if ex.start_time and ex.end_time %}
+                    Blocked: {{ ex.start_time }} - {{ ex.end_time }}
+                  {% else %}
+                    Blocked full day
+                  {% endif %}
+                {% else %}
+                  Custom slots: {{ ex.start_time }} - {{ ex.end_time }}
+                {% endif %}
+                {% if ex.note %} · {{ ex.note }}{% endif %}
+              </p>
+            </div>
+
+            <form method="post" action="{{ url_for('delete_availability_exception', exception_id=ex.id) }}">
+              <button class="btn btn-light" type="submit">Delete</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">No special date overrides added yet.</p>
+  {% endif %}
+</section>
+
+<script>
+function toggleOverrideTimeFields() {
+  const mode = document.getElementById('override_mode');
+  const startWrap = document.getElementById('override_start_wrap');
+  const endWrap = document.getElementById('override_end_wrap');
+
+  if (!mode || !startWrap || !endWrap) return;
+
+  const showTimes = mode.value === 'block_range' || mode.value === 'custom_slots';
+  startWrap.style.display = showTimes ? 'block' : 'none';
+  endWrap.style.display = showTimes ? 'block' : 'none';
+}
+
+document.addEventListener('DOMContentLoaded', toggleOverrideTimeFields);
+</script>
+{% endif %}
+
     {% endif %}
 
     <div class="full-width">

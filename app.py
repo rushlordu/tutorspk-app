@@ -65,7 +65,6 @@ def minutes_to_hhmm(total_minutes: int) -> str:
     minutes = total_minutes % 60
     return f"{hours:02d}:{minutes:02d}"
 
-
 def build_slots_for_date(tutor, target_date):
     weekday = target_date.weekday()
 
@@ -79,11 +78,28 @@ def build_slots_for_date(tutor, target_date):
     exceptions = (
         TutorAvailabilityException.query
         .filter_by(tutor_id=tutor.id, exception_date=target_date)
+        .order_by(TutorAvailabilityException.start_time.asc())
         .all()
     )
 
+    # If a full-day blocked exception exists, nothing should be available.
+    for ex in exceptions:
+        if ex.is_blocked and not (ex.start_time or "").strip() and not (ex.end_time or "").strip():
+            return []
+
     slots = []
 
+    def add_slot(start_hhmm: str, end_hhmm: str):
+        slot = {
+            "start": start_hhmm,
+            "end": end_hhmm,
+            "datetime_local": f"{target_date.isoformat()}T{start_hhmm}",
+            "label": f"{start_hhmm} - {end_hhmm}",
+        }
+        if not any(s["start"] == slot["start"] and s["end"] == slot["end"] for s in slots):
+            slots.append(slot)
+
+    # 1) Build normal recurring weekly slots
     for rule in rules:
         start_minutes = hhmm_to_minutes(rule.start_time)
         end_minutes = hhmm_to_minutes(rule.end_time)
@@ -96,30 +112,49 @@ def build_slots_for_date(tutor, target_date):
 
             blocked = False
             for ex in exceptions:
-                if ex.is_blocked:
-                    if not ex.start_time and not ex.end_time:
-                        blocked = True
-                        break
+                if not ex.is_blocked:
+                    continue
 
-                    ex_start = hhmm_to_minutes(ex.start_time or "00:00")
-                    ex_end = hhmm_to_minutes(ex.end_time or "23:59")
-                    slot_start_m = hhmm_to_minutes(slot_start)
-                    slot_end_m = hhmm_to_minutes(slot_end)
+                ex_start = hhmm_to_minutes((ex.start_time or "").strip() or "00:00")
+                ex_end = hhmm_to_minutes((ex.end_time or "").strip() or "23:59")
+                slot_start_m = hhmm_to_minutes(slot_start)
+                slot_end_m = hhmm_to_minutes(slot_end)
 
-                    if slot_start_m < ex_end and slot_end_m > ex_start:
-                        blocked = True
-                        break
+                if slot_start_m < ex_end and slot_end_m > ex_start:
+                    blocked = True
+                    break
 
             if not blocked:
-                slots.append({
-                    "start": slot_start,
-                    "end": slot_end,
-                    "datetime_local": f"{target_date.isoformat()}T{slot_start}",
-                    "label": f"{slot_start} - {slot_end}",
-                })
+                add_slot(slot_start, slot_end)
 
             current += slot_minutes
 
+    # 2) Add one-off custom available slots from exceptions where is_blocked = False
+    for ex in exceptions:
+        if ex.is_blocked:
+            continue
+
+        ex_start_raw = (ex.start_time or "").strip()
+        ex_end_raw = (ex.end_time or "").strip()
+        if not ex_start_raw or not ex_end_raw:
+            continue
+
+        ex_start = hhmm_to_minutes(ex_start_raw)
+        ex_end = hhmm_to_minutes(ex_end_raw)
+        if ex_end <= ex_start:
+            continue
+
+        # Use same slot size as the first rule for that weekday if available, else 60 mins
+        slot_minutes = int(rules[0].slot_minutes if rules else 60)
+        current = ex_start
+
+        while current + slot_minutes <= ex_end:
+            slot_start = minutes_to_hhmm(current)
+            slot_end = minutes_to_hhmm(current + slot_minutes)
+            add_slot(slot_start, slot_end)
+            current += slot_minutes
+
+    slots.sort(key=lambda s: s["start"])
     return slots
 
 def get_tutor_schedule_context(tutor):
@@ -227,6 +262,48 @@ def build_week_schedule_for_tutor(tutor, anchor_date):
 
     return week_start, week_days
 
+def get_next_available_slot(tutor, days_ahead=14):
+    """
+    Returns:
+      {
+        "date": date_obj,
+        "slot": slot_dict,
+        "label": "Today 06:00 PM"
+      }
+    or None
+    """
+    now = datetime.now()
+
+    for offset in range(days_ahead + 1):
+        target_date = date.today() + timedelta(days=offset)
+        slots = build_slots_for_date(tutor, target_date)
+
+        for slot in slots:
+            try:
+                slot_dt = datetime.strptime(
+                    f"{target_date.isoformat()} {slot['start']}",
+                    "%Y-%m-%d %H:%M"
+                )
+            except Exception:
+                continue
+
+            if slot_dt <= now:
+                continue
+
+            if offset == 0:
+                day_label = "Today"
+            elif offset == 1:
+                day_label = "Tomorrow"
+            else:
+                day_label = target_date.strftime("%a %d %b")
+
+            return {
+                "date": target_date,
+                "slot": slot,
+                "label": f"{day_label} · {slot_dt.strftime('%I:%M %p')}",
+            }
+
+    return None
 
 def send_email(to_email, subject, body, is_html=False, reply_to=None):
     try:
@@ -523,6 +600,32 @@ google = oauth.register(
 db.init_app(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
+
+def get_or_create_conversation(student_id, tutor_id, booking_id=None):
+    query = Conversation.query.filter_by(
+        student_id=student_id,
+        tutor_id=tutor_id
+    )
+
+    if booking_id:
+        query = query.filter_by(booking_id=booking_id)
+
+    convo = query.first()
+
+    if convo:
+        return convo
+
+    convo = Conversation(
+        student_id=student_id,
+        tutor_id=tutor_id,
+        booking_id=booking_id
+    )
+
+    db.session.add(convo)
+    db.session.flush()
+
+    return convo
+
 
 @app.template_filter("dt")
 def format_dt(value, fmt="%d %b %Y, %I:%M %p"):
@@ -848,6 +951,54 @@ class ChatFlag(db.Model):
     booking = db.relationship("Booking", backref="chat_flags")
     sender = db.relationship("User")
 
+class Conversation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    student_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    tutor_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+
+    booking_id = db.Column(db.Integer, db.ForeignKey("booking.id"), nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    student = db.relationship("User", foreign_keys=[student_id], backref="student_conversations")
+    tutor = db.relationship("User", foreign_keys=[tutor_id], backref="tutor_conversations")
+    booking = db.relationship("Booking", backref="conversation")
+
+
+class Message(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    conversation_id = db.Column(
+        db.Integer,
+        db.ForeignKey("conversation.id"),
+        nullable=False
+    )
+
+    sender_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+
+    body = db.Column(db.Text, nullable=False)
+
+    is_read = db.Column(db.Boolean, default=False)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    conversation = db.relationship(
+        "Conversation",
+        backref=db.backref(
+            "messages",
+            lazy=True,
+            order_by="Message.created_at.asc()"
+        )
+    )
+
+    sender = db.relationship("User")
+
 # Add this model near PaymentNotice if not already present
 class TutorFeeNotice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -863,6 +1014,132 @@ class TutorFeeNotice(db.Model):
     reviewed_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     tutor = db.relationship("User", backref="tutor_fee_notices")
+
+@app.context_processor
+def inject_message_badge():
+    return {
+        "global_unread_messages": unread_message_count_for(current_user)
+        if current_user.is_authenticated else 0
+    }
+
+@app.route("/messages")
+@login_required
+def messages_inbox():
+    if current_user.role not in ["student", "tutor", "admin"]:
+        flash("Messaging is not available for this account.", "danger")
+        return redirect(url_for("dashboard"))
+
+    if current_user.role == "student":
+        conversations = (
+            Conversation.query
+            .filter_by(student_id=current_user.id)
+            .order_by(Conversation.updated_at.desc())
+            .all()
+        )
+    elif current_user.role == "tutor":
+        conversations = (
+            Conversation.query
+            .filter_by(tutor_id=current_user.id)
+            .order_by(Conversation.updated_at.desc())
+            .all()
+        )
+    else:
+        conversations = []
+
+    unread_count = 0
+    for convo in conversations:
+        unread_count += Message.query.filter(
+            Message.conversation_id == convo.id,
+            Message.sender_id != current_user.id,
+            Message.is_read == False
+        ).count()
+
+    return render_template(
+        "messages_inbox.html",
+        conversations=conversations,
+        unread_count=unread_count,
+    )
+
+
+@app.route("/messages/start/<int:tutor_id>")
+@login_required
+def start_conversation(tutor_id):
+    if current_user.role != "student":
+        flash("Only students can start a conversation with tutors.", "danger")
+        return redirect(url_for("dashboard"))
+
+    tutor = User.query.get_or_404(tutor_id)
+    if tutor.role != "tutor":
+        flash("Tutor not found.", "danger")
+        return redirect(url_for("tutors"))
+
+    convo = get_or_create_conversation(
+        student_id=current_user.id,
+        tutor_id=tutor.id,
+        booking_id=None
+    )
+    db.session.commit()
+
+    return redirect(url_for("message_thread", conversation_id=convo.id))
+
+
+@app.route("/messages/<int:conversation_id>", methods=["GET", "POST"])
+@login_required
+def message_thread(conversation_id):
+    convo = Conversation.query.get_or_404(conversation_id)
+
+    allowed = (
+        current_user.id == convo.student_id or
+        current_user.id == convo.tutor_id or
+        current_user.role == "admin"
+    )
+    if not allowed:
+        flash("You are not allowed to view this conversation.", "danger")
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        body = (request.form.get("body", "") or "").strip()
+
+        if not body:
+            flash("Message cannot be empty.", "danger")
+            return redirect(url_for("message_thread", conversation_id=convo.id))
+
+        for pattern in PHONE_OR_EMAIL_PATTERNS:
+            if pattern.search(body):
+                flash("Phone numbers, emails, and off-platform contact prompts are not allowed in chat.", "danger")
+                return redirect(url_for("message_thread", conversation_id=convo.id))
+
+        msg = Message(
+            conversation_id=convo.id,
+            sender_id=current_user.id,
+            body=body,
+            is_read=False,
+        )
+        db.session.add(msg)
+        convo.updated_at = datetime.utcnow()
+        db.session.commit()
+
+        return redirect(url_for("message_thread", conversation_id=convo.id))
+
+    unread_messages = Message.query.filter(
+        Message.conversation_id == convo.id,
+        Message.sender_id != current_user.id,
+        Message.is_read == False
+    ).all()
+
+    for msg in unread_messages:
+        msg.is_read = True
+    if unread_messages:
+        db.session.commit()
+
+    other_user = convo.tutor if current_user.id == convo.student_id else convo.student
+
+    return render_template(
+        "message_thread.html",
+        conversation=convo,
+        other_user=other_user,
+        messages=convo.messages,
+    )
 
 @app.route("/tutor/registration-fee", methods=["GET", "POST"])
 @login_required
@@ -1036,6 +1313,31 @@ superadmin@tutorsonline.pk
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+def unread_message_count_for(user):
+    if not user or not getattr(user, "is_authenticated", False):
+        return 0
+
+    if user.role == "student":
+        convo_ids = [
+            c.id for c in Conversation.query.filter_by(student_id=user.id).all()
+        ]
+    elif user.role == "tutor":
+        convo_ids = [
+            c.id for c in Conversation.query.filter_by(tutor_id=user.id).all()
+        ]
+    elif user.role == "admin":
+        return 0
+    else:
+        return 0
+
+    if not convo_ids:
+        return 0
+
+    return Message.query.filter(
+        Message.conversation_id.in_(convo_ids),
+        Message.sender_id != user.id,
+        Message.is_read == False
+    ).count()
 
 @app.context_processor
 def inject_globals():
@@ -1934,27 +2236,166 @@ def index():
         demo_topics=demo_topics,
     )
 
-@app.route("/select-tutor/<int:tutor_id>", methods=["GET", "POST"])
+@app.route("/book/<int:tutor_id>", methods=["GET", "POST"])
 @login_required
-def select_tutor(tutor_id):
+def book_tutor(tutor_id):
+    if UNDER_CONSTRUCTION:
+        return redirect(url_for("index"))
+
+    if current_user.role != "student":
+        flash("Only students can book tutors.", "danger")
+        return redirect(url_for("dashboard"))
+
     tutor = User.query.get_or_404(tutor_id)
+    if tutor.role != "tutor":
+        flash("Tutor not found.", "danger")
+        return redirect(url_for("tutors"))
+
+    subject_prefill = (request.args.get("subject", "") or "").strip()
+    level_prefill = (request.args.get("level", "") or "").strip()
+    scheduled_at_prefill = (request.args.get("scheduled_at", "") or "").strip()
+
+    # sensible defaults
+    duration_prefill = 60
+    credits_prefill = 100
 
     if request.method == "POST":
-        subject = request.form.get("subject")
-        level = request.form.get("level")
+        form_subject = (request.form.get("subject", "") or "").strip()
+        form_level = (request.form.get("class_level", "") or "").strip()
+        scheduled_at_raw = (request.form.get("scheduled_at", "") or "").strip()
 
-        return redirect(url_for(
-            "book_tutor",
+        try:
+            duration_minutes = int(request.form.get("duration_minutes", 60))
+        except Exception:
+            duration_minutes = 60
+
+        # lock credits to duration instead of trusting raw free user input
+        if duration_minutes <= 30:
+            duration_minutes = 30
+        elif duration_minutes <= 60:
+            duration_minutes = 60
+        elif duration_minutes <= 90:
+            duration_minutes = 90
+        else:
+            duration_minutes = 120
+
+        credits_cost = {
+            30: 50,
+            60: 100,
+            90: 150,
+            120: 200,
+        }[duration_minutes]
+
+        if not form_subject or not form_level or not scheduled_at_raw:
+            flash("Please complete all booking details.", "danger")
+            return render_template(
+                "book_tutor.html",
+                tutor=tutor,
+                subject_options=SUBJECT_OPTIONS,
+                level_options=LEVEL_OPTIONS,
+                subject_prefill=form_subject or subject_prefill,
+                level_prefill=form_level or level_prefill,
+                scheduled_at_prefill=scheduled_at_raw or scheduled_at_prefill,
+                duration_prefill=duration_minutes,
+                credits_prefill=credits_cost,
+                credit_rate=app.config.get("CREDIT_RATE", 10),
+                booking_success=False,
+            )
+
+        try:
+            scheduled_at = datetime.strptime(scheduled_at_raw, "%Y-%m-%dT%H:%M")
+        except ValueError:
+            flash("Invalid date/time selected.", "danger")
+            return render_template(
+                "book_tutor.html",
+                tutor=tutor,
+                subject_options=SUBJECT_OPTIONS,
+                level_options=LEVEL_OPTIONS,
+                subject_prefill=form_subject or subject_prefill,
+                level_prefill=form_level or level_prefill,
+                scheduled_at_prefill=scheduled_at_raw or scheduled_at_prefill,
+                duration_prefill=duration_minutes,
+                credits_prefill=credits_cost,
+                credit_rate=app.config.get("CREDIT_RATE", 10),
+                booking_success=False,
+            )
+
+        if scheduled_at <= datetime.now():
+            flash("Please choose a future date and time.", "danger")
+            return render_template(
+                "book_tutor.html",
+                tutor=tutor,
+                subject_options=SUBJECT_OPTIONS,
+                level_options=LEVEL_OPTIONS,
+                subject_prefill=form_subject or subject_prefill,
+                level_prefill=form_level or level_prefill,
+                scheduled_at_prefill=scheduled_at_raw or scheduled_at_prefill,
+                duration_prefill=duration_minutes,
+                credits_prefill=credits_cost,
+                credit_rate=app.config.get("CREDIT_RATE", 10),
+                booking_success=False,
+            )
+
+        if current_user.credits_balance < credits_cost:
+            flash("Insufficient credits. Please top up first.", "danger")
+            return redirect(url_for("buy_credits"))
+
+        booking = Booking(
+            student_id=current_user.id,
             tutor_id=tutor.id,
-            subject=subject,
-            level=level
-        ))
+            subject=form_subject,
+            class_level=form_level,
+            scheduled_at=scheduled_at,
+            duration_minutes=duration_minutes,
+            credits_cost=credits_cost,
+            status="scheduled",
+        )
+
+        add_credits(
+            current_user,
+            -credits_cost,
+            "session_deduction",
+            f"Booking with {tutor.public_name}",
+        )
+
+        db.session.add(booking)
+        db.session.commit()
+
+        send_booking_emails(booking)
+
+        return render_template(
+            "book_tutor.html",
+            tutor=tutor,
+            subject_options=SUBJECT_OPTIONS,
+            level_options=LEVEL_OPTIONS,
+            subject_prefill=form_subject,
+            level_prefill=form_level,
+            scheduled_at_prefill=scheduled_at_raw,
+            duration_prefill=duration_minutes,
+            credits_prefill=credits_cost,
+            credit_rate=app.config.get("CREDIT_RATE", 10),
+            booking_success=True,
+            booked_session={
+                "subject": form_subject,
+                "class_level": form_level,
+                "scheduled_at_label": scheduled_at.strftime("%d %b %Y, %I:%M %p"),
+                "duration_minutes": duration_minutes,
+                "credits_cost": credits_cost,
+            },
+        )
 
     return render_template(
-        "select_tutor.html",
+        "book_tutor.html",
         tutor=tutor,
         subject_options=SUBJECT_OPTIONS,
-        level_options=LEVEL_OPTIONS
+        level_options=LEVEL_OPTIONS,
+        subject_prefill=subject_prefill,
+        level_prefill=level_prefill,
+        scheduled_at_prefill=scheduled_at_prefill,
+        duration_prefill=duration_prefill,
+        credits_prefill=credits_prefill,
+        credit_rate=app.config.get("CREDIT_RATE", 10),
+        booking_success=False,
     )
 
 @app.route("/register")
@@ -2423,20 +2864,25 @@ def tutors():
         profile_stage="approved",
         is_active_user=True,
     )
+
     if level:
         query = query.filter(User.class_levels.ilike(f"%{level}%"))
     if subject:
         query = query.filter(User.subjects.ilike(f"%{subject}%"))
 
+    tutors_list = query.all()
+
+    for tutor in tutors_list:
+        tutor.next_available = get_next_available_slot(tutor)
+
     return render_template(
         "tutors.html",
-        tutors=query.all(),
+        tutors=tutors_list,
         level=level,
         subject=subject,
         subject_options=SUBJECT_OPTIONS,
         level_options=LEVEL_OPTIONS,
     )
-
 
 @app.route("/tutors/<int:tutor_id>", methods=["GET", "POST"])
 def tutor_profile(tutor_id):
@@ -2539,65 +2985,6 @@ def submit_tutor_for_review():
 
     flash("Submitted for admin review", "success")
     return redirect(url_for("dashboard"))
-
-@app.route("/book/<int:tutor_id>", methods=["GET", "POST"])
-@login_required
-def book_tutor(tutor_id):
-    if UNDER_CONSTRUCTION:
-        return redirect(url_for("index"))
-
-    if current_user.role != "student":
-        flash("Only students can book tutors.", "danger")
-        return redirect(url_for("dashboard"))
-
-    tutor = User.query.get_or_404(tutor_id)
-
-    subject = request.args.get("subject", "")
-    level = request.args.get("level", "")
-    scheduled_at_prefill = request.args.get("scheduled_at", "").strip()
-
-    if request.method == "POST":
-        credits_cost = int(request.form.get("credits_cost", 100))
-        if current_user.credits_balance < credits_cost:
-            flash("Insufficient credits. Please top up first.", "danger")
-            return redirect(url_for("buy_credits"))
-
-        scheduled_at = datetime.strptime(
-            request.form["scheduled_at"], "%Y-%m-%dT%H:%M"
-        )
-        booking = Booking(
-            student_id=current_user.id,
-            tutor_id=tutor.id,
-            subject=request.form["subject"],
-            class_level=request.form["class_level"],
-            scheduled_at=scheduled_at,
-            duration_minutes=int(request.form.get("duration_minutes", 60)),
-            credits_cost=credits_cost,
-            status="scheduled",
-        )
-        add_credits(
-            current_user,
-            -credits_cost,
-            "session_deduction",
-            f"Booking with {tutor.public_name}",
-        )
-        db.session.add(booking)
-        db.session.commit()
-
-        send_booking_emails(booking)
-
-        flash("Session booked successfully.", "success")
-        return redirect(url_for("dashboard"))
-    return render_template(
-            "book_tutor.html",
-                tutor=tutor,
-                subject_options=SUBJECT_OPTIONS,
-                level_options=LEVEL_OPTIONS,
-                subject_prefill=subject,
-                level_prefill=level,
-                scheduled_at_prefill=scheduled_at_prefill,
-        )
-    
 
 @app.route("/terms")
 def terms():
@@ -3432,6 +3819,87 @@ def seed():
     flash("Database seeded successfully.", "success")
     return redirect(url_for("index"))
 
+@app.route("/settings/availability/exception/add", methods=["POST"])
+@login_required
+def add_availability_exception():
+    if current_user.role != "tutor":
+        flash("Only tutors can manage availability.", "danger")
+        return redirect(url_for("settings"))
+
+    exception_date_raw = (request.form.get("exception_date", "") or "").strip()
+    mode = (request.form.get("mode", "") or "block_full_day").strip()
+    start_time = (request.form.get("start_time", "") or "").strip()
+    end_time = (request.form.get("end_time", "") or "").strip()
+    note = (request.form.get("note", "") or "").strip()
+
+    if not exception_date_raw:
+        flash("Please select a date.", "danger")
+        return redirect(url_for("settings"))
+
+    try:
+        exception_date = datetime.strptime(exception_date_raw, "%Y-%m-%d").date()
+    except ValueError:
+        flash("Invalid date.", "danger")
+        return redirect(url_for("settings"))
+
+    if mode == "block_full_day":
+        ex = TutorAvailabilityException(
+            tutor_id=current_user.id,
+            exception_date=exception_date,
+            start_time="",
+            end_time="",
+            is_blocked=True,
+            note=note or "Blocked full day",
+        )
+        db.session.add(ex)
+        db.session.commit()
+        flash("Full day blocked successfully.", "success")
+        return redirect(url_for("settings"))
+
+    if mode not in {"block_range", "custom_slots"}:
+        flash("Invalid override type.", "danger")
+        return redirect(url_for("settings"))
+
+    if not start_time or not end_time:
+        flash("Please provide both start and end times.", "danger")
+        return redirect(url_for("settings"))
+
+    if hhmm_to_minutes(end_time) <= hhmm_to_minutes(start_time):
+        flash("End time must be after start time.", "danger")
+        return redirect(url_for("settings"))
+
+    ex = TutorAvailabilityException(
+        tutor_id=current_user.id,
+        exception_date=exception_date,
+        start_time=start_time,
+        end_time=end_time,
+        is_blocked=(mode == "block_range"),
+        note=note or ("Blocked time range" if mode == "block_range" else "Custom available slots"),
+    )
+    db.session.add(ex)
+    db.session.commit()
+
+    flash("Date override added successfully.", "success")
+    return redirect(url_for("settings"))
+
+
+@app.route("/settings/availability/exception/<int:exception_id>/delete", methods=["POST"])
+@login_required
+def delete_availability_exception(exception_id):
+    if current_user.role != "tutor":
+        flash("Only tutors can manage availability.", "danger")
+        return redirect(url_for("settings"))
+
+    ex = TutorAvailabilityException.query.get_or_404(exception_id)
+    if ex.tutor_id != current_user.id:
+        flash("Unauthorized.", "danger")
+        return redirect(url_for("settings"))
+
+    db.session.delete(ex)
+    db.session.commit()
+    flash("Date override deleted.", "success")
+    return redirect(url_for("settings"))
+
 @app.route("/seed-admin")
 def seed_admin():
     with app.app_context():
@@ -3447,3 +3915,28 @@ if __name__ == "__main__":
         ensure_default_admin()
     app.run(host="0.0.0.0", port=5000, debug=True)
 
+def unread_message_count_for(user):
+    if not user or not getattr(user, "is_authenticated", False):
+        return 0
+
+    if user.role == "student":
+        convo_ids = [
+            c.id for c in Conversation.query.filter_by(student_id=user.id).all()
+        ]
+    elif user.role == "tutor":
+        convo_ids = [
+            c.id for c in Conversation.query.filter_by(tutor_id=user.id).all()
+        ]
+    elif user.role == "admin":
+        return 0
+    else:
+        return 0
+
+    if not convo_ids:
+        return 0
+
+    return Message.query.filter(
+        Message.conversation_id.in_(convo_ids),
+        Message.sender_id != user.id,
+        Message.is_read == False
+    ).count()

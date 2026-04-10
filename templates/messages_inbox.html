@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+  .msg-shell {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .msg-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .msg-topbar h1 {
+    margin: 0;
+    font-size: 36px;
+    color: #111827;
+  }
+
+  .msg-unread-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    height: 34px;
+    border-radius: 999px;
+    background: #eef6f0;
+    color: var(--brand);
+    font-weight: 800;
+    padding: 0 12px;
+  }
+
+  .msg-list {
+    display: grid;
+    gap: 14px;
+  }
+
+  .msg-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 18px;
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-start;
+  }
+
+  .msg-card h3 {
+    margin: 0 0 6px;
+    color: #111827;
+    font-size: 20px;
+  }
+
+  .msg-card p {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .msg-meta {
+    white-space: nowrap;
+    text-align: right;
+  }
+
+  .msg-empty {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 24px;
+  }
+</style>
+
+<section class="msg-shell">
+  <div class="msg-topbar">
+    <div>
+      <h1>Messages</h1>
+      <p class="muted">Your conversations with tutors and students.</p>
+    </div>
+    <div class="msg-unread-pill">{{ unread_count }}</div>
+  </div>
+
+  {% if conversations %}
+    <div class="msg-list">
+      {% for convo in conversations %}
+        {% set other = convo.tutor if current_user.id == convo.student_id else convo.student %}
+        {% set last_msg = convo.messages[-1] if convo.messages else None %}
+        {% set convo_unread = convo.messages
+        | selectattr('sender_id', 'ne', current_user.id)
+        | selectattr('is_read', 'equalto', false)
+        | list
+        | length %}
+        <a href="{{ url_for('message_thread', conversation_id=convo.id) }}" class="msg-card" style="text-decoration:none;">
+          <div>
+            <h3>{{ other.public_name }}</h3>
+            <p>
+              {% if last_msg %}
+                {{ last_msg.body[:120] }}{% if last_msg.body|length > 120 %}...{% endif %}
+              {% else %}
+                No messages yet.
+              {% endif %}
+            </p>
+          </div>
+          <div class="msg-meta">
+          {% if last_msg %}
+            <div style="font-weight:700; color:#111827;">
+              {{ last_msg.created_at.strftime('%d %b %Y') }}
+            </div>
+          {% endif %}
+
+          {% if convo_unread > 0 %}
+            <div class="msg-unread-pill" style="margin-top:8px;">
+              {{ convo_unread }}
+            </div>
+          {% endif %}
+
+          <div class="muted" style="margin-top:6px;">
+            Open chat
+          </div>
+        </div>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="msg-empty">
+      <h3>No conversations yet</h3>
+      <p class="muted">Start from a tutor profile to open your first conversation.</p>
+    </div>
+  {% endif %}
+</section>
+
+{% endblock %}
