@@ -16,23 +16,28 @@
       </a>
 
       <nav class="main-nav">
-        <a href="{{ url_for('tutors') }}">Find Tutors</a>
-        <a href="{{ url_for('contact') }}">Contact</a>
+      <a href="{{ url_for('tutors') }}">Find Tutors</a>
+      <a href="{{ url_for('contact') }}">Contact</a>
 
-        {% if current_user.is_authenticated %}
-          <a href="{{ url_for('dashboard') }}">My Account</a>
-          <a href="{{ url_for('messages_inbox') }}" class="nav-messages-link">
-            Messages
-            {% if global_unread_messages and global_unread_messages > 0 %}
-              <span class="nav-msg-badge">{{ global_unread_messages }}</span>
-            {% endif %}
-          </a>
-          <a href="{{ url_for('profile') }}">Profile</a>
-          <a href="{{ url_for('settings') }}">Settings</a>
-          <a href="{{ url_for('login') }}">Login</a>
-          <a href="{{ url_for('register') }}" class="nav-join-btn">Join</a>
+      {% if current_user.is_authenticated %}
+        <a href="{{ url_for('dashboard') }}">My Account</a>
+        <a href="{{ url_for('messages_inbox') }}" class="nav-messages-link">
+          Messages
+          {% if global_unread_messages and global_unread_messages > 0 %}
+            <span class="nav-msg-badge">{{ global_unread_messages }}</span>
+          {% endif %}
+        </a>
+        <a href="{{ url_for('profile') }}">Profile</a>
+        <a href="{{ url_for('settings') }}">Settings</a>
+        {% if current_user.role == 'admin' %}
+          <a href="{{ url_for('admin_dashboard') }}">Admin</a>
         {% endif %}
-      </nav>
+        <a href="{{ url_for('logout') }}">Logout</a>
+      {% else %}
+        <a href="{{ url_for('login') }}">Login</a>
+        <a href="{{ url_for('register') }}" class="nav-join-btn">Join</a>
+      {% endif %}
+    </nav>
     </div>
   </header>
 
