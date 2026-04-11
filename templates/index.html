@@ -1242,6 +1242,19 @@
     <div class="hp-featured-grid">
       {% for tutor in featured_tutors[:6] %}
       <div class="hp-tutor-card">
+                {% if tutor.next_available %}
+          <div class="hp-slot-badge">
+            Next: {{ tutor.next_available.label }}
+          </div>
+        {% endif %}
+
+        <div class="hp-mini-meta">
+          ⭐ {{ '%.1f'|format(tutor.rating_avg or 0) }}
+          · {{ tutor.sessions_completed or 0 }} lessons
+        </div>
+        <a class="hp-mini-view" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">
+          View profile
+        </a>
         <div class="hp-tutor-media">
           <a href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">
             <img src="{{ media_url(tutor.profile_image, 'https://picsum.photos/seed/default/600/600') }}" alt="{{ tutor.public_name }}">
@@ -1273,8 +1286,8 @@
           <div class="hp-tutor-footer">
             <div class="hp-tutor-price">Rs {{ tutor.hourly_rate if tutor.hourly_rate else '—' }}/hr</div>
             <div class="hp-tutor-actions">
-              <a class="hp-small-btn soft" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">View Profile</a>
-              <a class="hp-small-btn primary" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">Book / Select</a>
+            <a class="hp-small-btn soft" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">View profile</a>
+<a class="hp-small-btn primary" href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}#schedule">Book lesson</a>  
             </div>
           </div>
         </div>

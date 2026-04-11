@@ -2205,17 +2205,22 @@ def index():
         return render_template("under_construction.html")
 
     featured_tutors = (
-        User.query.filter_by(
-            role="tutor",
-            is_verified_tutor=True,
-            is_public_tutor=True,
-            profile_stage="approved",
-            is_active_user=True,
+    User.query.filter_by(
+        role="tutor",
+        is_verified_tutor=True,
+        is_public_tutor=True,
+        profile_stage="approved",
+        is_active_user=True,
         )
         .order_by(User.rating_avg.desc(), User.sessions_completed.desc())
-        .limit(10)
+        .limit(8)
         .all()
     )
+
+    for tutor in featured_tutors:
+        tutor.next_available = get_next_available_slot(tutor)
+
+
     recent_reviews = (
         Feedback.query.order_by(Feedback.created_at.desc())
         .limit(6)
@@ -2406,6 +2411,33 @@ def book_tutor(tutor_id):
         credit_rate=app.config.get("CREDIT_RATE", 10),
         booking_success=False,
     )
+
+@app.route("/booking/<int:booking_id>/cancel", methods=["POST"])
+@login_required
+def cancel_booking(booking_id):
+    booking = Booking.query.get_or_404(booking_id)
+
+    if current_user.id not in [booking.student_id, booking.tutor_id]:
+        flash("Unauthorized.", "danger")
+        return redirect(url_for("dashboard"))
+
+    if booking.status not in ["scheduled", "confirmed"]:
+        flash("This booking can no longer be cancelled.", "warning")
+        return redirect(url_for("dashboard"))
+
+    booking.status = "cancelled"
+
+    add_credits(
+        booking.student,
+        booking.credits_cost,
+        "booking_refund",
+        f"Refund for cancelled booking #{booking.id}"
+    )
+
+    db.session.commit()
+    flash("Booking cancelled and credits refunded.", "success")
+    return redirect(url_for("dashboard"))
+
 
 @app.route("/register")
 def register():

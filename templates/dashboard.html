@@ -157,10 +157,22 @@
       <td>{{ booking.status }}</td>
       <td><a href="{{ url_for('live_session', booking_id=booking.id) }}">Open session</a></td>
       <td>
-        <a href="{{ url_for('start_conversation', tutor_id=(booking.tutor_id if current_user.role == 'student' else booking.student_id)) }}">
-          Chat
-        </a>
-      </td>
+      <a href="{{ url_for('start_conversation', tutor_id=(booking.tutor_id if current_user.role == 'student' else booking.student_id)) }}">
+        Chat
+      </a>
+
+      {% if booking.status in ['scheduled', 'confirmed'] %}
+        <form method="post"
+              action="{{ url_for('cancel_booking', booking_id=booking.id) }}"
+              style="display:inline; margin-left:8px;">
+          <button class="btn btn-light small-btn"
+                  onclick="return confirm('Cancel this booking?');">
+            Cancel
+          </button>
+        </form>
+      {% endif %}
+    </td>
+
     </tr>
     {% else %}
     <tr><td colspan="4">No bookings yet.</td></tr>

@@ -76,10 +76,20 @@
 
 <section class="thread-shell">
   <div class="thread-head">
-    <h1>Chat with {{ other_user.public_name }}</h1>
-    <p class="muted" style="margin:6px 0 0;">Keep all communication on the platform.</p>
-  </div>
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+      <div>
+        <h1>Chat with {{ other_user.public_name }}</h1>
+        <p class="muted" style="margin:6px 0 0;">Keep all communication on the platform.</p>
+      </div>
 
+      {% if current_user.role == 'student' and other_user.role == 'tutor' %}
+        <a class="btn btn-primary"
+          href="{{ url_for('tutor_profile', tutor_id=other_user.id) }}#schedule">
+          Book Tutor
+        </a>
+      {% endif %}
+    </div>
+  </div>
   <div class="thread-box">
     {% for msg in messages %}
       <div class="thread-msg {% if msg.sender_id == current_user.id %}mine{% else %}theirs{% endif %}">
