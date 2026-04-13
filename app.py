@@ -826,6 +826,11 @@ class Booking(db.Model):
     student_marked_complete = db.Column(db.Boolean, default=False)
     tutor_marked_complete = db.Column(db.Boolean, default=False)
     payout_released = db.Column(db.Boolean, default=False)
+    
+    reschedule_requested_at = db.Column(db.DateTime)
+    proposed_scheduled_at = db.Column(db.DateTime)
+    reschedule_status = db.Column(db.String(20), default="none")
+    reschedule_note = db.Column(db.Text, default="")
 
     reschedule_requested_at = db.Column(db.DateTime)
     proposed_scheduled_at = db.Column(db.DateTime)
