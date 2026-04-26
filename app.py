@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from rtc.extensions import db
 from rtc import rtc_bp
 import calendar
@@ -827,11 +828,6 @@ class Booking(db.Model):
     tutor_marked_complete = db.Column(db.Boolean, default=False)
     payout_released = db.Column(db.Boolean, default=False)
     
-    reschedule_requested_at = db.Column(db.DateTime)
-    proposed_scheduled_at = db.Column(db.DateTime)
-    reschedule_status = db.Column(db.String(20), default="none")
-    reschedule_note = db.Column(db.Text, default="")
-
     reschedule_requested_at = db.Column(db.DateTime)
     proposed_scheduled_at = db.Column(db.DateTime)
     reschedule_status = db.Column(db.String(20), default="none")
@@ -2458,21 +2454,38 @@ def register():
 def register_student():
     form_data = request.form.to_dict(flat=True) if request.method == "POST" else {}
     selected_student_subjects = request.form.getlist("student_subject_needed") if request.method == "POST" else []
+
     if request.method == "POST":
-        email = request.form["email"].strip().lower()
+        email = (request.form.get("email", "") or "").strip().lower()
+
         if User.query.filter_by(email=email).first():
-            flash("Email already registered.", "danger")
+            flash("Email already registered. Please log in instead.", "danger")
         else:
             error = validate_option_a_student_form(request.form)
             if error:
                 flash(error, "danger")
             else:
                 user = build_user_from_option_a_form(request.form, request.files)
-                db.session.add(user)
-                db.session.commit()
+                user.email = email
+
+                try:
+                    db.session.add(user)
+                    db.session.commit()
+                except IntegrityError:
+                    db.session.rollback()
+                    flash("Email already registered. Please log in instead.", "danger")
+                    return render_template(
+                        "register_student.html",
+                        form_data=form_data,
+                        selected_student_subjects=selected_student_subjects,
+                        subject_options=SUBJECT_OPTIONS,
+                        level_options=LEVEL_OPTIONS,
+                    )
+
                 send_signup_emails(user)
                 flash("Registration completed successfully. Please log in.", "success")
                 return redirect(url_for("login"))
+
     return render_template(
         "register_student.html",
         form_data=form_data,
@@ -2481,16 +2494,20 @@ def register_student():
         level_options=LEVEL_OPTIONS,
     )
 
+
+
 @app.route("/register/tutor", methods=["GET", "POST"])
 def register_tutor():
     form_data = request.form.to_dict(flat=True) if request.method == "POST" else {}
     selected_tutor_subjects = request.form.getlist("main_subject") if request.method == "POST" else []
     selected_tutor_levels = request.form.getlist("class_levels") if request.method == "POST" else []
     form_data.setdefault("active_step", request.args.get("step", "1"))
+
     if request.method == "POST":
-        email = request.form["email"].strip().lower()
+        email = (request.form.get("email", "") or "").strip().lower()
+
         if User.query.filter_by(email=email).first():
-            flash("Email already registered.", "danger")
+            flash("Email already registered. Please log in instead.", "danger")
         else:
             error = validate_tutor_application_form(request.form)
             if error:
@@ -2498,11 +2515,27 @@ def register_tutor():
                 form_data["active_step"] = request.form.get("active_step", "4")
             else:
                 user = build_user_from_option_a_form(request.form, request.files)
-                db.session.add(user)
-                db.session.commit()
+                user.email = email
+
+                try:
+                    db.session.add(user)
+                    db.session.commit()
+                except IntegrityError:
+                    db.session.rollback()
+                    flash("Email already registered. Please log in instead.", "danger")
+                    return render_template(
+                        "register_tutor.html",
+                        form_data=form_data,
+                        selected_tutor_subjects=selected_tutor_subjects,
+                        selected_tutor_levels=selected_tutor_levels,
+                        subject_options=SUBJECT_OPTIONS,
+                        level_options=LEVEL_OPTIONS,
+                    )
+
                 send_signup_emails(user)
                 flash("Tutor application submitted. If selected after review, you will be asked to pay PKR 500 to activate your profile.", "success")
                 return redirect(url_for("login"))
+
     return render_template(
         "register_tutor.html",
         form_data=form_data,

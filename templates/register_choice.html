@@ -21,7 +21,14 @@
 
     <div class="inline-note-card" style="margin-top:18px;">
       <strong>Google signup</strong>
-      <p>If you choose Google login and your email is new, you should be sent to a student/tutor completion choice first.</p>
+      <p>Continue with Google to create your account faster. New Google users will be guided to choose Student or Tutor after Google sign-in.</p>
+
+      <div style="margin-top:14px;">
+        <a href="{{ url_for('google_login') }}" class="auth-btn-google" style="max-width:320px;">
+          <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google">
+          Continue with Google
+        </a>
+      </div>
     </div>
   </div>
 </section>
