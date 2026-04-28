@@ -32,6 +32,43 @@
     </ul>
   </div>
 </section>
+<section class="card">
+  <h2>Pending Tutor Credit Approval</h2>
+
+  <table class="table">
+    <tr>
+      <th>Booking</th>
+      <th>Student</th>
+      <th>Tutor</th>
+      <th>Credits</th>
+      <th>Tutor Credits</th>
+      <th>Action</th>
+    </tr>
+
+    {% for booking in pending_payout_bookings %}
+    <tr>
+      <td>#{{ booking.id }} · {{ booking.subject }}</td>
+      <td>{{ booking.student.public_name }}</td>
+      <td>{{ booking.tutor.public_name }}</td>
+      <td>{{ booking.credits_cost }}</td>
+      <td>{{ (booking.credits_cost * 0.8)|int }} credits</td>
+       <td>
+        <form method="post" action="{{ url_for('admin_release_payout', booking_id=booking.id) }}">
+          <button class="btn btn-primary"
+                  onclick="return confirm('Release payout for this session?');">
+            Approve Tutor Credits
+          </button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="6">No pending payout releases.</td>
+    </tr>
+    {% endfor %}
+  </table>
+</section>
+
 <section class="grid three">
   <div class="card">
     <h3>Website Visits</h3>

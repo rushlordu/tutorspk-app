@@ -264,6 +264,22 @@ def build_week_schedule_for_tutor(tutor, anchor_date):
 
     return week_start, week_days
 
+def booking_time_window_status(booking, early_minutes=10, late_minutes=10):
+    now = datetime.now()
+    start = booking.scheduled_at
+    end = booking.scheduled_at + timedelta(minutes=booking.duration_minutes or 60)
+
+    allowed_start = start - timedelta(minutes=early_minutes)
+    allowed_end = end + timedelta(minutes=late_minutes)
+
+    if now < allowed_start:
+        return "too_early", allowed_start, allowed_end
+
+    if now > allowed_end:
+        return "expired", allowed_start, allowed_end
+
+    return "open", allowed_start, allowed_end
+
 def get_next_available_slot(tutor, days_ahead=14):
     """
     Returns:
@@ -548,7 +564,7 @@ superadmin@tutorsonline.pk
 BASE_DIR = Path(__file__).resolve().parent
 INSTANCE_DIR = BASE_DIR / "instance"
 INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
-UPLOAD_DIR = BASE_DIR / "uploads"
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", BASE_DIR / "uploads"))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 LOCAL_DB_PATH = (INSTANCE_DIR / "tutorpk.db").resolve().as_posix()
@@ -1177,39 +1193,6 @@ def mark_booking_complete(booking_id):
     db.session.commit()
     return redirect(url_for("dashboard"))
 
-
-@app.route("/admin/bookings/<int:booking_id>/release-payout", methods=["POST"])
-@login_required
-def admin_release_booking_payout(booking_id):
-    if current_user.role != "admin":
-        flash("Unauthorized.", "danger")
-        return redirect(url_for("dashboard"))
-
-    booking = Booking.query.get_or_404(booking_id)
-
-    if not booking.student_marked_complete or not booking.tutor_marked_complete:
-        flash("Both student and tutor must confirm completion before payout.", "warning")
-        return redirect(url_for("admin_dashboard"))
-
-    if booking.payout_released:
-        flash("Payout already released for this booking.", "warning")
-        return redirect(url_for("admin_dashboard"))
-
-    tutor = booking.tutor
-    payout_amount = int((booking.credits_cost or 0) * app.config.get("CREDIT_RATE", 10))
-
-    tutor.pending_payout_pkr += payout_amount
-    tutor.total_earnings_pkr += payout_amount
-    tutor.monthly_earnings_pkr += payout_amount
-    tutor.sessions_completed += 1
-
-    booking.payout_released = True
-    booking.status = "completed"
-
-    db.session.commit()
-
-    flash(f"Payout released to tutor ledger: PKR {payout_amount}.", "success")
-    return redirect(url_for("admin_dashboard"))
 
 
 @app.route("/tutor/registration-fee", methods=["GET", "POST"])
@@ -3365,6 +3348,21 @@ def student_wallet():
     )
     return render_template("tutor_wallet.html", txs=txs)
 
+def booking_time_window_status(booking, early_minutes=10, late_minutes=10):
+    now = datetime.now()
+    start = booking.scheduled_at
+    end = booking.scheduled_at + timedelta(minutes=booking.duration_minutes or 60)
+
+    allowed_start = start - timedelta(minutes=early_minutes)
+    allowed_end = end + timedelta(minutes=late_minutes)
+
+    if now < allowed_start:
+        return "too_early", allowed_start, allowed_end
+
+    if now > allowed_end:
+        return "expired", allowed_start, allowed_end
+
+    return "open", allowed_start, allowed_end
 
 @app.route("/live/<int:booking_id>", methods=["GET"])
 @login_required
@@ -3375,9 +3373,88 @@ def live_session(booking_id):
         flash("Unauthorized.", "danger")
         return redirect(url_for("dashboard"))
 
+    window_status, allowed_start, allowed_end = booking_time_window_status(booking)
+
+    if current_user.role != "admin" and window_status == "too_early":
+        flash(
+            f"Session will open 10 minutes before scheduled time: {booking.scheduled_at.strftime('%d %b %Y, %I:%M %p')}",
+            "warning",
+        )
+        return redirect(url_for("dashboard"))
+
+    if current_user.role != "admin" and window_status == "expired":
+        flash("This session time has expired.", "warning")
+        return redirect(url_for("dashboard"))
+
+    window_status, allowed_start, allowed_end = booking_time_window_status(booking)
+
+    if current_user.role != "admin" and window_status == "too_early":
+        flash(
+            f"Session will open 10 minutes before scheduled time: {booking.scheduled_at.strftime('%d %b %Y, %I:%M %p')}",
+            "warning",
+        )
+        return redirect(url_for("dashboard"))
+
+    if current_user.role != "admin" and window_status == "expired":
+        flash("This session time has expired.", "warning")
+        return redirect(url_for("dashboard"))
+
     log = LiveSessionLog.query.filter_by(booking_id=booking.id).first()
 
-    return render_template("live_session.html", booking=booking, log=log)
+    return render_template(
+        "live_session.html",
+        booking=booking,
+        log=log,
+        window_status=window_status,
+        allowed_start=allowed_start,
+        allowed_end=allowed_end,
+    )
+
+@app.route("/admin/bookings/<int:booking_id>/release-payout", methods=["POST"])
+@login_required
+def admin_release_payout(booking_id):
+    if current_user.role != "admin":
+        flash("Unauthorized.", "danger")
+        return redirect(url_for("dashboard"))
+
+    booking = Booking.query.get_or_404(booking_id)
+
+    if booking.status != "completed":
+        flash("Tutor credits can only be approved after session is completed.", "warning")
+        return redirect(url_for("admin_dashboard"))
+
+    if booking.payout_released:
+        flash("Tutor credits already approved for this booking.", "warning")
+        return redirect(url_for("admin_dashboard"))
+
+    tutor = booking.tutor
+    tutor_share_credits = int(booking.credits_cost * 0.8)
+
+    before_credits = tutor.credits_balance
+
+    add_credits(
+        tutor,
+        tutor_share_credits,
+        "tutor_session_earning",
+        f"Admin-approved tutor earning for booking #{booking.id}",
+        rupees=tutor_share_credits * app.config["CREDIT_RATE"],
+    )
+
+    tutor.total_earnings_pkr += tutor_share_credits * app.config["CREDIT_RATE"]
+    tutor.monthly_earnings_pkr += tutor_share_credits * app.config["CREDIT_RATE"]
+    tutor.sessions_completed += 1
+    booking.payout_released = True
+
+    # Do not call bonus here
+    # apply_bonus_if_eligible(tutor)
+    
+    db.session.commit()
+
+    flash(
+        f"Approved {tutor_share_credits} tutor credits. Tutor balance: {before_credits} → {tutor.credits_balance}",
+        "success",
+    )
+    return redirect(url_for("admin_dashboard"))
 
 @app.route("/bookings/<int:booking_id>/complete/student", methods=["POST"])
 @login_required
@@ -3525,11 +3602,22 @@ def admin_dashboard():
     recent_notices = PaymentNotice.query.order_by(PaymentNotice.created_at.desc()).limit(10).all()
     live_sessions = LiveSessionLog.query.order_by(LiveSessionLog.started_at.desc()).limit(10).all()
 
+    pending_payout_bookings = (
+        Booking.query.filter(
+            Booking.status == "completed",
+            Booking.payout_released == False
+        )
+        .order_by(Booking.scheduled_at.desc())
+        .limit(20)
+        .all()
+    )
+
     return render_template(
         "admin_dashboard.html",
         stats=stats,
         recent_notices=recent_notices,
         live_sessions=live_sessions,
+        pending_payout_bookings=pending_payout_bookings,
     )
 
 

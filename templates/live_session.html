@@ -22,11 +22,12 @@
       <span class="topbar-note">End Call is available on the video controls.</span>
     </div>
   </div>
-
   <div id="admin-banner" class="observer-banner" style="{% if log and log.admin_joined %}display:block;{% else %}display:none;{% endif %}">
     Admin observer is in this session for quality assurance.
   </div>
-
+  <div id="session-timer-banner" class="observer-banner">
+    Session window checking...
+  </div>
   <div class="live-room-grid">
     <section class="video-stage-card">
       <div class="video-stage-header">
@@ -61,6 +62,11 @@
             <button class="control-btn" type="button" onclick="activateTab('chat')">Chat</button>
             <button class="control-btn" type="button" onclick="activateTab('files')">Files</button>
             <button class="control-btn danger-btn" type="button" onclick="leaveSession()">End Call</button>
+            <button class="control-btn" onclick="toggleFullscreen()">Fullscreen</button>
+            <button id="completeSessionBtn" class="btn btn-success">
+              
+              Mark Session Complete
+            </button>
           </div>
         </div>
       </div>
@@ -108,6 +114,19 @@
     margin: 0 auto;
     padding: 12px;
   }
+
+  function toggleFullscreen() {
+    const el = document.getElementById("video-surface");
+
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().catch(err => {
+        console.error(err);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  }
+
 
   .session-topbar {
     position: sticky;
@@ -555,6 +574,10 @@
 <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
 <script>
   const bookingId = {{ booking.id }};
+  const sessionStartMs = new Date("{{ booking.scheduled_at.isoformat() }}").getTime();
+  const sessionEndMs = sessionStartMs + ({{ booking.duration_minutes or 60 }} * 60 * 1000);
+  const allowedStartMs = sessionStartMs - (10 * 60 * 1000);
+  const allowedEndMs = sessionEndMs + (10 * 60 * 1000);
   const currentRole = "{{ current_user.role }}";
   const localPlayerId = "local-player";
   const remoteMainPlayerId = "remote-player-main";
@@ -605,7 +628,8 @@
     localPipWrapEl.style.right = "auto";
     localPipWrapEl.style.bottom = "auto";
   }
-
+  updateSessionWindowUI();
+  setInterval(updateSessionWindowUI, 30000);
   function resetPipToDefault() {
     localPipWrapEl.style.left = "auto";
     localPipWrapEl.style.top = "12px";
@@ -1031,4 +1055,71 @@
   window.uploadFile = uploadFile;
   window.activateTab = activateTab;
 </script>
+
+<script>
+document.getElementById("completeSessionBtn").onclick = async () => {
+    try {
+        const res = await fetch(`/rtc/complete/${bookingId}`, {
+            method: "POST"
+        });
+
+        const data = await res.json();
+
+        if (!data.ok) {
+            alert(data.error || "Error");
+            return;
+        }
+
+        // UI feedback (NO ALERT SPAM)
+        appendSystemMessage("You marked session complete");
+
+        if (data.status === "completed") {
+            appendSystemMessage("Session fully completed by both parties");
+            document.getElementById("booking-status").innerText = "completed";
+        }
+
+    } catch (err) {
+        console.error(err);
+        alert("Something went wrong");
+    }
+};
+function updateSessionWindowUI() {
+  const now = Date.now();
+  const joinBtn = document.getElementById("join-btn");
+  const banner = document.getElementById("session-timer-banner");
+
+  if (!joinBtn || !banner) return;
+
+  if (currentRole === "admin") {
+    banner.innerText = "Admin access: session monitoring allowed.";
+    joinBtn.disabled = false;
+    return;
+  }
+
+  if (now < allowedStartMs) {
+    const mins = Math.ceil((allowedStartMs - now) / 60000);
+    banner.innerText = `Session not open yet. Join opens in about ${mins} minute(s).`;
+    joinBtn.disabled = true;
+    joinBtn.style.opacity = "0.5";
+    return;
+  }
+
+  if (now > allowedEndMs) {
+    banner.innerText = "Session time has expired.";
+    joinBtn.disabled = true;
+    joinBtn.style.opacity = "0.5";
+
+    if (joined) {
+      leaveSession();
+    }
+    return;
+  }
+
+  const minsLeft = Math.max(0, Math.ceil((allowedEndMs - now) / 60000));
+  banner.innerText = `Session is open. Auto-close window in about ${minsLeft} minute(s).`;
+  joinBtn.disabled = false;
+  joinBtn.style.opacity = "1";
+}
+</script>
+
 {% endblock %}

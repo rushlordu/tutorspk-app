@@ -1,7 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+
 from pathlib import Path
 from uuid import uuid4
 import sys
+
 
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import current_user, login_required
@@ -110,6 +112,21 @@ def _sync_booking_status_from_log(booking, log):
     if not anyone_present and booking.status == "live":
         booking.status = "scheduled"
 
+def _session_window_status(booking, early_minutes=10, late_minutes=10):
+    now = datetime.now()
+    start = booking.scheduled_at
+    end = booking.scheduled_at + timedelta(minutes=booking.duration_minutes or 60)
+
+    allowed_start = start - timedelta(minutes=early_minutes)
+    allowed_end = end + timedelta(minutes=late_minutes)
+
+    if now < allowed_start:
+        return "too_early", allowed_start, allowed_end
+
+    if now > allowed_end:
+        return "expired", allowed_start, allowed_end
+
+    return "open", allowed_start, allowed_end
 
 @rtc_bp.route("/join/<int:booking_id>", methods=["POST"])
 @login_required
@@ -120,6 +137,22 @@ def rtc_join(booking_id):
 
     if not _user_can_access_booking(booking):
         return jsonify({"ok": False, "error": "Not authorized for this session"}), 403
+
+    window_status, allowed_start, allowed_end = _session_window_status(booking)
+
+    if current_user.role != "admin" and window_status == "too_early":
+        return jsonify({
+            "ok": False,
+            "error": f"Session is not open yet. It opens at {allowed_start.strftime('%d %b %Y, %I:%M %p')}.",
+            "window_status": window_status,
+        }), 403
+
+    if current_user.role != "admin" and window_status == "expired":
+        return jsonify({
+            "ok": False,
+            "error": "This session time has expired.",
+            "window_status": window_status,
+        }), 403
 
     try:
         payload = get_join_payload_for_user(booking=booking, user=current_user)
@@ -143,8 +176,42 @@ def rtc_join(booking_id):
                 "expiresIn": payload["expires_in"],
             },
         }
+        
     )
 
+@rtc_bp.route("/complete/<int:booking_id>", methods=["POST"])
+@login_required
+def rtc_mark_complete(booking_id):
+    db, Booking, _ = _get_app_objects()
+
+    booking, error_response, status_code = _get_booking_or_404(booking_id)
+    if error_response:
+        return error_response, status_code
+
+    if not _user_can_access_booking(booking):
+        return jsonify({"ok": False, "error": "Not authorized"}), 403
+
+    if current_user.id == booking.student_id:
+        booking.student_marked_complete = True
+
+    elif current_user.id == booking.tutor_id:
+        booking.tutor_marked_complete = True
+
+    else:
+        return jsonify({"ok": False, "error": "Invalid role"}), 403
+
+    # If BOTH complete → mark booking completed
+    if booking.student_marked_complete and booking.tutor_marked_complete:
+        booking.status = "completed"
+
+    db.session.commit()
+
+    return jsonify({
+        "ok": True,
+        "student_done": booking.student_marked_complete,
+        "tutor_done": booking.tutor_marked_complete,
+        "status": booking.status
+    })
 
 @rtc_bp.route("/connected/<int:booking_id>", methods=["POST"])
 @login_required
