@@ -1149,6 +1149,69 @@ def message_thread(conversation_id):
         messages=convo.messages,
     )
 
+@app.route("/booking/<int:booking_id>/mark-complete", methods=["POST"])
+@login_required
+def mark_booking_complete(booking_id):
+    booking = Booking.query.get_or_404(booking_id)
+
+    if current_user.id not in [booking.student_id, booking.tutor_id]:
+        flash("Unauthorized.", "danger")
+        return redirect(url_for("dashboard"))
+
+    if booking.status not in ["scheduled", "confirmed"]:
+        flash("This booking cannot be marked complete.", "warning")
+        return redirect(url_for("dashboard"))
+
+    if current_user.id == booking.student_id:
+        booking.student_marked_complete = True
+        flash("You marked the session complete.", "success")
+
+    if current_user.id == booking.tutor_id:
+        booking.tutor_marked_complete = True
+        flash("You marked the session complete.", "success")
+
+    if booking.student_marked_complete and booking.tutor_marked_complete:
+        booking.status = "completed"
+        flash("Both sides confirmed completion. Admin will release tutor payout.", "success")
+
+    db.session.commit()
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/admin/bookings/<int:booking_id>/release-payout", methods=["POST"])
+@login_required
+def admin_release_booking_payout(booking_id):
+    if current_user.role != "admin":
+        flash("Unauthorized.", "danger")
+        return redirect(url_for("dashboard"))
+
+    booking = Booking.query.get_or_404(booking_id)
+
+    if not booking.student_marked_complete or not booking.tutor_marked_complete:
+        flash("Both student and tutor must confirm completion before payout.", "warning")
+        return redirect(url_for("admin_dashboard"))
+
+    if booking.payout_released:
+        flash("Payout already released for this booking.", "warning")
+        return redirect(url_for("admin_dashboard"))
+
+    tutor = booking.tutor
+    payout_amount = int((booking.credits_cost or 0) * app.config.get("CREDIT_RATE", 10))
+
+    tutor.pending_payout_pkr += payout_amount
+    tutor.total_earnings_pkr += payout_amount
+    tutor.monthly_earnings_pkr += payout_amount
+    tutor.sessions_completed += 1
+
+    booking.payout_released = True
+    booking.status = "completed"
+
+    db.session.commit()
+
+    flash(f"Payout released to tutor ledger: PKR {payout_amount}.", "success")
+    return redirect(url_for("admin_dashboard"))
+
+
 @app.route("/tutor/registration-fee", methods=["GET", "POST"])
 @login_required
 def tutor_registration_fee():
@@ -3327,45 +3390,31 @@ def complete_student(booking_id):
     booking.student_marked_complete = True
     booking.status = "completed"
 
-    if not booking.payout_released:
-        tutor = booking.tutor
-        tutor_share_pkr = int(booking.credits_cost * app.config["CREDIT_RATE"] * 0.8)
-        tutor.pending_payout_pkr += tutor_share_pkr
-        tutor.total_earnings_pkr += tutor_share_pkr
-        tutor.monthly_earnings_pkr += tutor_share_pkr
-        tutor.sessions_completed += 1
-        booking.payout_released = True
-
-        apply_bonus_if_eligible(tutor)
-
-        if tutor.sessions_completed in [10, 25, 50] and not any(
-            b.bonus_type == f"activity_{tutor.sessions_completed}"
-            for b in tutor.bonus_entries
-        ):
-            credits = {10: 50, 25: 100, 50: 200}[tutor.sessions_completed]
-            tutor.bonus_credits += credits
-            add_credits(
-                tutor,
-                credits,
-                "bonus",
-                f"Activity bonus for {tutor.sessions_completed} completed sessions",
-            )
-            db.session.add(
-                TutorBonus(
-                    tutor_id=tutor.id,
-                    bonus_type=f"activity_{tutor.sessions_completed}",
-                    credits_awarded=credits,
-                    note="Activity bonus",
-                )
-            )
-
     db.session.commit()
     flash(
-        "Session completed and tutor earnings released to pending payout.",
+        "Session marked complete. Awaiting admin payout release.",
         "success",
     )
     return redirect(url_for("dashboard"))
 
+@app.route("/admin/reset-demo-passwords")
+@login_required
+def reset_demo_passwords():
+    if current_user.role != "admin":
+        flash("Unauthorized.", "danger")
+        return redirect(url_for("dashboard"))
+
+    users = User.query.filter(
+        User.email.like("demo_%@test.com")
+    ).all()
+
+    for user in users:
+        user.set_password("Demo@12345")
+
+    db.session.commit()
+
+    flash(f"Reset {len(users)} demo users to Demo@12345", "success")
+    return redirect(url_for("admin_users"))
 
 @app.route("/withdraw", methods=["POST"])
 @login_required
