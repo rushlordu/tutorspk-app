@@ -57,16 +57,17 @@
 
           <div class="call-controls call-controls-overlay">
             <button class="control-btn" id="join-btn" type="button" onclick="joinSession()">Join</button>
-            <button class="control-btn" id="mute-btn" type="button" onclick="toggleMute()">Mute</button>
-            <button class="control-btn" id="camera-btn" type="button" onclick="toggleCamera()">Camera Off</button>
+            <button class="control-btn" id="mute-btn" type="button" onclick="toggleMute()" disabled>Mute</button>
+            <button class="control-btn" id="camera-btn" type="button" onclick="toggleCamera()" disabled>Camera Off</button>
             <button class="control-btn" type="button" onclick="activateTab('chat')">Chat</button>
             <button class="control-btn" type="button" onclick="activateTab('files')">Files</button>
-            <button class="control-btn danger-btn" type="button" onclick="leaveSession()">End Call</button>
-            <button class="control-btn" onclick="toggleFullscreen()">Fullscreen</button>
-            <button id="completeSessionBtn" class="btn btn-success">
-              
-              Mark Session Complete
-            </button>
+            <button class="control-btn danger-btn" id="leave-btn" type="button" onclick="leaveSession()" disabled>End Call</button>
+            <button class="control-btn" type="button" onclick="toggleFullscreen()">Fullscreen</button>
+            {% if current_user.role in ['student', 'tutor'] and booking.status != 'completed' %}
+              <button id="completeSessionBtn" class="control-btn complete-btn" type="button">
+                Mark Session Complete
+              </button>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -114,19 +115,6 @@
     margin: 0 auto;
     padding: 12px;
   }
-
-  function toggleFullscreen() {
-    const el = document.getElementById("video-surface");
-
-    if (!document.fullscreenElement) {
-      el.requestFullscreen().catch(err => {
-        console.error(err);
-      });
-    } else {
-      document.exitFullscreen();
-    }
-  }
-
 
   .session-topbar {
     position: sticky;
@@ -356,8 +344,18 @@
     color: #111827;
   }
 
+  .control-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
   .danger-btn {
     background: #ef4444;
+    color: #fff;
+  }
+
+  .complete-btn {
+    background: #16a34a;
     color: #fff;
   }
 
@@ -584,14 +582,18 @@
 
   let client = null;
   let joined = false;
+  let joining = false;
   let remoteMainUid = null;
   let localTracks = { audio: null, video: null };
   let adminPollingStarted = false;
   let statusPollTimer = null;
+  let tokenRefreshTimer = null;
+  let windowTimer = null;
 
   const bookingStatusEl = document.getElementById("booking-status");
   const participantStatusEl = document.getElementById("participant-status");
   const adminBanner = document.getElementById("admin-banner");
+  const sessionTimerBanner = document.getElementById("session-timer-banner");
   const chatBox = document.getElementById("chat-box");
   const chatInput = document.getElementById("chat-input");
   const fileInput = document.getElementById("file-input");
@@ -600,6 +602,11 @@
   const localPlayerEl = document.getElementById(localPlayerId);
   const localPipWrapEl = document.getElementById("local-pip-wrap");
   const videoSurfaceEl = document.getElementById("video-surface");
+  const joinBtn = document.getElementById("join-btn");
+  const leaveBtn = document.getElementById("leave-btn");
+  const muteBtn = document.getElementById("mute-btn");
+  const cameraBtn = document.getElementById("camera-btn");
+  const completeSessionBtn = document.getElementById("completeSessionBtn");
 
   const pipState = {
     dragging: false,
@@ -612,6 +619,81 @@
 
   function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
+  }
+
+  function safeJsonParse(response) {
+    return response.json().catch(() => ({ ok: false, error: "Invalid server response." }));
+  }
+
+  function setControlState() {
+    if (joinBtn) {
+      joinBtn.disabled = joined || joining;
+      joinBtn.innerText = joined ? "Joined" : (joining ? "Joining..." : "Join");
+    }
+
+    if (leaveBtn) {
+      leaveBtn.disabled = !joined;
+    }
+
+    if (muteBtn) {
+      muteBtn.disabled = !joined || !localTracks.audio;
+      muteBtn.innerText = localTracks.audio && localTracks.audio.muted ? "Unmute" : "Mute";
+    }
+
+    if (cameraBtn) {
+      cameraBtn.disabled = !joined || !localTracks.video;
+      cameraBtn.innerText = localTracks.video && localTracks.video.muted ? "Camera On" : "Camera Off";
+    }
+  }
+
+  function updateSessionWindowUI() {
+    const now = Date.now();
+
+    if (!sessionTimerBanner || !joinBtn) return;
+
+    if (currentRole === "admin") {
+      sessionTimerBanner.innerText = "Admin access: session monitoring allowed.";
+      if (!joined) {
+        joinBtn.disabled = false;
+        joinBtn.style.opacity = "1";
+      }
+      return;
+    }
+
+    if (now < allowedStartMs) {
+      const mins = Math.ceil((allowedStartMs - now) / 60000);
+      sessionTimerBanner.innerText = `Session not open yet. Join opens in about ${mins} minute(s).`;
+      joinBtn.disabled = true;
+      joinBtn.style.opacity = "0.55";
+      return;
+    }
+
+    if (now > allowedEndMs) {
+      sessionTimerBanner.innerText = "Session time has expired.";
+      joinBtn.disabled = true;
+      joinBtn.style.opacity = "0.55";
+
+      if (joined) {
+        leaveSession();
+      }
+      return;
+    }
+
+    const minsLeft = Math.max(0, Math.ceil((allowedEndMs - now) / 60000));
+    sessionTimerBanner.innerText = `Session is open. Auto-close window in about ${minsLeft} minute(s).`;
+
+    if (!joined) {
+      joinBtn.disabled = false;
+      joinBtn.style.opacity = "1";
+    }
+
+    setControlState();
+  }
+
+  function startWindowTimer() {
+    if (windowTimer) return;
+    updateSessionWindowUI();
+    windowTimer = setInterval(updateSessionWindowUI, 30000);
   }
 
   function setPipPosition(left, top) {
@@ -628,8 +710,7 @@
     localPipWrapEl.style.right = "auto";
     localPipWrapEl.style.bottom = "auto";
   }
-  updateSessionWindowUI();
-  setInterval(updateSessionWindowUI, 30000);
+
   function resetPipToDefault() {
     localPipWrapEl.style.left = "auto";
     localPipWrapEl.style.top = "12px";
@@ -685,7 +766,7 @@
   function appendSystemMessage(text) {
     const row = document.createElement("div");
     row.className = "chat-row";
-    row.innerHTML = `<div class="chat-meta">System</div><div>${text}</div>`;
+    row.innerHTML = `<div class="chat-meta">System</div><div>${escapeHtml(text)}</div>`;
     chatBox.appendChild(row);
     chatBox.scrollTop = chatBox.scrollHeight;
   }
@@ -743,7 +824,7 @@
   async function loadMessages() {
     try {
       const res = await fetch(`/rtc/chat/${bookingId}`);
-      const data = await res.json();
+      const data = await safeJsonParse(res);
       if (!data.ok) return;
 
       chatBox.innerHTML = "";
@@ -789,7 +870,7 @@
         body: JSON.stringify({ message })
       });
 
-      const data = await res.json();
+      const data = await safeJsonParse(res);
 
       if (!data.ok) {
         alert(data.error || "Message blocked");
@@ -820,7 +901,7 @@
         body: formData
       });
 
-      const data = await res.json();
+      const data = await safeJsonParse(res);
 
       if (!data.ok) {
         alert(data.error || "Upload failed");
@@ -849,7 +930,7 @@
   async function checkSessionStatus() {
     try {
       const res = await fetch(`/rtc/session-status/${bookingId}`);
-      const data = await res.json();
+      const data = await safeJsonParse(res);
 
       if (!data.ok) return;
       updateParticipantStatus(data);
@@ -877,9 +958,54 @@
     markRemoteEmpty();
   }
 
+  async function fetchRtcPayload(endpoint) {
+    const res = await fetch(endpoint, { method: "POST" });
+    const data = await safeJsonParse(res);
+
+    if (!data.ok) {
+      throw new Error(data.error || "Unable to prepare RTC session.");
+    }
+
+    if (!data.rtc || !data.rtc.appId || !data.rtc.channel || !data.rtc.token) {
+      throw new Error("Agora configuration is incomplete.");
+    }
+
+    return data;
+  }
+
+  function clearTokenRefreshTimer() {
+    if (tokenRefreshTimer) {
+      clearTimeout(tokenRefreshTimer);
+      tokenRefreshTimer = null;
+    }
+  }
+
+  function scheduleTokenRefresh(expiresIn) {
+    clearTokenRefreshTimer();
+
+    if (!client || !joined || !expiresIn) return;
+
+    const refreshInMs = Math.max(60000, (Number(expiresIn) - 300) * 1000);
+    tokenRefreshTimer = setTimeout(renewRtcToken, refreshInMs);
+  }
+
+  async function renewRtcToken() {
+    if (!client || !joined) return;
+
+    try {
+      const data = await fetchRtcPayload(`/rtc/token/${bookingId}`);
+      await client.renewToken(data.rtc.token);
+      scheduleTokenRefresh(data.rtc.expiresIn);
+      appendSystemMessage("Call security token refreshed.");
+    } catch (err) {
+      console.error("Token refresh failed:", err);
+      appendSystemMessage("Call token refresh failed. Rejoin the session if audio/video stops.");
+    }
+  }
+
   async function confirmConnected() {
     const res = await fetch(`/rtc/connected/${bookingId}`, { method: "POST" });
-    const data = await res.json();
+    const data = await safeJsonParse(res);
 
     if (!data.ok) {
       throw new Error(data.error || "Could not confirm session connection.");
@@ -889,19 +1015,54 @@
     return data;
   }
 
-  async function joinSession() {
-    if (joined) return;
+  async function createAndPublishLocalTracks() {
+    const tracksToPublish = [];
 
     try {
-      const res = await fetch(`/rtc/join/${bookingId}`, { method: "POST" });
-      const data = await res.json();
+      localTracks.audio = await AgoraRTC.createMicrophoneAudioTrack();
+      tracksToPublish.push(localTracks.audio);
+    } catch (err) {
+      console.warn("Microphone unavailable:", err);
+      appendSystemMessage("Microphone could not be started. Check browser permissions.");
+    }
 
-      if (!data.ok) {
-        alert(data.error || "Unable to join session.");
-        return;
+    try {
+      localTracks.video = await AgoraRTC.createCameraVideoTrack({ encoderConfig: "720p_2" });
+      tracksToPublish.push(localTracks.video);
+    } catch (err) {
+      console.warn("Camera unavailable:", err);
+      markLocalEmpty("Camera unavailable. Audio may still be connected.");
+      appendSystemMessage("Camera could not be started. Check browser permissions.");
+    }
+
+    if (!tracksToPublish.length) {
+      throw new Error("No microphone or camera track could be started.");
+    }
+
+    await client.publish(tracksToPublish);
+
+    if (localTracks.video) {
+      markLocalActive();
+      localTracks.video.play(localPlayerId, { fit: "cover", mirror: true });
+    } else {
+      markLocalEmpty("Audio connected. Camera is off or unavailable.");
+    }
+  }
+
+  async function joinSession() {
+    if (joined || joining) return;
+
+    joining = true;
+    setControlState();
+
+    try {
+      if (!window.AgoraRTC) {
+        throw new Error("Agora SDK did not load.");
       }
 
+      const data = await fetchRtcPayload(`/rtc/join/${bookingId}`);
       const rtc = data.rtc;
+
       client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 
       client.on("user-published", async (user, mediaType) => {
@@ -930,14 +1091,20 @@
         }
       });
 
+      client.on("token-privilege-will-expire", renewRtcToken);
+      client.on("token-privilege-did-expire", renewRtcToken);
+
+      client.on("connection-state-change", (curState, prevState, reason) => {
+        console.info("Agora connection state:", prevState, "→", curState, reason || "");
+        if (curState === "DISCONNECTED" && joined) {
+          appendSystemMessage("Video connection disconnected. Try rejoining if it does not recover.");
+        }
+      });
+
       await client.join(rtc.appId, rtc.channel, rtc.token, rtc.uid);
 
       if (rtc.role === "host") {
-        localTracks.audio = await AgoraRTC.createMicrophoneAudioTrack();
-        localTracks.video = await AgoraRTC.createCameraVideoTrack({ encoderConfig: "720p_2" });
-        markLocalActive();
-        await client.publish([localTracks.audio, localTracks.video]);
-        localTracks.video.play(localPlayerId, { fit: "cover", mirror: true });
+        await createAndPublishLocalTracks();
       } else {
         markLocalEmpty("Admin observer");
       }
@@ -949,27 +1116,25 @@
       }
 
       joined = true;
+      joining = false;
+      scheduleTokenRefresh(rtc.expiresIn);
+      setControlState();
+      updateSessionWindowUI();
       startStatusPolling();
       await loadMessages();
       appendSystemMessage("You joined the session.");
     } catch (err) {
       console.error("Join failed:", err);
-      alert("Failed to join live session. Check Agora setup, browser permissions, and token configuration.");
+      alert(err.message || "Failed to join live session. Check Agora setup, browser permissions, and token configuration.");
 
-      try {
-        if (client) {
-          await client.leave();
-        }
-      } catch (_) {}
-
-      client = null;
-      joined = false;
-      clearRemoteMain();
-      markLocalEmpty();
+      joining = false;
+      await cleanupLocalCallState(false);
     }
   }
 
-  async function leaveSession() {
+  async function cleanupLocalCallState(notifyServer = true) {
+    clearTokenRefreshTimer();
+
     try {
       if (localTracks.audio) {
         localTracks.audio.close();
@@ -986,15 +1151,27 @@
         client = null;
       }
 
-      await fetch(`/rtc/leave/${bookingId}`, { method: "POST" });
+      if (notifyServer) {
+        await fetch(`/rtc/leave/${bookingId}`, { method: "POST" });
+      }
+    } catch (err) {
+      console.error("Call cleanup failed:", err);
+    }
 
-      joined = false;
-      clearRemoteMain();
-      markLocalEmpty();
+    joined = false;
+    joining = false;
+    clearRemoteMain();
+    markLocalEmpty();
+    setControlState();
+  }
 
+  async function leaveSession() {
+    try {
+      await cleanupLocalCallState(true);
       await checkSessionStatus();
       appendSystemMessage("You left the session.");
       stopStatusPolling();
+      updateSessionWindowUI();
     } catch (err) {
       console.error("Leave failed:", err);
       alert("Could not leave cleanly.");
@@ -1003,16 +1180,64 @@
 
   async function toggleMute() {
     if (!joined || !localTracks.audio) return;
+
     const nextState = localTracks.audio.muted ? false : true;
     await localTracks.audio.setMuted(nextState);
-    document.getElementById("mute-btn").innerText = nextState ? "Unmute" : "Mute";
+    setControlState();
   }
 
   async function toggleCamera() {
     if (!joined || !localTracks.video) return;
+
     const nextState = localTracks.video.muted ? false : true;
     await localTracks.video.setMuted(nextState);
-    document.getElementById("camera-btn").innerText = nextState ? "Camera On" : "Camera Off";
+    setControlState();
+  }
+
+  async function markSessionComplete() {
+    if (!completeSessionBtn) return;
+
+    try {
+      completeSessionBtn.disabled = true;
+
+      const res = await fetch(`/rtc/complete/${bookingId}`, {
+        method: "POST"
+      });
+
+      const data = await safeJsonParse(res);
+
+      if (!data.ok) {
+        alert(data.error || "Could not mark session complete.");
+        completeSessionBtn.disabled = false;
+        return;
+      }
+
+      appendSystemMessage("You marked the session complete.");
+
+      if (data.status === "completed") {
+        appendSystemMessage("Session fully completed by both parties. Admin can now release tutor payout.");
+        bookingStatusEl.innerText = "completed";
+      } else {
+        appendSystemMessage("Waiting for the other participant to confirm completion.");
+        completeSessionBtn.innerText = "Marked Complete";
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Could not mark session complete.");
+      completeSessionBtn.disabled = false;
+    }
+  }
+
+  function toggleFullscreen() {
+    if (!videoSurfaceEl) return;
+
+    if (!document.fullscreenElement) {
+      videoSurfaceEl.requestFullscreen().catch(err => {
+        console.error("Fullscreen failed:", err);
+      });
+    } else {
+      document.exitFullscreen();
+    }
   }
 
   chatInput.addEventListener("keydown", function (e) {
@@ -1021,6 +1246,10 @@
       sendMessage();
     }
   });
+
+  if (completeSessionBtn) {
+    completeSessionBtn.addEventListener("click", markSessionComplete);
+  }
 
   window.addEventListener("beforeunload", function () {
     if (joined) {
@@ -1043,83 +1272,20 @@
   resetPipToDefault();
   markRemoteEmpty();
   markLocalEmpty();
+  setControlState();
   loadMessages();
   checkSessionStatus();
   startStatusPolling();
+  startWindowTimer();
 
   window.joinSession = joinSession;
   window.leaveSession = leaveSession;
   window.toggleMute = toggleMute;
   window.toggleCamera = toggleCamera;
+  window.toggleFullscreen = toggleFullscreen;
   window.sendMessage = sendMessage;
   window.uploadFile = uploadFile;
   window.activateTab = activateTab;
-</script>
-
-<script>
-document.getElementById("completeSessionBtn").onclick = async () => {
-    try {
-        const res = await fetch(`/rtc/complete/${bookingId}`, {
-            method: "POST"
-        });
-
-        const data = await res.json();
-
-        if (!data.ok) {
-            alert(data.error || "Error");
-            return;
-        }
-
-        // UI feedback (NO ALERT SPAM)
-        appendSystemMessage("You marked session complete");
-
-        if (data.status === "completed") {
-            appendSystemMessage("Session fully completed by both parties");
-            document.getElementById("booking-status").innerText = "completed";
-        }
-
-    } catch (err) {
-        console.error(err);
-        alert("Something went wrong");
-    }
-};
-function updateSessionWindowUI() {
-  const now = Date.now();
-  const joinBtn = document.getElementById("join-btn");
-  const banner = document.getElementById("session-timer-banner");
-
-  if (!joinBtn || !banner) return;
-
-  if (currentRole === "admin") {
-    banner.innerText = "Admin access: session monitoring allowed.";
-    joinBtn.disabled = false;
-    return;
-  }
-
-  if (now < allowedStartMs) {
-    const mins = Math.ceil((allowedStartMs - now) / 60000);
-    banner.innerText = `Session not open yet. Join opens in about ${mins} minute(s).`;
-    joinBtn.disabled = true;
-    joinBtn.style.opacity = "0.5";
-    return;
-  }
-
-  if (now > allowedEndMs) {
-    banner.innerText = "Session time has expired.";
-    joinBtn.disabled = true;
-    joinBtn.style.opacity = "0.5";
-
-    if (joined) {
-      leaveSession();
-    }
-    return;
-  }
-
-  const minsLeft = Math.max(0, Math.ceil((allowedEndMs - now) / 60000));
-  banner.innerText = `Session is open. Auto-close window in about ${minsLeft} minute(s).`;
-  joinBtn.disabled = false;
-  joinBtn.style.opacity = "1";
-}
 </script>
 
 {% endblock %}

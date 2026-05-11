@@ -106,11 +106,12 @@ def _mark_left(log, booking):
 def _sync_booking_status_from_log(booking, log):
     anyone_present = bool(log.student_joined or log.tutor_joined or log.admin_joined)
 
-    if anyone_present and booking.status == "scheduled":
+    if anyone_present and booking.status in {"scheduled", "confirmed"}:
         booking.status = "live"
 
     if not anyone_present and booking.status == "live":
         booking.status = "scheduled"
+
 
 def _session_window_status(booking, early_minutes=10, late_minutes=10):
     now = datetime.now()
@@ -128,32 +129,26 @@ def _session_window_status(booking, early_minutes=10, late_minutes=10):
 
     return "open", allowed_start, allowed_end
 
-@rtc_bp.route("/join/<int:booking_id>", methods=["POST"])
-@login_required
-def rtc_join(booking_id):
-    booking, error_response, status_code = _get_booking_or_404(booking_id)
-    if error_response:
-        return error_response, status_code
 
-    if not _user_can_access_booking(booking):
-        return jsonify({"ok": False, "error": "Not authorized for this session"}), 403
+def _booking_is_joinable(booking):
+    if booking.status in {"completed", "cancelled"}:
+        return False, f"This booking is already {booking.status}."
 
     window_status, allowed_start, allowed_end = _session_window_status(booking)
 
-    if current_user.role != "admin" and window_status == "too_early":
-        return jsonify({
-            "ok": False,
-            "error": f"Session is not open yet. It opens at {allowed_start.strftime('%d %b %Y, %I:%M %p')}.",
-            "window_status": window_status,
-        }), 403
+    if current_user.role == "admin":
+        return True, ""
 
-    if current_user.role != "admin" and window_status == "expired":
-        return jsonify({
-            "ok": False,
-            "error": "This session time has expired.",
-            "window_status": window_status,
-        }), 403
+    if window_status == "too_early":
+        return False, f"Session is not open yet. It opens at {allowed_start.strftime('%d %b %Y, %I:%M %p')}."
 
+    if window_status == "expired":
+        return False, "This session time has expired."
+
+    return True, ""
+
+
+def _rtc_payload_response(booking):
     try:
         payload = get_join_payload_for_user(booking=booking, user=current_user)
     except AgoraConfigError as e:
@@ -176,8 +171,66 @@ def rtc_join(booking_id):
                 "expiresIn": payload["expires_in"],
             },
         }
-        
-    )
+    ), 200
+
+
+def _mark_booking_completion(booking):
+    if current_user.role == "admin":
+        return False, "Admin observers cannot mark sessions complete."
+
+    if booking.status in {"cancelled"}:
+        return False, "Cancelled bookings cannot be marked complete."
+
+    if booking.status not in {"scheduled", "confirmed", "live", "completed"}:
+        return False, "This booking cannot be marked complete."
+
+    if current_user.id == booking.student_id:
+        booking.student_marked_complete = True
+    elif current_user.id == booking.tutor_id:
+        booking.tutor_marked_complete = True
+    else:
+        return False, "Not authorized."
+
+    if booking.student_marked_complete and booking.tutor_marked_complete:
+        booking.status = "completed"
+
+    return True, ""
+
+@rtc_bp.route("/join/<int:booking_id>", methods=["POST"])
+@login_required
+def rtc_join(booking_id):
+    booking, error_response, status_code = _get_booking_or_404(booking_id)
+    if error_response:
+        return error_response, status_code
+
+    if not _user_can_access_booking(booking):
+        return jsonify({"ok": False, "error": "Not authorized for this session"}), 403
+
+    joinable, error_message = _booking_is_joinable(booking)
+    if not joinable:
+        return jsonify({"ok": False, "error": error_message}), 403
+
+    response, status_code = _rtc_payload_response(booking)
+    return response, status_code
+
+
+@rtc_bp.route("/token/<int:booking_id>", methods=["POST"])
+@login_required
+def rtc_refresh_token(booking_id):
+    booking, error_response, status_code = _get_booking_or_404(booking_id)
+    if error_response:
+        return error_response, status_code
+
+    if not _user_can_access_booking(booking):
+        return jsonify({"ok": False, "error": "Not authorized for this session"}), 403
+
+    joinable, error_message = _booking_is_joinable(booking)
+    if not joinable:
+        return jsonify({"ok": False, "error": error_message}), 403
+
+    response, status_code = _rtc_payload_response(booking)
+    return response, status_code
+
 
 @rtc_bp.route("/complete/<int:booking_id>", methods=["POST"])
 @login_required
@@ -191,27 +244,20 @@ def rtc_mark_complete(booking_id):
     if not _user_can_access_booking(booking):
         return jsonify({"ok": False, "error": "Not authorized"}), 403
 
-    if current_user.id == booking.student_id:
-        booking.student_marked_complete = True
-
-    elif current_user.id == booking.tutor_id:
-        booking.tutor_marked_complete = True
-
-    else:
-        return jsonify({"ok": False, "error": "Invalid role"}), 403
-
-    # If BOTH complete → mark booking completed
-    if booking.student_marked_complete and booking.tutor_marked_complete:
-        booking.status = "completed"
+    ok, error_message = _mark_booking_completion(booking)
+    if not ok:
+        return jsonify({"ok": False, "error": error_message}), 400
 
     db.session.commit()
 
     return jsonify({
         "ok": True,
-        "student_done": booking.student_marked_complete,
-        "tutor_done": booking.tutor_marked_complete,
-        "status": booking.status
+        "student_done": bool(booking.student_marked_complete),
+        "tutor_done": bool(booking.tutor_marked_complete),
+        "status": booking.status,
+        "fully_completed": booking.status == "completed",
     })
+
 
 @rtc_bp.route("/connected/<int:booking_id>", methods=["POST"])
 @login_required
@@ -225,28 +271,13 @@ def rtc_connected(booking_id):
     if not _user_can_access_booking(booking):
         return jsonify({"ok": False, "error": "Not authorized for this session"}), 403
 
-    log = LiveSessionLog.query.filter_by(booking_id=booking.id).first()
-    if not log:
-        log = LiveSessionLog(
-            booking_id=booking.id,
-            room_code=booking.room_code,
-            started_at=datetime.utcnow(),
-            last_activity_note="Session initialized",
-        )
-        db.session.add(log)
+    joinable, error_message = _booking_is_joinable(booking)
+    if not joinable:
+        return jsonify({"ok": False, "error": error_message}), 403
 
-    if current_user.role == "admin":
-        log.admin_joined = True
-        log.last_activity_note = f"Admin connected at {datetime.utcnow().isoformat()} UTC"
-    elif current_user.id == booking.student_id:
-        log.student_joined = True
-        log.last_activity_note = f"Student connected at {datetime.utcnow().isoformat()} UTC"
-    elif current_user.id == booking.tutor_id:
-        log.tutor_joined = True
-        log.last_activity_note = f"Tutor connected at {datetime.utcnow().isoformat()} UTC"
-
-    if booking.status == "scheduled":
-        booking.status = "live"
+    log = _get_or_create_live_log(booking)
+    _mark_connected(log, booking)
+    _sync_booking_status_from_log(booking, log)
 
     db.session.commit()
 
@@ -260,6 +291,7 @@ def rtc_connected(booking_id):
             "admin_joined": bool(log.admin_joined),
         }
     )
+
 
 @rtc_bp.route("/leave/<int:booking_id>", methods=["POST"])
 @login_required

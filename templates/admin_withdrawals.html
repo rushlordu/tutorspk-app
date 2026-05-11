@@ -1,18 +1,39 @@
 {% extends 'base.html' %}
 {% block content %}
 <section class="card">
-  <h1>Withdrawal Requests</h1>
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+    <div>
+      <h1>Withdrawal Requests</h1>
+      <p class="muted">Pay approved tutor withdrawals manually, then mark them paid here.</p>
+    </div>
+    <a class="btn btn-light" href="{{ url_for('admin_dashboard') }}">← Back to Admin</a>
+  </div>
   <table class="table">
-    <tr><th>Tutor</th><th>Amount</th><th>Method</th><th>Account</th><th>Status</th><th>Action</th></tr>
+    <tr><th>Tutor</th><th>Amount</th><th>Method</th><th>Account</th><th>Status</th><th>Admin note</th><th>Action</th></tr>
     {% for item in withdrawals %}
     <tr>
-      <td>{{ item.tutor.public_name }}</td>
+      <td>{{ item.tutor.public_name }}<br><span class="muted">{{ item.tutor.email }}</span></td>
       <td>PKR {{ item.amount_pkr }}</td>
-      <td>{{ item.payout_method }}</td>
-      <td>{{ item.payout_account_number or item.payout_iban }}</td>
-      <td>{{ item.status }}</td>
-      <td>{% if item.status == 'requested' %}<form method="post" action="{{ url_for('admin_mark_withdrawal_paid', withdrawal_id=item.id) }}"><button class="btn btn-sm">Mark paid</button></form>{% else %}Done{% endif %}</td>
+      <td>{{ item.payout_method|title }}</td>
+      <td>
+        {{ item.payout_account_title or '-' }}<br>
+        <span class="muted">{{ item.payout_account_number or item.payout_iban or '-' }}</span>
+      </td>
+      <td>{{ item.status.replace('_', ' ')|title }}</td>
+      <td>{{ item.admin_note or '-' }}</td>
+      <td>
+        {% if item.status == 'requested' %}
+        <form method="post" action="{{ url_for('admin_mark_withdrawal_paid', withdrawal_id=item.id) }}" class="form-grid" style="gap:8px;">
+          <textarea name="admin_note" rows="2" placeholder="Payment reference / note"></textarea>
+          <button class="btn btn-sm" onclick="return confirm('Mark this withdrawal as paid?');">Mark paid</button>
+        </form>
+        {% else %}
+          Done
+        {% endif %}
+      </td>
     </tr>
+    {% else %}
+    <tr><td colspan="7">No withdrawal requests yet.</td></tr>
     {% endfor %}
   </table>
 </section>

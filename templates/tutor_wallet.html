@@ -1,18 +1,32 @@
 {% extends 'base.html' %}
 {% block content %}
 <section class="grid three">
-  <div class="card"><h2>Pending payout</h2><p>PKR {{ current_user.pending_payout_pkr }}</p></div>
+  <div class="card"><h2>Withdrawable payout</h2><p>PKR {{ current_user.pending_payout_pkr or 0 }}</p></div>
   <div class="card"><h2>Total earnings</h2><p>PKR {{ current_user.total_earnings_pkr }}</p></div>
   <div class="card"><h2>Bonus credits</h2><p>{{ current_user.bonus_credits }}</p></div>
 </section>
 <section class="card">
+  <h2>Request withdrawal</h2>
+  <form method="post" action="{{ url_for('withdraw') }}" class="form-grid two-col">
+    <input type="number" name="amount_pkr" min="1" max="{{ current_user.pending_payout_pkr or 0 }}" placeholder="Amount PKR" required>
+    <select name="payout_method">
+      <option value="bank" {% if current_user.payout_method == 'bank' %}selected{% endif %}>Bank</option>
+      <option value="easypaisa" {% if current_user.payout_method == 'easypaisa' %}selected{% endif %}>EasyPaisa</option>
+    </select>
+    <input name="payout_account_title" placeholder="Account title" value="{{ current_user.payout_account_title or '' }}" required>
+    <input name="payout_account_number" placeholder="Account number / mobile wallet no" value="{{ current_user.payout_account_number or '' }}">
+    <input name="payout_iban" placeholder="IBAN (optional)" value="{{ current_user.payout_iban or '' }}">
+    <button class="btn" type="submit" {% if not current_user.pending_payout_pkr %}disabled{% endif %}>Submit withdrawal request</button>
+  </form>
+</section>
+<section class="card">
   <h2>Transactions</h2>
   <table class="table">
-    <tr><th>Type</th><th>Credits</th><th>Note</th><th>Date</th></tr>
+    <tr><th>Type</th><th>Credits</th><th>Rupees</th><th>Note</th><th>Date</th></tr>
     {% for tx in txs %}
-    <tr><td>{{ tx.tx_type }}</td><td>{{ tx.credits_change }}</td><td>{{ tx.note }}</td><td>{{ tx.created_at.strftime('%Y-%m-%d %H:%M') }}</td></tr>
+    <tr><td>{{ tx.tx_type }}</td><td>{{ tx.credits_change }}</td><td>{{ tx.rupee_amount }}</td><td>{{ tx.note }}</td><td>{{ tx.created_at.strftime('%Y-%m-%d %H:%M') }}</td></tr>
     {% else %}
-    <tr><td colspan="4">No entries yet.</td></tr>
+    <tr><td colspan="5">No entries yet.</td></tr>
     {% endfor %}
   </table>
 </section>

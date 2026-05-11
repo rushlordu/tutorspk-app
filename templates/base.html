@@ -6,6 +6,7 @@
   <title>TutorsOnline.pk</title>
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
   <link rel="icon" href="{{ url_for('static', filename='images/favicon.svg') }}" type="image/svg+xml">
 </head>
 <body>
@@ -92,108 +93,5 @@
       </div>
     </div>
   </footer>
-  <style>
-  .nav-messages-link {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-<style>
-  .nav-messages-link {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .nav-msg-badge {
-    min-width: 20px;
-    height: 20px;
-    padding: 0 6px;
-    border-radius: 999px;
-    background: #ef6ea8;
-    color: #111827;
-    font-size: 12px;
-    font-weight: 800;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .nav-user-dropdown {
-    position: relative;
-    display: inline-block;
-  }
-
-  .nav-user-trigger {
-    border: 1px solid var(--line);
-    background: #fff;
-    color: #111827;
-    border-radius: 12px;
-    padding: 10px 14px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .nav-user-menu {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 10px);
-    min-width: 190px;
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    box-shadow: 0 12px 28px rgba(14, 32, 73, 0.10);
-    padding: 8px;
-    display: none;
-    z-index: 1000;
-  }
-
-  .nav-user-menu a {
-    display: block;
-    padding: 10px 12px;
-    border-radius: 10px;
-    color: #243047;
-    text-decoration: none;
-    font-weight: 600;
-  }
-
-  .nav-user-menu a:hover {
-    background: #f6f8fc;
-  }
-
-  .nav-user-dropdown:hover .nav-user-menu,
-  .nav-user-dropdown:focus-within .nav-user-menu {
-    display: block;
-  }
-
-  @media (max-width: 900px) {
-    .nav-user-trigger {
-      padding: 8px 12px;
-      font-size: 14px;
-    }
-
-    .nav-user-menu {
-      min-width: 170px;
-    }
-  }
-</style>
-
-.nav-msg-badge {
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: #ef6ea8;
-  color: #111827;
-  font-size: 12px;
-  font-weight: 800;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-</style>
 </body>
 </html>

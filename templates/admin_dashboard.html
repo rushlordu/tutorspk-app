@@ -1,12 +1,35 @@
 {% extends 'base.html' %}
 {% block content %}
 <section class="grid cards">
-  <div class="card"><h2>Total users</h2><p>{{ stats.users }}</p></div>
-  <div class="card"><h2>Tutors</h2><p>{{ stats.tutors }}</p></div>
-  <div class="card"><h2>Students</h2><p>{{ stats.students }}</p></div>
-  <div class="card"><h2>Pending notices</h2><p>{{ stats.pending_notices }}</p></div>
-  <div class="card"><h2>Live sessions</h2><p>{{ stats.live_sessions }}</p></div>
-  <div class="card"><h2>Withdrawal requests</h2><p>{{ stats.withdrawals }}</p></div>
+  <a class="card admin-stat-card" href="{{ url_for('admin_users') }}">
+    <h2>Total users</h2>
+    <p>{{ stats.users }}</p>
+  </a>
+
+  <a class="card admin-stat-card" href="{{ url_for('admin_users', role='tutor') }}">
+    <h2>Tutors</h2>
+    <p>{{ stats.tutors }}</p>
+  </a>
+
+  <a class="card admin-stat-card" href="{{ url_for('admin_users', role='student') }}">
+    <h2>Students</h2>
+    <p>{{ stats.students }}</p>
+  </a>
+
+  <a class="card admin-stat-card" href="{{ url_for('admin_payment_notices') }}">
+    <h2>Pending notices</h2>
+    <p>{{ stats.pending_notices }}</p>
+  </a>
+
+  <a class="card admin-stat-card" href="{{ url_for('admin_live_sessions') }}">
+    <h2>Live sessions</h2>
+    <p>{{ stats.live_sessions }}</p>
+  </a>
+
+  <a class="card admin-stat-card" href="{{ url_for('admin_withdrawals') }}">
+    <h2>Withdrawal requests</h2>
+    <p>{{ stats.withdrawals }}</p>
+  </a>
 </section>
 <section class="grid two">
   <div class="card">
@@ -76,4 +99,23 @@
     <p class="muted">Admin-only counter</p>
   </div>
 </section>
+<style>
+  .admin-stat-card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+
+  .admin-stat-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(47, 103, 232, 0.35);
+    box-shadow: 0 16px 34px rgba(14, 32, 73, 0.10);
+  }
+
+  .admin-stat-card p {
+    font-size: 24px;
+    font-weight: 800;
+  }
+</style>
 {% endblock %}

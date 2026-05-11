@@ -581,8 +581,7 @@ app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_DIR)
 
 # Temporary site status flag
-UNDER_CONSTRUCTION= False
-#UNDER_CONSTRUCTION = os.getenv("UNDER_CONSTRUCTION", "true").lower() == "true"
+UNDER_CONSTRUCTION = os.getenv("UNDER_CONSTRUCTION", "false").lower() == "true"
 
 # Configurable placeholders for later setup
 app.config["MAIL_SERVER"] = os.getenv("MAIL_SERVER", "")
@@ -618,6 +617,16 @@ google = oauth.register(
 db.init_app(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
+
+
+def admin_required_response():
+    if not current_user.is_authenticated:
+        return redirect(url_for("login", next=request.url))
+    if current_user.role != "admin":
+        flash("Unauthorized.", "danger")
+        return redirect(url_for("dashboard"))
+    return None
+
 
 def get_or_create_conversation(student_id, tutor_id, booking_id=None):
     query = Conversation.query.filter_by(
@@ -1170,27 +1179,13 @@ def message_thread(conversation_id):
 def mark_booking_complete(booking_id):
     booking = Booking.query.get_or_404(booking_id)
 
-    if current_user.id not in [booking.student_id, booking.tutor_id]:
-        flash("Unauthorized.", "danger")
+    ok, message = mark_booking_complete_for_user(booking, current_user)
+    if not ok:
+        flash(message, "danger" if message == "Unauthorized." else "warning")
         return redirect(url_for("dashboard"))
-
-    if booking.status not in ["scheduled", "confirmed"]:
-        flash("This booking cannot be marked complete.", "warning")
-        return redirect(url_for("dashboard"))
-
-    if current_user.id == booking.student_id:
-        booking.student_marked_complete = True
-        flash("You marked the session complete.", "success")
-
-    if current_user.id == booking.tutor_id:
-        booking.tutor_marked_complete = True
-        flash("You marked the session complete.", "success")
-
-    if booking.student_marked_complete and booking.tutor_marked_complete:
-        booking.status = "completed"
-        flash("Both sides confirmed completion. Admin will release tutor payout.", "success")
 
     db.session.commit()
+    flash(message, "success")
     return redirect(url_for("dashboard"))
 
 
@@ -1213,13 +1208,21 @@ def tutor_registration_fee():
             flash("Please confirm the payment before submitting.", "danger")
             return render_template("tutor_registration_fee.html", form_data=form_data)
 
-        existing_pending = TutorFeeNotice.query.filter_by(
-            tutor_id=current_user.id,
-            status="pending",
+        sender_name = (request.form.get("sender_name", "") or "").strip()
+        sender_account = (request.form.get("sender_account", "") or "").strip()
+        transfer_method = (request.form.get("transfer_method", "easypaisa") or "easypaisa").strip()
+
+        if not sender_name or not sender_account:
+            flash("Please enter the sender name and account/mobile number.", "danger")
+            return render_template("tutor_registration_fee.html", form_data=form_data)
+
+        existing_pending = TutorFeeNotice.query.filter(
+            TutorFeeNotice.tutor_id == current_user.id,
+            TutorFeeNotice.status.in_(PAYMENT_REVIEWABLE_STATUSES),
         ).order_by(TutorFeeNotice.created_at.desc()).first()
 
         if existing_pending:
-            flash("You already have a pending tutor fee notice under review.", "warning")
+            flash("You already have a tutor fee notice under admin review.", "warning")
             return redirect(url_for("dashboard"))
 
         screenshot = request.files.get("screenshot")
@@ -1233,9 +1236,9 @@ def tutor_registration_fee():
         notice = TutorFeeNotice(
             tutor_id=current_user.id,
             amount_sent_pkr=500,
-            sender_name=(request.form.get("sender_name", "") or "").strip(),
-            sender_account=(request.form.get("sender_account", "") or "").strip(),
-            transfer_method=(request.form.get("transfer_method", "easypaisa") or "easypaisa").strip(),
+            sender_name=sender_name,
+            sender_account=sender_account,
+            transfer_method=transfer_method,
             screenshot_filename=filename,
             note=(request.form.get("note", "") or "").strip(),
             status="pending",
@@ -1412,7 +1415,12 @@ def preview_off():
     return redirect(url_for("index"))
 
 @app.route("/test-email")
+@login_required
 def test_email():
+    guard = admin_required_response()
+    if guard:
+        return guard
+
     ok = send_email(
         "superadmin@tutorsonline.pk",
         "TutorsOnline.pk SMTP Test",
@@ -1499,6 +1507,98 @@ def add_credits(user: User, credits: int, tx_type: str, note: str = "", rupees: 
             note=note,
         )
     )
+
+
+PAYMENT_STATUS_PENDING = "pending"
+PAYMENT_STATUS_APPROVED = "approved"
+PAYMENT_STATUS_DECLINED = "declined"
+PAYMENT_STATUS_ON_HOLD = "on_hold"
+PAYMENT_REVIEWABLE_STATUSES = {
+    PAYMENT_STATUS_PENDING,
+    PAYMENT_STATUS_ON_HOLD,
+    "under_review",
+}
+PAYMENT_FINAL_STATUSES = {PAYMENT_STATUS_APPROVED, PAYMENT_STATUS_DECLINED}
+PAYMENT_STATUS_ALIASES = {
+    "rejected": PAYMENT_STATUS_DECLINED,
+    "decline": PAYMENT_STATUS_DECLINED,
+}
+
+
+def normalize_payment_status(notice):
+    """Keep legacy payment notice statuses aligned with the current workflow."""
+    original_status = (notice.status or PAYMENT_STATUS_PENDING).strip().lower()
+    normalized_status = PAYMENT_STATUS_ALIASES.get(original_status, original_status)
+
+    if notice.status != normalized_status:
+        notice.status = normalized_status
+        return True
+
+    return False
+
+
+def normalize_payment_notices(notices):
+    changed = False
+    for notice in notices:
+        changed = normalize_payment_status(notice) or changed
+
+    if changed:
+        db.session.commit()
+
+
+def approve_student_payment_notice(notice, admin_note: str = ""):
+    normalize_payment_status(notice)
+
+    if notice.status == PAYMENT_STATUS_APPROVED:
+        return False, "This payment notice has already been approved."
+
+    if notice.status == PAYMENT_STATUS_DECLINED:
+        return False, "Declined payment notices cannot be approved. Ask the student to submit a new notice."
+
+    if notice.status not in PAYMENT_REVIEWABLE_STATUSES:
+        return False, "This payment notice is not available for review."
+
+    add_credits(
+        notice.student,
+        notice.claimed_credits,
+        "manual_topup",
+        f"Approved payment notice #{notice.id}",
+        rupees=notice.amount_sent_pkr,
+    )
+    notice.status = PAYMENT_STATUS_APPROVED
+    notice.admin_note = admin_note
+    notice.reviewed_at = datetime.utcnow()
+    return True, f"Approved notice #{notice.id} and added {notice.claimed_credits} credits."
+
+
+def decline_student_payment_notice(notice, admin_note: str = ""):
+    normalize_payment_status(notice)
+
+    if notice.status == PAYMENT_STATUS_APPROVED:
+        return False, "Approved payment notices cannot be declined."
+
+    if notice.status == PAYMENT_STATUS_DECLINED:
+        return False, "This payment notice has already been declined."
+
+    if notice.status not in PAYMENT_REVIEWABLE_STATUSES:
+        return False, "This payment notice is not available for review."
+
+    notice.status = PAYMENT_STATUS_DECLINED
+    notice.admin_note = admin_note or "Payment proof could not be verified."
+    notice.reviewed_at = datetime.utcnow()
+    return True, f"Declined notice #{notice.id}."
+
+
+def hold_student_payment_notice(notice, admin_note: str = ""):
+    normalize_payment_status(notice)
+
+    if notice.status in PAYMENT_FINAL_STATUSES:
+        return False, "Finalized payment notices cannot be put on hold."
+
+    notice.status = PAYMENT_STATUS_ON_HOLD
+    notice.admin_note = admin_note or "Payment notice is being reviewed."
+    notice.reviewed_at = datetime.utcnow()
+    return True, f"Notice #{notice.id} marked on hold."
 
 
 def get_youtube_embed(url):
@@ -1732,13 +1832,27 @@ def lower_qualification_chain(highest, next_choice=""):
     return []
 
 
-def media_url(path, fallback="https://picsum.photos/seed/default/300/300"):
+def media_url(path, fallback=None):
+    """Return a safe public URL for uploaded/static media.
+
+    Stored profile images may be saved as just "file.jpg", "/uploads/file.jpg",
+    or "uploads/file.jpg" depending on the form that created them. Normalizing
+    here avoids broken image URLs after deployment or data import.
+    """
+    fallback = fallback or url_for("static", filename="images/default-avatar.svg")
     path = (path or "").strip()
     if not path:
         return fallback
 
-    if path.startswith(("http://", "https://", "/uploads/", "/demo_seed/", "/static/")):
+    if path.startswith(("http://", "https://", "/static/", "/demo_seed/")):
         return path
+
+    path = path.replace("\\", "/").lstrip("/")
+    if path.startswith("uploads/"):
+        path = path[len("uploads/"):]
+
+    if not path:
+        return fallback
 
     return url_for("uploaded_file", filename=path)
 
@@ -2141,6 +2255,7 @@ def admin_payment_notices():
     notices = PaymentNotice.query.order_by(
         PaymentNotice.created_at.desc()
     ).all()
+    normalize_payment_notices(notices)
 
     return render_template("admin_payment_notices.html", notices=notices)
 
@@ -2153,33 +2268,16 @@ def admin_payment_action(notice_id):
 
     notice = PaymentNotice.query.get_or_404(notice_id)
     action = (request.form.get("action", "") or "").strip().lower()
-    reason = (request.form.get("reason", "") or "").strip()
-
-    if notice.status == "approved":
-        flash("This payment notice has already been approved.", "warning")
-        return redirect(url_for("admin_payment_notices"))
-
-    if notice.status == "declined":
-        flash("This payment notice has already been declined.", "warning")
-        return redirect(url_for("admin_payment_notices"))
+    reason = (request.form.get("reason", "") or request.form.get("admin_note", "") or "").strip()
 
     if action == "approve":
-        add_credits(
-            notice.student,
-            notice.claimed_credits,
-            "manual_topup",
-            f"Approved payment notice #{notice.id}",
-            rupees=notice.amount_sent_pkr,
-        )
-        notice.status = "approved"
-        notice.admin_note = reason
-        notice.reviewed_at = datetime.utcnow()
-        db.session.commit()
-
-        safe_send_email(
-            notice.student.email,
-            "Credits approved - TutorsOnline.pk",
-            f"""Assalam-o-Alaikum {notice.student.full_name},
+        changed, message = approve_student_payment_notice(notice, reason)
+        if changed:
+            db.session.commit()
+            safe_send_email(
+                notice.student.email,
+                "Credits approved - TutorsOnline.pk",
+                f"""Assalam-o-Alaikum {notice.student.full_name},
 
 Your payment notice has been approved.
 
@@ -2192,21 +2290,21 @@ Regards,
 TutorsOnline.pk
 superadmin@tutorsonline.pk
 """,
-        )
-
-        flash(f"Approved notice #{notice.id} and added {notice.claimed_credits} credits.", "success")
+            )
+            flash(message, "success")
+        else:
+            db.session.rollback()
+            flash(message, "warning")
         return redirect(url_for("admin_payment_notices"))
 
-    if action == "decline":
-        notice.status = "declined"
-        notice.admin_note = reason or "Payment proof could not be verified."
-        notice.reviewed_at = datetime.utcnow()
-        db.session.commit()
-
-        safe_send_email(
-            notice.student.email,
-            "Payment notice declined - TutorsOnline.pk",
-            f"""Assalam-o-Alaikum {notice.student.full_name},
+    if action in {"decline", "reject"}:
+        changed, message = decline_student_payment_notice(notice, reason)
+        if changed:
+            db.session.commit()
+            safe_send_email(
+                notice.student.email,
+                "Payment notice declined - TutorsOnline.pk",
+                f"""Assalam-o-Alaikum {notice.student.full_name},
 
 Your payment notice could not be approved.
 
@@ -2218,21 +2316,21 @@ Regards,
 TutorsOnline.pk
 superadmin@tutorsonline.pk
 """,
-        )
-
-        flash(f"Declined notice #{notice.id}.", "info")
+            )
+            flash(message, "info")
+        else:
+            db.session.rollback()
+            flash(message, "warning")
         return redirect(url_for("admin_payment_notices"))
 
     if action == "on_hold":
-        notice.status = "on_hold"
-        notice.admin_note = reason or "Payment notice is being reviewed."
-        notice.reviewed_at = datetime.utcnow()
-        db.session.commit()
-
-        safe_send_email(
-            notice.student.email,
-            "Payment notice on hold - TutorsOnline.pk",
-            f"""Assalam-o-Alaikum {notice.student.full_name},
+        changed, message = hold_student_payment_notice(notice, reason)
+        if changed:
+            db.session.commit()
+            safe_send_email(
+                notice.student.email,
+                "Payment notice on hold - TutorsOnline.pk",
+                f"""Assalam-o-Alaikum {notice.student.full_name},
 
 Your payment notice is currently on hold for review.
 
@@ -2244,13 +2342,16 @@ Regards,
 TutorsOnline.pk
 superadmin@tutorsonline.pk
 """,
-        )
-
-        flash(f"Notice #{notice.id} marked on hold.", "warning")
+            )
+            flash(message, "warning")
+        else:
+            db.session.rollback()
+            flash(message, "warning")
         return redirect(url_for("admin_payment_notices"))
 
     flash("Invalid action.", "danger")
     return redirect(url_for("admin_payment_notices"))
+
 
 @app.route("/")
 def index():
@@ -2761,10 +2862,14 @@ def dashboard():
     pending_notices = []
     if current_user.role == "student":
         pending_notices = (
-            PaymentNotice.query.filter_by(student_id=current_user.id, status="pending")
+            PaymentNotice.query.filter(
+                PaymentNotice.student_id == current_user.id,
+                PaymentNotice.status.in_(PAYMENT_REVIEWABLE_STATUSES),
+            )
             .order_by(PaymentNotice.created_at.desc())
             .all()
         )
+        normalize_payment_notices(pending_notices)
 
     completion_data = None
     if current_user.role == "tutor":
@@ -3154,9 +3259,7 @@ def admin_credit_notices():
     if current_user.role != "admin":
         return redirect(url_for("dashboard"))
 
-    notices = PaymentNotice.query.order_by(PaymentNotice.created_at.desc()).all()
-    return render_template("admin_credit_notices.html", notices=notices)
-
+    return redirect(url_for("admin_payment_notices"))
 
 
 @app.route("/admin/credits/<int:notice_id>/review", methods=["POST"])
@@ -3166,38 +3269,30 @@ def admin_review_credit_notice(notice_id):
         return redirect(url_for("dashboard"))
 
     notice = PaymentNotice.query.get_or_404(notice_id)
-    action = request.form.get("action", "").strip()
-    reason = request.form.get("reason", "").strip()
-
-    if notice.status != "pending":
-        flash("This payment notice has already been reviewed.", "warning")
-        return redirect(url_for("admin_credit_notices"))
+    action = (request.form.get("action", "") or "").strip().lower()
+    reason = (request.form.get("reason", "") or request.form.get("admin_note", "") or "").strip()
 
     if action == "approve":
-        add_credits(
-            notice.student,
-            notice.claimed_credits,
-            "manual_topup",
-            f"Approved payment notice #{notice.id}",
-            rupees=notice.amount_sent_pkr,
-        )
-        notice.status = "approved"
-        notice.admin_note = reason
-        notice.reviewed_at = datetime.utcnow()
-        db.session.commit()
-        flash("Credits approved and added successfully.", "success")
-
-    elif action == "decline":
-        notice.status = "declined"
-        notice.admin_note = reason
-        notice.reviewed_at = datetime.utcnow()
-        db.session.commit()
-        flash("Payment notice declined.", "info")
-
+        changed, message = approve_student_payment_notice(notice, reason)
+        category = "success" if changed else "warning"
+    elif action in {"decline", "reject"}:
+        changed, message = decline_student_payment_notice(notice, reason)
+        category = "info" if changed else "warning"
+    elif action == "on_hold":
+        changed, message = hold_student_payment_notice(notice, reason)
+        category = "warning"
     else:
-        flash("Invalid action.", "danger")
+        changed = False
+        message = "Invalid action."
+        category = "danger"
 
-    return redirect(url_for("admin_credit_notices"))
+    if changed:
+        db.session.commit()
+    else:
+        db.session.rollback()
+
+    flash(message, category)
+    return redirect(url_for("admin_payment_notices"))
 
 
 
@@ -3252,16 +3347,28 @@ def buy_credits():
                 credit_rate=credit_rate,
             )
 
-        # Prevent duplicate pending notices for the same student/amount before admin review
-        existing_pending = PaymentNotice.query.filter_by(
-            student_id=current_user.id,
-            claimed_credits=credits,
-            status="pending",
+        sender_name = (request.form.get("sender_name", "") or "").strip()
+        sender_account = (request.form.get("sender_account", "") or "").strip()
+        transfer_method = (request.form.get("transfer_method", "easypaisa") or "easypaisa").strip()
+
+        if not sender_name or not sender_account:
+            flash("Please enter the sender name and account/mobile number.", "danger")
+            return render_template(
+                "buy_credits_v2.html",
+                form_data=form_data,
+                credit_rate=credit_rate,
+            )
+
+        # Prevent duplicate active notices for the same student/amount before admin review
+        existing_pending = PaymentNotice.query.filter(
+            PaymentNotice.student_id == current_user.id,
+            PaymentNotice.claimed_credits == credits,
+            PaymentNotice.status.in_(PAYMENT_REVIEWABLE_STATUSES),
         ).order_by(PaymentNotice.created_at.desc()).first()
 
         if existing_pending:
             flash(
-                "You already have a pending payment notice for this credit request. Please wait for admin review.",
+                "You already have a payment notice for this credit request under admin review.",
                 "warning",
             )
             return redirect(url_for("student_wallet"))
@@ -3283,9 +3390,9 @@ def buy_credits():
             student_id=current_user.id,
             amount_sent_pkr=amount,
             claimed_credits=credits,
-            sender_name=(request.form.get("sender_name", "") or "").strip(),
-            sender_account=(request.form.get("sender_account", "") or "").strip(),
-            transfer_method=(request.form.get("transfer_method", "easypaisa") or "easypaisa").strip(),
+            sender_name=sender_name,
+            sender_account=sender_account,
+            transfer_method=transfer_method,
             screenshot_filename=filename,
             note=(request.form.get("note", "") or "").strip(),
             status="pending",
@@ -3339,6 +3446,7 @@ def student_wallet():
             .order_by(PaymentNotice.created_at.desc())
             .all()
         )
+        normalize_payment_notices(notices)
         return render_template("student_wallet.html", txs=txs, notices=notices)
 
     txs = (
@@ -3364,6 +3472,32 @@ def booking_time_window_status(booking, early_minutes=10, late_minutes=10):
 
     return "open", allowed_start, allowed_end
 
+
+def mark_booking_complete_for_user(booking, user):
+    if user.role == "admin":
+        return False, "Admin observers cannot mark sessions complete."
+
+    if booking.status == "cancelled":
+        return False, "Cancelled bookings cannot be marked complete."
+
+    if booking.status not in ["scheduled", "confirmed", "live", "completed"]:
+        return False, "This booking cannot be marked complete."
+
+    if user.id == booking.student_id:
+        booking.student_marked_complete = True
+    elif user.id == booking.tutor_id:
+        booking.tutor_marked_complete = True
+    else:
+        return False, "Unauthorized."
+
+    if booking.student_marked_complete and booking.tutor_marked_complete:
+        booking.status = "completed"
+        return True, "Both sides confirmed completion. Admin will release tutor payout."
+
+    other_side = "tutor" if user.id == booking.student_id else "student"
+    return True, f"You marked the session complete. Waiting for the {other_side} to confirm."
+
+
 @app.route("/live/<int:booking_id>", methods=["GET"])
 @login_required
 def live_session(booking_id):
@@ -3373,17 +3507,12 @@ def live_session(booking_id):
         flash("Unauthorized.", "danger")
         return redirect(url_for("dashboard"))
 
-    window_status, allowed_start, allowed_end = booking_time_window_status(booking)
-
-    if current_user.role != "admin" and window_status == "too_early":
-        flash(
-            f"Session will open 10 minutes before scheduled time: {booking.scheduled_at.strftime('%d %b %Y, %I:%M %p')}",
-            "warning",
-        )
+    if booking.status == "cancelled":
+        flash("This booking has been cancelled.", "warning")
         return redirect(url_for("dashboard"))
 
-    if current_user.role != "admin" and window_status == "expired":
-        flash("This session time has expired.", "warning")
+    if booking.status == "completed" and current_user.role != "admin":
+        flash("This session is already completed.", "info")
         return redirect(url_for("dashboard"))
 
     window_status, allowed_start, allowed_end = booking_time_window_status(booking)
@@ -3410,6 +3539,7 @@ def live_session(booking_id):
         allowed_end=allowed_end,
     )
 
+
 @app.route("/admin/bookings/<int:booking_id>/release-payout", methods=["POST"])
 @login_required
 def admin_release_payout(booking_id):
@@ -3429,29 +3559,34 @@ def admin_release_payout(booking_id):
 
     tutor = booking.tutor
     tutor_share_credits = int(booking.credits_cost * 0.8)
+    tutor_share_pkr = tutor_share_credits * app.config["CREDIT_RATE"]
 
     before_credits = tutor.credits_balance
+    before_pending = tutor.pending_payout_pkr or 0
 
     add_credits(
         tutor,
         tutor_share_credits,
         "tutor_session_earning",
         f"Admin-approved tutor earning for booking #{booking.id}",
-        rupees=tutor_share_credits * app.config["CREDIT_RATE"],
+        rupees=tutor_share_pkr,
     )
 
-    tutor.total_earnings_pkr += tutor_share_credits * app.config["CREDIT_RATE"]
-    tutor.monthly_earnings_pkr += tutor_share_credits * app.config["CREDIT_RATE"]
+    tutor.pending_payout_pkr = before_pending + tutor_share_pkr
+    tutor.total_earnings_pkr += tutor_share_pkr
+    tutor.monthly_earnings_pkr += tutor_share_pkr
     tutor.sessions_completed += 1
     booking.payout_released = True
 
     # Do not call bonus here
     # apply_bonus_if_eligible(tutor)
-    
+
     db.session.commit()
 
     flash(
-        f"Approved {tutor_share_credits} tutor credits. Tutor balance: {before_credits} → {tutor.credits_balance}",
+        f"Approved {tutor_share_credits} tutor credits / PKR {tutor_share_pkr}. "
+        f"Tutor credits: {before_credits} → {tutor.credits_balance}. "
+        f"Withdrawable payout: PKR {before_pending} → PKR {tutor.pending_payout_pkr}.",
         "success",
     )
     return redirect(url_for("admin_dashboard"))
@@ -3460,19 +3595,16 @@ def admin_release_payout(booking_id):
 @login_required
 def complete_student(booking_id):
     booking = Booking.query.get_or_404(booking_id)
-    if booking.student_id != current_user.id:
-        flash("Unauthorized.", "danger")
+
+    ok, message = mark_booking_complete_for_user(booking, current_user)
+    if not ok:
+        flash(message, "danger" if message == "Unauthorized." else "warning")
         return redirect(url_for("dashboard"))
 
-    booking.student_marked_complete = True
-    booking.status = "completed"
-
     db.session.commit()
-    flash(
-        "Session marked complete. Awaiting admin payout release.",
-        "success",
-    )
+    flash(message, "success")
     return redirect(url_for("dashboard"))
+
 
 @app.route("/admin/reset-demo-passwords")
 @login_required
@@ -3500,24 +3632,46 @@ def withdraw():
         flash("Only tutors can request withdrawals.", "danger")
         return redirect(url_for("dashboard"))
 
-    amount = int(request.form["amount_pkr"])
-    if amount > current_user.pending_payout_pkr:
-        flash("Insufficient pending payout.", "danger")
+    try:
+        amount = int((request.form.get("amount_pkr") or "0").strip())
+    except ValueError:
+        amount = 0
+
+    if amount <= 0:
+        flash("Please enter a valid withdrawal amount.", "danger")
+        return redirect(url_for("student_wallet"))
+
+    available_payout = current_user.pending_payout_pkr or 0
+    if amount > available_payout:
+        flash("Insufficient withdrawable payout.", "danger")
+        return redirect(url_for("student_wallet"))
+
+    payout_method = (request.form.get("payout_method") or current_user.payout_method or "bank").strip()
+    payout_account_title = (
+        request.form.get("payout_account_title") or current_user.payout_account_title or ""
+    ).strip()
+    payout_account_number = (
+        request.form.get("payout_account_number") or current_user.payout_account_number or ""
+    ).strip()
+    payout_iban = (request.form.get("payout_iban") or current_user.payout_iban or "").strip()
+
+    if not payout_account_title or not (payout_account_number or payout_iban):
+        flash("Please provide payout account title and account number or IBAN.", "danger")
         return redirect(url_for("student_wallet"))
 
     wr = WithdrawalRequest(
         tutor_id=current_user.id,
         amount_pkr=amount,
-        payout_method=request.form.get("payout_method", current_user.payout_method),
-        payout_account_title=request.form.get(
-            "payout_account_title", current_user.payout_account_title
-        ),
-        payout_account_number=request.form.get(
-            "payout_account_number", current_user.payout_account_number
-        ),
-        payout_iban=request.form.get("payout_iban", current_user.payout_iban),
+        payout_method=payout_method,
+        payout_account_title=payout_account_title,
+        payout_account_number=payout_account_number,
+        payout_iban=payout_iban,
     )
-    current_user.pending_payout_pkr -= amount
+    current_user.pending_payout_pkr = available_payout - amount
+    current_user.payout_method = payout_method
+    current_user.payout_account_title = payout_account_title
+    current_user.payout_account_number = payout_account_number
+    current_user.payout_iban = payout_iban
     db.session.add(wr)
 
     send_notification_email(
@@ -3527,7 +3681,7 @@ def withdraw():
         f"Method: {wr.payout_method}",
     )
     db.session.commit()
-    flash("Withdrawal request submitted.", "success")
+    flash("Withdrawal request submitted for admin payment.", "success")
     return redirect(url_for("student_wallet"))
 
 
@@ -3594,12 +3748,15 @@ def admin_dashboard():
         "users": User.query.count(),
         "tutors": User.query.filter_by(role="tutor").count(),
         "students": User.query.filter_by(role="student").count(),
-        "pending_notices": PaymentNotice.query.filter_by(status="pending").count(),
+        "pending_notices": PaymentNotice.query.filter(
+            PaymentNotice.status.in_(PAYMENT_REVIEWABLE_STATUSES)
+        ).count(),
         "live_sessions": LiveSessionLog.query.filter(LiveSessionLog.ended_at.is_(None)).count(),
         "withdrawals": WithdrawalRequest.query.filter_by(status="requested").count(),
         "visitors": app.config.get("VISITOR_COUNT", 0),
     }
     recent_notices = PaymentNotice.query.order_by(PaymentNotice.created_at.desc()).limit(10).all()
+    normalize_payment_notices(recent_notices)
     live_sessions = LiveSessionLog.query.order_by(LiveSessionLog.started_at.desc()).limit(10).all()
 
     pending_payout_bookings = (
@@ -3699,8 +3856,6 @@ def admin_review_user(user_id):
     if user.role == "tutor":
         send_tutor_review_email(user, action, reason)
     return redirect(url_for("admin_user_detail", user_id=user.id))
-
-@app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
 
 @app.route("/settings/availability/<int:rule_id>/edit", methods=["GET", "POST"])
 @login_required
@@ -3826,22 +3981,16 @@ def admin_approve_notice(notice_id):
         return redirect(url_for("dashboard"))
 
     notice = PaymentNotice.query.get_or_404(notice_id)
-    if notice.status != "pending":
-        flash("Notice already reviewed.", "warning")
-        return redirect(url_for("admin_payment_notices"))
+    reason = (request.form.get("admin_note", "") or request.form.get("reason", "") or "").strip()
+    changed, message = approve_student_payment_notice(notice, reason)
 
-    notice.status = "approved"
-    notice.admin_note = request.form.get("admin_note", "")
-    notice.reviewed_at = datetime.utcnow()
-    add_credits(
-        notice.student,
-        notice.claimed_credits,
-        "topup",
-        f"Approved payment notice #{notice.id}",
-        notice.amount_sent_pkr,
-    )
-    db.session.commit()
-    flash("Payment approved and credits added.", "success")
+    if changed:
+        db.session.commit()
+        flash(message, "success")
+    else:
+        db.session.rollback()
+        flash(message, "warning")
+
     return redirect(url_for("admin_payment_notices"))
 
 
@@ -3852,11 +4001,16 @@ def admin_reject_notice(notice_id):
         return redirect(url_for("dashboard"))
 
     notice = PaymentNotice.query.get_or_404(notice_id)
-    notice.status = "rejected"
-    notice.admin_note = request.form.get("admin_note", "")
-    notice.reviewed_at = datetime.utcnow()
-    db.session.commit()
-    flash("Payment notice rejected.", "warning")
+    reason = (request.form.get("admin_note", "") or request.form.get("reason", "") or "").strip()
+    changed, message = decline_student_payment_notice(notice, reason)
+
+    if changed:
+        db.session.commit()
+        flash(message, "warning")
+    else:
+        db.session.rollback()
+        flash(message, "warning")
+
     return redirect(url_for("admin_payment_notices"))
 
 
@@ -3879,8 +4033,17 @@ def admin_mark_withdrawal_paid(withdrawal_id):
         return redirect(url_for("dashboard"))
 
     wr = WithdrawalRequest.query.get_or_404(withdrawal_id)
+
+    if wr.status == "paid":
+        flash("Withdrawal is already marked paid.", "warning")
+        return redirect(url_for("admin_withdrawals"))
+
+    if wr.status != "requested":
+        flash("Only requested withdrawals can be marked paid.", "warning")
+        return redirect(url_for("admin_withdrawals"))
+
     wr.status = "paid"
-    wr.admin_note = request.form.get("admin_note", "")
+    wr.admin_note = (request.form.get("admin_note", "") or "").strip()
     db.session.commit()
     flash("Withdrawal marked paid.", "success")
     return redirect(url_for("admin_withdrawals"))
@@ -3910,7 +4073,16 @@ def admin_live_sessions():
 
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename):
-    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+    """Serve uploaded files with a graceful fallback for missing profile photos."""
+    filename = (filename or "").replace("\\", "/").lstrip("/")
+    if filename.startswith("uploads/"):
+        filename = filename[len("uploads/"):]
+
+    upload_path = Path(app.config["UPLOAD_FOLDER"]) / filename
+    if filename and upload_path.is_file():
+        return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+
+    return redirect(url_for("static", filename="images/default-avatar.svg"))
 
 @app.route("/demo_seed/<path:filename>")
 def demo_seed_file(filename):
@@ -3925,7 +4097,12 @@ def demo_seed_file(filename):
 
 
 @app.route("/seed")
+@login_required
 def seed():
+    guard = admin_required_response()
+    if guard:
+        return guard
+
     db.create_all()
 
     if User.query.count() > 0:
@@ -4141,7 +4318,12 @@ def delete_availability_exception(exception_id):
     return redirect(url_for("settings"))
 
 @app.route("/seed-admin")
+@login_required
 def seed_admin():
+    guard = admin_required_response()
+    if guard:
+        return guard
+
     with app.app_context():
         db.create_all()
         ensure_user_columns()

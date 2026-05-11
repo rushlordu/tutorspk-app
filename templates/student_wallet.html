@@ -8,13 +8,21 @@
   </div>
   <div class="card">
     <h2>Payment notices</h2>
-    <ul class="clean-list">
+    <p class="muted">Credits are added only after admin approval.</p>
+    <table class="table">
+      <tr><th>ID</th><th>Amount</th><th>Credits</th><th>Status</th><th>Admin note</th></tr>
       {% for notice in notices %}
-      <li>#{{ notice.id }} · PKR {{ notice.amount_sent_pkr }} · {{ notice.status }}</li>
+      <tr>
+        <td>#{{ notice.id }}</td>
+        <td>PKR {{ notice.amount_sent_pkr }}</td>
+        <td>{{ notice.claimed_credits }}</td>
+        <td>{{ notice.status.replace('_', ' ')|title }}</td>
+        <td>{{ notice.admin_note or '-' }}</td>
+      </tr>
       {% else %}
-      <li>No notices yet.</li>
+      <tr><td colspan="5">No payment notices yet.</td></tr>
       {% endfor %}
-    </ul>
+    </table>
   </div>
 </section>
 <section class="card">

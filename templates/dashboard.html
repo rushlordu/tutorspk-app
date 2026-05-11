@@ -11,11 +11,14 @@
 
 {% if current_user.role == 'student' and pending_notices %}
 <section class="card">
-  <h2>Pending Credit Top-Up</h2>
-  <p class="muted">Your payment notice is under review.</p>
+  <h2>Credit Top-Up Under Review</h2>
+  <p class="muted">Your submitted payment notice is waiting for admin review. Credits are added only after approval.</p>
   <ul class="clean-list">
     {% for notice in pending_notices %}
-      <li>Notice #{{ notice.id }} · PKR {{ notice.amount_sent_pkr }} · {{ notice.claimed_credits }} credits</li>
+      <li>
+        Notice #{{ notice.id }} · PKR {{ notice.amount_sent_pkr }} · {{ notice.claimed_credits }} credits ·
+        {{ notice.status.replace('_', ' ')|title }}
+      </li>
     {% endfor %}
   </ul>
 </section>
@@ -183,13 +186,17 @@
 {% if current_user.role == 'tutor' %}
 <section class="card">
   <h2>Request withdrawal</h2>
+  <p class="muted">Withdrawable payout: <strong>PKR {{ current_user.pending_payout_pkr or 0 }}</strong></p>
   <form method="post" action="{{ url_for('withdraw') }}" class="form-grid two-col">
-    <input type="number" name="amount_pkr" min="1" placeholder="Amount PKR" required>
-    <select name="payout_method"><option value="bank">Bank</option><option value="easypaisa">EasyPaisa</option></select>
-    <input name="payout_account_title" placeholder="Account title">
-    <input name="payout_account_number" placeholder="Account number / mobile wallet no">
-    <input name="payout_iban" placeholder="IBAN (optional)">
-    <button class="btn" type="submit">Submit withdrawal request</button>
+    <input type="number" name="amount_pkr" min="1" max="{{ current_user.pending_payout_pkr or 0 }}" placeholder="Amount PKR" required>
+    <select name="payout_method">
+      <option value="bank" {% if current_user.payout_method == 'bank' %}selected{% endif %}>Bank</option>
+      <option value="easypaisa" {% if current_user.payout_method == 'easypaisa' %}selected{% endif %}>EasyPaisa</option>
+    </select>
+    <input name="payout_account_title" placeholder="Account title" value="{{ current_user.payout_account_title or '' }}" required>
+    <input name="payout_account_number" placeholder="Account number / mobile wallet no" value="{{ current_user.payout_account_number or '' }}">
+    <input name="payout_iban" placeholder="IBAN (optional)" value="{{ current_user.payout_iban or '' }}">
+    <button class="btn" type="submit" {% if not current_user.pending_payout_pkr %}disabled{% endif %}>Submit withdrawal request</button>
   </form>
 </section>
 {% endif %}
