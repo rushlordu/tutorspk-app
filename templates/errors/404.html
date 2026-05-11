@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="error-page card">
+  <div class="error-code">404</div>
+  <h1>Page not found</h1>
+  <p class="muted">The page may have moved, been removed, or the link may be incorrect.</p>
+  <div class="error-actions">
+    <a class="btn btn-primary" href="{{ url_for('index') }}">Go home</a>
+    <a class="btn btn-light" href="{{ url_for('tutors') }}">Find tutors</a>
+  </div>
+</section>
+{% endblock %}

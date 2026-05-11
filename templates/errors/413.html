@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="error-page card">
+  <div class="error-code">413</div>
+  <h1>File too large</h1>
+  <p class="muted">The uploaded file is larger than the current {{ max_mb }} MB limit.</p>
+  <div class="error-actions">
+    <a class="btn btn-primary" href="{{ request.referrer or url_for('settings') }}">Go back</a>
+  </div>
+</section>
+{% endblock %}

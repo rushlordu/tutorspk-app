@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="error-page card">
+  <div class="error-code">500</div>
+  <h1>Something went wrong</h1>
+  <p class="muted">The server hit an unexpected problem. Please try again, or contact support if it continues.</p>
+  <div class="error-actions">
+    <a class="btn btn-primary" href="{{ url_for('index') }}">Go home</a>
+    <a class="btn btn-light" href="{{ url_for('contact') }}">Contact support</a>
+  </div>
+</section>
+{% endblock %}

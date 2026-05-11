@@ -1,9 +1,11 @@
 import os
 import re
 import smtplib
+import logging
 from datetime import datetime, date, timedelta
 from pathlib import Path
 from uuid import uuid4
+from urllib.parse import urlsplit
 from dotenv import load_dotenv
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -570,18 +572,39 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 LOCAL_DB_PATH = (INSTANCE_DIR / "tutorpk.db").resolve().as_posix()
 
 app = Flask(__name__)
+IS_PRODUCTION = os.getenv("FLASK_ENV", "").lower() == "production" or os.getenv("APP_ENV", "").lower() == "production"
+
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-change-me")
+if IS_PRODUCTION and app.config["SECRET_KEY"] == "dev-secret-change-me":
+    raise RuntimeError("SECRET_KEY must be set in production.")
+
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
     "DATABASE_URL", f"sqlite:///{LOCAL_DB_PATH}"
 )
-print("Using DB:", app.config["SQLALCHEMY_DATABASE_URI"])
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
+app.logger.info("Using DB: %s", app.config["SQLALCHEMY_DATABASE_URI"])
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_UPLOAD_MB", "20")) * 1024 * 1024
+
+try:
+    app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_UPLOAD_MB", "20")) * 1024 * 1024
+except ValueError:
+    app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
+
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_DIR)
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
+app.config["SESSION_COOKIE_SECURE"] = os.getenv("SESSION_COOKIE_SECURE", "true" if IS_PRODUCTION else "false").lower() == "true"
+app.config["REMEMBER_COOKIE_HTTPONLY"] = True
+app.config["REMEMBER_COOKIE_SECURE"] = app.config["SESSION_COOKIE_SECURE"]
+
 PROFILE_IMAGE_FALLBACK = "images/default-avatar.svg"
 MEDIA_CACHE_SECONDS = int(os.getenv("MEDIA_CACHE_SECONDS", "86400"))
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"}
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm", ".m4v"}
+ALLOWED_DOCUMENT_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".webp"}
+IMAGE_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS | {".svg"}
+DEV_ROUTE_ENABLED = os.getenv("ALLOW_DEV_ROUTES", "false").lower() == "true"
 
 # Temporary site status flag
 UNDER_CONSTRUCTION = os.getenv("UNDER_CONSTRUCTION", "false").lower() == "true"
@@ -1233,8 +1256,16 @@ def tutor_registration_fee():
             flash("Please attach payment screenshot.", "danger")
             return render_template("tutor_registration_fee.html", form_data=form_data)
 
-        filename = f"tutor_fee_{uuid4().hex}_{secure_filename(screenshot.filename)}"
-        screenshot.save(Path(app.config["UPLOAD_FOLDER"]) / filename)
+        filename, upload_error = save_upload(
+            screenshot,
+            prefix="tutor_fee",
+            allowed_extensions=ALLOWED_DOCUMENT_EXTENSIONS,
+            label="Payment screenshot",
+            subfolder="payments",
+        )
+        if upload_error:
+            flash(upload_error, "danger")
+            return render_template("tutor_registration_fee.html", form_data=form_data)
 
         notice = TutorFeeNotice(
             tutor_id=current_user.id,
@@ -1408,6 +1439,19 @@ def inject_globals():
         ),
         "under_construction": UNDER_CONSTRUCTION,
     }
+
+
+@app.after_request
+def add_security_headers(response):
+    """Lightweight security headers that are safe for the current templates/RTC pages."""
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault(
+        "Permissions-Policy",
+        "camera=(self), microphone=(self), geolocation=()",
+    )
+    return response
 
 
 @app.route("/preview-off")
@@ -1875,6 +1919,133 @@ def image_url(path, fallback=None):
 app.jinja_env.globals["media_url"] = media_url
 app.jinja_env.globals["image_url"] = image_url
 
+
+def is_safe_redirect_url(target):
+    """Allow only same-host relative redirects to prevent open-redirect bugs."""
+    if not target:
+        return False
+
+    ref = urlsplit(request.host_url)
+    test = urlsplit(target)
+    return (not test.netloc or test.netloc == ref.netloc) and test.scheme in ("", ref.scheme)
+
+
+def safe_next_url(default_endpoint="dashboard"):
+    target = request.args.get("next") or request.form.get("next")
+    if is_safe_redirect_url(target):
+        return target
+    return url_for(default_endpoint)
+
+
+def login_rate_limited(email):
+    """Small session-based login throttle without adding new dependencies."""
+    key = f"login_failures:{email}"
+    now = datetime.utcnow()
+    failures = session.get(key, [])
+
+    valid_failures = []
+    for timestamp in failures:
+        try:
+            failure_time = datetime.fromisoformat(timestamp)
+        except (TypeError, ValueError):
+            continue
+        if now - failure_time < timedelta(minutes=15):
+            valid_failures.append(timestamp)
+
+    session[key] = valid_failures
+    return len(valid_failures) >= 6
+
+
+def record_login_failure(email):
+    key = f"login_failures:{email}"
+    failures = session.get(key, [])
+    failures.append(datetime.utcnow().isoformat())
+    session[key] = failures[-10:]
+
+
+def clear_login_failures(email):
+    session.pop(f"login_failures:{email}", None)
+
+
+def file_extension(filename):
+    return Path(filename or "").suffix.lower()
+
+
+def allowed_upload(filename, allowed_extensions):
+    return file_extension(filename) in allowed_extensions
+
+
+def upload_error_message(label, allowed_extensions):
+    extensions = ", ".join(sorted(ext.lstrip(".") for ext in allowed_extensions))
+    return f"{label} must be one of: {extensions}."
+
+
+def build_upload_filename(prefix, original_filename):
+    original_name = secure_filename(original_filename or "")
+    suffix = file_extension(original_name)
+    stem = Path(original_name).stem[:50] or "upload"
+    return f"{prefix}_{uuid4().hex}_{stem}{suffix}"
+
+
+def save_upload(file_storage, prefix, allowed_extensions, label, subfolder=""):
+    """Validate and save an upload. Returns (filename, error_message)."""
+    if not file_storage or not file_storage.filename:
+        return "", ""
+
+    if not allowed_upload(file_storage.filename, allowed_extensions):
+        return "", upload_error_message(label, allowed_extensions)
+
+    target_dir = Path(app.config["UPLOAD_FOLDER"])
+    if subfolder:
+        safe_parts = [secure_filename(part) for part in subfolder.split("/") if secure_filename(part)]
+        target_dir = target_dir.joinpath(*safe_parts)
+
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = build_upload_filename(prefix, file_storage.filename)
+    file_storage.save(target_dir / filename)
+
+    stored_path = f"{subfolder.strip('/')}/{filename}" if subfolder else filename
+    return stored_path, ""
+
+
+def save_profile_image(file_storage, prefix="profile"):
+    """Save profile image with extension validation and optional Pillow resizing.
+
+    Pillow is optional. If it is installed, large photos are resized/compressed.
+    If it is not installed, the validated image is saved as uploaded.
+    """
+    filename, error = save_upload(
+        file_storage,
+        prefix=prefix,
+        allowed_extensions=ALLOWED_IMAGE_EXTENSIONS,
+        label="Profile image",
+        subfolder="profiles",
+    )
+    if error or not filename:
+        return filename, error
+
+    try:
+        from PIL import Image  # Optional dependency.
+    except Exception:
+        return filename, ""
+
+    path = Path(app.config["UPLOAD_FOLDER"]) / filename
+    try:
+        with Image.open(path) as img:
+            img.thumbnail((900, 900))
+            if img.mode not in ("RGB", "RGBA"):
+                img = img.convert("RGB")
+            save_kwargs = {"optimize": True}
+            if path.suffix.lower() in {".jpg", ".jpeg"}:
+                save_kwargs["quality"] = 86
+            img.save(path, **save_kwargs)
+    except Exception as exc:
+        app.logger.warning("Profile image optimization skipped for %s: %s", filename, exc)
+
+    return filename, ""
+
+
 def tutor_missing_requirements_from_user(user):
     missing = []
 
@@ -2141,20 +2312,35 @@ def build_user_from_option_a_form(form, files, google_email=None, google_name=No
 
     image_file = files.get("profile_image_file")
     if image_file and image_file.filename:
-        filename = f"{uuid4().hex}_{secure_filename(image_file.filename)}"
-        image_file.save(Path(app.config["UPLOAD_FOLDER"]) / filename)
+        filename, upload_error = save_profile_image(image_file, prefix="profile")
+        if upload_error:
+            raise ValueError(upload_error)
         user.profile_image = filename
 
     degree_file = files.get("degree_file")
     if degree_file and degree_file.filename:
-        degree_filename = f"degree_{uuid4().hex}_{secure_filename(degree_file.filename)}"
-        degree_file.save(Path(app.config["UPLOAD_FOLDER"]) / degree_filename)
+        degree_filename, upload_error = save_upload(
+            degree_file,
+            prefix="degree",
+            allowed_extensions=ALLOWED_DOCUMENT_EXTENSIONS,
+            label="Degree file",
+            subfolder="documents",
+        )
+        if upload_error:
+            raise ValueError(upload_error)
         user.degree_file = degree_filename
 
     extra_file = files.get("additional_qualification_file")
     if extra_file and extra_file.filename and hasattr(user, "additional_qualification_file"):
-        extra_filename = f"extra_{uuid4().hex}_{secure_filename(extra_file.filename)}"
-        extra_file.save(Path(app.config["UPLOAD_FOLDER"]) / extra_filename)
+        extra_filename, upload_error = save_upload(
+            extra_file,
+            prefix="extra",
+            allowed_extensions=ALLOWED_DOCUMENT_EXTENSIONS,
+            label="Additional qualification file",
+            subfolder="documents",
+        )
+        if upload_error:
+            raise ValueError(upload_error)
         user.additional_qualification_file = extra_filename
 
     return user
@@ -2628,8 +2814,18 @@ def register_student():
             if error:
                 flash(error, "danger")
             else:
-                user = build_user_from_option_a_form(request.form, request.files)
-                user.email = email
+                try:
+                    user = build_user_from_option_a_form(request.form, request.files)
+                    user.email = email
+                except ValueError as exc:
+                    flash(str(exc), "danger")
+                    return render_template(
+                        "register_student.html",
+                        form_data=form_data,
+                        selected_student_subjects=selected_student_subjects,
+                        subject_options=SUBJECT_OPTIONS,
+                        level_options=LEVEL_OPTIONS,
+                    )
 
                 try:
                     db.session.add(user)
@@ -2677,8 +2873,20 @@ def register_tutor():
                 flash(error, "danger")
                 form_data["active_step"] = request.form.get("active_step", "4")
             else:
-                user = build_user_from_option_a_form(request.form, request.files)
-                user.email = email
+                try:
+                    user = build_user_from_option_a_form(request.form, request.files)
+                    user.email = email
+                except ValueError as exc:
+                    flash(str(exc), "danger")
+                    form_data["active_step"] = request.form.get("active_step", "4")
+                    return render_template(
+                        "register_tutor.html",
+                        form_data=form_data,
+                        selected_tutor_subjects=selected_tutor_subjects,
+                        selected_tutor_levels=selected_tutor_levels,
+                        subject_options=SUBJECT_OPTIONS,
+                        level_options=LEVEL_OPTIONS,
+                    )
 
                 try:
                     db.session.add(user)
@@ -2774,7 +2982,19 @@ def complete_google_signup_student():
         if error:
             flash(error, "danger")
         else:
-            user = build_user_from_option_a_form(request.form, request.files, google_email=email, google_name=fallback_name)
+            try:
+                user = build_user_from_option_a_form(request.form, request.files, google_email=email, google_name=fallback_name)
+            except ValueError as exc:
+                flash(str(exc), "danger")
+                return render_template(
+                    "google_complete_student.html",
+                    form_data=form_data,
+                    selected_student_subjects=selected_student_subjects,
+                    subject_options=SUBJECT_OPTIONS,
+                    level_options=LEVEL_OPTIONS,
+                    google_email=email,
+                    google_name=fallback_name,
+                )
             db.session.add(user)
             db.session.commit()
             send_signup_emails(user)
@@ -2813,7 +3033,21 @@ def complete_google_signup_tutor():
             flash(error, "danger")
             form_data["active_step"] = request.form.get("active_step", "4")
         else:
-            user = build_user_from_option_a_form(request.form, request.files, google_email=email, google_name=fallback_name)
+            try:
+                user = build_user_from_option_a_form(request.form, request.files, google_email=email, google_name=fallback_name)
+            except ValueError as exc:
+                flash(str(exc), "danger")
+                form_data["active_step"] = request.form.get("active_step", "4")
+                return render_template(
+                    "google_complete_tutor.html",
+                    form_data=form_data,
+                    selected_tutor_subjects=selected_tutor_subjects,
+                    selected_tutor_levels=selected_tutor_levels,
+                    subject_options=SUBJECT_OPTIONS,
+                    level_options=LEVEL_OPTIONS,
+                    google_email=email,
+                    google_name=fallback_name,
+                )
             db.session.add(user)
             db.session.commit()
             send_signup_emails(user)
@@ -2834,22 +3068,27 @@ def complete_google_signup_tutor():
     )
 
 @app.route("/login", methods=["GET", "POST"])
-
-
 def login():
     if request.method == "POST":
-        email = request.form["email"].strip().lower()
+        email = (request.form.get("email", "") or "").strip().lower()
+        password = request.form.get("password", "")
+
+        if login_rate_limited(email):
+            flash("Too many failed login attempts. Please wait a few minutes and try again.", "danger")
+            return redirect(url_for("login"))
+
         user = User.query.filter_by(email=email).first()
-        if user and user.check_password(request.form["password"]):
+        if user and user.check_password(password):
+            clear_login_failures(email)
             login_user(user)
             flash("Logged in successfully.", "success")
             if user.role == "admin":
                 return redirect(url_for("admin_dashboard"))
-            next_page = request.args.get("next")
-            return redirect(next_page or url_for("dashboard"))
+            return redirect(safe_next_url("dashboard"))
+
+        record_login_failure(email)
         flash("Invalid credentials.", "danger")
-        next_page = request.args.get("next")
-        return redirect(next_page or url_for("dashboard"))
+        return redirect(url_for("login"))
     return render_template("login.html")
 
 
@@ -2947,15 +3186,25 @@ def settings():
 
         profile_image = request.files.get("profile_image")
         if profile_image and profile_image.filename:
-            image_name = f"profile_{uuid4().hex}_{secure_filename(profile_image.filename)}"
-            profile_image.save(Path(app.config["UPLOAD_FOLDER"]) / image_name)
+            image_name, upload_error = save_profile_image(profile_image, prefix=f"profile_u{current_user.id}")
+            if upload_error:
+                flash(upload_error, "danger")
+                return redirect(url_for("settings"))
             current_user.profile_image = image_name
 
         if current_user.role == "tutor":
             demo_video = request.files.get("demo_video_file")
             if demo_video and demo_video.filename:
-                video_name = f"demo_{uuid4().hex}_{secure_filename(demo_video.filename)}"
-                demo_video.save(Path(app.config["UPLOAD_FOLDER"]) / video_name)
+                video_name, upload_error = save_upload(
+                    demo_video,
+                    prefix=f"demo_u{current_user.id}",
+                    allowed_extensions=ALLOWED_VIDEO_EXTENSIONS,
+                    label="Demo video",
+                    subfolder="demo_videos",
+                )
+                if upload_error:
+                    flash(upload_error, "danger")
+                    return redirect(url_for("settings"))
                 current_user.demo_video_file = video_name
 
         db.session.commit()
@@ -3399,8 +3648,20 @@ def buy_credits():
             )
 
         amount = credits * credit_rate
-        filename = f"payment_{uuid4().hex}_{secure_filename(screenshot.filename)}"
-        screenshot.save(Path(app.config["UPLOAD_FOLDER"]) / filename)
+        filename, upload_error = save_upload(
+            screenshot,
+            prefix="payment",
+            allowed_extensions=ALLOWED_DOCUMENT_EXTENSIONS,
+            label="Transfer screenshot",
+            subfolder="payments",
+        )
+        if upload_error:
+            flash(upload_error, "danger")
+            return render_template(
+                "buy_credits_v2.html",
+                form_data=form_data,
+                credit_rate=credit_rate,
+            )
 
         notice = PaymentNotice(
             student_id=current_user.id,
@@ -4116,13 +4377,21 @@ def uploaded_file(filename):
 
 @app.route("/demo_seed/<path:filename>")
 def demo_seed_file(filename):
+    filename = (filename or "").replace("\\", "/").lstrip("/")
+    if not filename or ".." in Path(filename).parts:
+        return redirect(url_for("static", filename=PROFILE_IMAGE_FALLBACK))
+
     demo_dir = BASE_DIR / "demo_seed"
     if demo_dir.exists():
-        candidate = demo_dir / filename
-        if candidate.exists():
-            return send_from_directory(str(demo_dir), filename)
+        candidate = (demo_dir / filename).resolve()
+        try:
+            candidate.relative_to(demo_dir.resolve())
+        except ValueError:
+            return redirect(url_for("static", filename=PROFILE_IMAGE_FALLBACK))
+        if candidate.is_file():
+            return send_from_directory(str(demo_dir), filename, max_age=MEDIA_CACHE_SECONDS)
 
-    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+    return redirect(url_for("uploaded_file", filename=filename))
 
 
 
@@ -4132,6 +4401,10 @@ def seed():
     guard = admin_required_response()
     if guard:
         return guard
+
+    if not DEV_ROUTE_ENABLED:
+        flash("Seed route is disabled. Set ALLOW_DEV_ROUTES=true only in a safe local/dev environment.", "warning")
+        return redirect(url_for("admin_dashboard"))
 
     db.create_all()
 
@@ -4354,41 +4627,44 @@ def seed_admin():
     if guard:
         return guard
 
+    if not DEV_ROUTE_ENABLED:
+        flash("Seed-admin route is disabled. Set ALLOW_DEV_ROUTES=true only in a safe local/dev environment.", "warning")
+        return redirect(url_for("admin_dashboard"))
+
     with app.app_context():
         db.create_all()
         ensure_user_columns()
         ensure_default_admin()
     return "Default admin ensured."
 
+@app.errorhandler(403)
+def forbidden_error(error):
+    return render_template("errors/403.html"), 403
+
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template("errors/404.html"), 404
+
+
+@app.errorhandler(413)
+def file_too_large_error(error):
+    max_mb = app.config["MAX_CONTENT_LENGTH"] // (1024 * 1024)
+    return render_template("errors/413.html", max_mb=max_mb), 413
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    app.logger.exception("Unhandled server error: %s", error)
+    return render_template("errors/500.html"), 500
+
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
         ensure_user_columns()
         ensure_default_admin()
-    app.run(host="0.0.0.0", port=5000, debug=True)
 
-def unread_message_count_for(user):
-    if not user or not getattr(user, "is_authenticated", False):
-        return 0
-
-    if user.role == "student":
-        convo_ids = [
-            c.id for c in Conversation.query.filter_by(student_id=user.id).all()
-        ]
-    elif user.role == "tutor":
-        convo_ids = [
-            c.id for c in Conversation.query.filter_by(tutor_id=user.id).all()
-        ]
-    elif user.role == "admin":
-        return 0
-    else:
-        return 0
-
-    if not convo_ids:
-        return 0
-
-    return Message.query.filter(
-        Message.conversation_id.in_(convo_ids),
-        Message.sender_id != user.id,
-        Message.is_read == False
-    ).count()
+    debug_enabled = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=debug_enabled)

@@ -1,14 +1,35 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<section class="card">
-  <h1>Settings</h1>
-  <p class="muted">Update your profile details and media.</p>
+<section class="settings-hero card">
+  <div>
+    <p class="eyebrow">Account settings</p>
+    <h1>Settings</h1>
+    <p class="muted">Keep your profile, media, and availability accurate so students can trust what they see.</p>
+  </div>
+  <div class="settings-hero-photo">
+    <img
+      src="{{ image_url(current_user.profile_image) }}"
+      data-fallback="{{ url_for('static', filename='images/default-avatar.svg') }}"
+      alt="{{ current_user.public_name or current_user.full_name }} profile photo"
+      class="profile-pic profile-pic-large"
+      data-image-preview-target="profile_image">
+  </div>
+</section>
 
-  <form method="post" enctype="multipart/form-data" class="form-grid two-col">
+<section class="card settings-section">
+  <div class="section-heading">
+    <div>
+      <h2>Profile details</h2>
+      <p class="muted">These details appear on your account and public tutor profile where relevant.</p>
+    </div>
+    <span class="settings-pill">Saved profile photo will update after submit</span>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="form-grid two-col settings-profile-form">
     <div>
       <label class="small-label">Full Name</label>
-      <input type="text" name="full_name" value="{{ current_user.full_name or '' }}">
+      <input type="text" name="full_name" value="{{ current_user.full_name or '' }}" autocomplete="name">
     </div>
 
     <div>
@@ -18,22 +39,37 @@
 
     <div>
       <label class="small-label">Mobile Number</label>
-      <input type="text" name="mobile_number" value="{{ current_user.mobile_number or '' }}">
+      <input type="text" name="mobile_number" value="{{ current_user.mobile_number or '' }}" autocomplete="tel">
     </div>
 
     <div>
       <label class="small-label">City</label>
-      <input type="text" name="city" value="{{ current_user.city or '' }}">
+      <input type="text" name="city" value="{{ current_user.city or '' }}" autocomplete="address-level2">
     </div>
 
     <div class="full-width">
       <label class="small-label">Bio</label>
-      <textarea name="bio" rows="5">{{ current_user.bio or '' }}</textarea>
+      <textarea name="bio" rows="5" placeholder="Briefly describe your teaching style, experience, and strengths.">{{ current_user.bio or '' }}</textarea>
     </div>
 
-    <div>
-      <label class="small-label">Profile Image</label>
-      <input type="file" name="profile_image" accept="image/*">
+    <div class="media-upload-panel full-width">
+      <div class="media-upload-preview">
+        <img
+          src="{{ image_url(current_user.profile_image) }}"
+          data-fallback="{{ url_for('static', filename='images/default-avatar.svg') }}"
+          alt="Profile image preview"
+          class="profile-pic"
+          data-image-preview-target="profile_image">
+      </div>
+      <div>
+        <label class="small-label">Profile Image</label>
+        <input
+          type="file"
+          name="profile_image"
+          accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp"
+          data-image-preview-input="profile_image">
+        <p class="help-text">Use JPG, PNG, GIF, or WebP. The app now validates filenames and keeps uploads in a profile-media folder for deployment reliability.</p>
+      </div>
     </div>
 
     {% if current_user.role == 'tutor' %}
@@ -44,36 +80,42 @@
 
       <div>
         <label class="small-label">Upload Demo Video</label>
-        <input type="file" name="demo_video_file" accept="video/*">
+        <input type="file" name="demo_video_file" accept=".mp4,.mov,.webm,.m4v,video/mp4,video/webm,video/quicktime">
+        <p class="help-text">Allowed: MP4, MOV, WebM, M4V.</p>
       </div>
 
-      <div>
-        <label class="small-label">
-          <input type="checkbox" name="audio_only" {% if current_user.audio_only %}checked{% endif %}>
-          Audio-first profile
-        </label>
-      </div>
+      <label class="choice-card">
+        <input type="checkbox" name="audio_only" {% if current_user.audio_only %}checked{% endif %}>
+        <span>
+          <strong>Audio-first profile</strong>
+          <small>Useful if you mostly teach with voice and screen-sharing.</small>
+        </span>
+      </label>
 
-      <div>
-        <label class="small-label">
-          <input type="checkbox" name="modest_profile" {% if current_user.modest_profile %}checked{% endif %}>
-          Modest / privacy-conscious profile
-        </label>
-      </div>
+      <label class="choice-card">
+        <input type="checkbox" name="modest_profile" {% if current_user.modest_profile %}checked{% endif %}>
+        <span>
+          <strong>Modest / privacy-conscious profile</strong>
+          <small>Helps present the profile with more privacy-aware defaults.</small>
+        </span>
+      </label>
     {% endif %}
 
-    <div class="full-width">
+    <div class="full-width sticky-save-row">
       <button class="btn btn-primary" type="submit">Save Settings</button>
+      <span class="muted">Changes are saved only after clicking this button.</span>
     </div>
   </form>
 </section>
 
 {% if current_user.role == 'tutor' %}
-<section class="card" style="margin-top:24px;">
-  <h2>Special Dates / Overrides</h2>
-  <p class="muted">
-    Use this for Eid, exams, travel days, holidays, or extra one-off slots.
-  </p>
+<section class="card settings-section">
+  <div class="section-heading">
+    <div>
+      <h2>Special Dates / Overrides</h2>
+      <p class="muted">Use this for Eid, exams, travel days, holidays, or extra one-off slots.</p>
+    </div>
+  </div>
 
   <form method="post" action="{{ url_for('add_availability_exception') }}" class="form-grid two-col">
     <div>
@@ -110,48 +152,50 @@
     </div>
   </form>
 
-  <hr style="margin:24px 0; border:none; border-top:1px solid var(--line);">
+  <hr class="soft-divider">
 
-  <h3 style="margin-top:0;">Existing Overrides</h3>
+  <h3>Existing Overrides</h3>
 
   {% if availability_exceptions %}
-    <div class="form-grid single-col">
+    <div class="stacked-list">
       {% for ex in availability_exceptions %}
-        <div class="card" style="padding:16px;">
-          <div class="list-row top">
-            <div>
-              <strong>{{ ex.exception_date.strftime('%d %b %Y') }}</strong>
-              <p class="muted" style="margin:6px 0 0;">
-                {% if ex.is_blocked %}
-                  {% if ex.start_time and ex.end_time %}
-                    Blocked: {{ ex.start_time }} - {{ ex.end_time }}
-                  {% else %}
-                    Blocked full day
-                  {% endif %}
+        <div class="list-row availability-row">
+          <div>
+            <strong>{{ ex.exception_date.strftime('%d %b %Y') }}</strong>
+            <p class="muted">
+              {% if ex.is_blocked %}
+                {% if ex.start_time and ex.end_time %}
+                  Blocked: {{ ex.start_time }} - {{ ex.end_time }}
                 {% else %}
-                  Custom slots: {{ ex.start_time }} - {{ ex.end_time }}
+                  Blocked full day
                 {% endif %}
-                {% if ex.note %} · {{ ex.note }}{% endif %}
-              </p>
-            </div>
-
-            <form method="post" action="{{ url_for('delete_availability_exception', exception_id=ex.id) }}">
-              <button class="btn btn-light" type="submit">Delete</button>
-            </form>
+              {% else %}
+                Custom slots: {{ ex.start_time }} - {{ ex.end_time }}
+              {% endif %}
+              {% if ex.note %} · {{ ex.note }}{% endif %}
+            </p>
           </div>
+
+          <form method="post" action="{{ url_for('delete_availability_exception', exception_id=ex.id) }}" class="inline-form">
+            <button class="btn btn-light" type="submit">Delete</button>
+          </form>
         </div>
       {% endfor %}
     </div>
   {% else %}
-    <p class="muted">No special date overrides added yet.</p>
+    <p class="muted empty-state">No special date overrides added yet.</p>
   {% endif %}
 </section>
 
-<section class="card" style="margin-top:24px;">
-  <h2>Weekly Availability</h2>
-  <p class="muted">Add the time windows when students can request sessions from you.</p>
+<section class="card settings-section">
+  <div class="section-heading">
+    <div>
+      <h2>Weekly Availability</h2>
+      <p class="muted">Add the time windows when students can request sessions from you.</p>
+    </div>
+  </div>
 
-  <div style="margin-top:20px; margin-bottom:24px;">
+  <div class="settings-subcard">
     <h3>Quick Setup Templates</h3>
     <p class="muted">Apply a ready-made schedule in one click, then adjust individual days below.</p>
 
@@ -178,7 +222,7 @@
     </form>
   </div>
 
-  <form method="post" action="{{ url_for('add_availability_rule') }}" class="form-grid two-col" style="margin-top:16px;">
+  <form method="post" action="{{ url_for('add_availability_rule') }}" class="form-grid two-col settings-subcard">
     <div>
       <label class="small-label">Weekday</label>
       <select name="weekday" required>
@@ -213,32 +257,27 @@
     </div>
   </form>
 
-  <div style="margin-top:24px;">
+  <div class="settings-subcard">
     <h3>Current Availability Rules</h3>
 
     {% set weekday_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] %}
 
     {% for rule in availability_rules %}
-      <div class="list-row" style="margin-bottom:10px;">
+      <div class="list-row availability-row">
         <div>
           <strong>{{ weekday_names[rule.weekday] }}</strong>
           <p class="muted">{{ rule.start_time }} to {{ rule.end_time }} · {{ rule.slot_minutes }} min slots</p>
         </div>
         <div class="text-right">
-          <a href="{{ url_for('edit_availability_rule', rule_id=rule.id) }}"
-             class="btn btn-light">
-            Edit
-          </a>
+          <a href="{{ url_for('edit_availability_rule', rule_id=rule.id) }}" class="btn btn-light">Edit</a>
 
-          <form method="post"
-                action="{{ url_for('delete_availability_rule', rule_id=rule.id) }}"
-                style="display:inline;">
+          <form method="post" action="{{ url_for('delete_availability_rule', rule_id=rule.id) }}" class="inline-form">
             <button class="btn btn-light" type="submit">Delete</button>
           </form>
         </div>
       </div>
     {% else %}
-      <p class="muted">No availability rules added yet.</p>
+      <p class="muted empty-state">No availability rules added yet.</p>
     {% endfor %}
   </div>
 </section>
