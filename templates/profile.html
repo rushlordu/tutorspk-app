@@ -20,7 +20,7 @@
     <div>
       <h2>Profile Media</h2>
       <div style="margin-bottom:16px;">
-        <img src="{{ media_url(current_user.profile_image) }}" alt="{{ current_user.public_name }}" class="profile-pic profile-pic-large">
+        <img src="{{ image_url(current_user.profile_image) }}" data-fallback="{{ url_for('static', filename='images/default-avatar.svg') }}" alt="{{ current_user.public_name }}" class="profile-pic profile-pic-large">
       </div>
 
       {% if current_user.role == 'tutor' %}

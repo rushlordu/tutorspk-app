@@ -95,7 +95,7 @@
   <article class="card tutor-card tutor-card-refined">
     <div class="tutor-card-media">
     <a href="{{ url_for('tutor_profile', tutor_id=tutor.id) }}">
-      <img src="{{ media_url(tutor.profile_image) }}" alt="{{ tutor.public_name }}">
+      <img src="{{ image_url(tutor.profile_image) }}" data-fallback="{{ url_for('static', filename='images/default-avatar.svg') }}" alt="{{ tutor.public_name }}">
     </a>
     </div>
 

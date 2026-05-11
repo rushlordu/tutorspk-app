@@ -60,6 +60,13 @@
           Modest / privacy-conscious profile
         </label>
       </div>
+    {% endif %}
+
+    <div class="full-width">
+      <button class="btn btn-primary" type="submit">Save Settings</button>
+    </div>
+  </form>
+</section>
 
 {% if current_user.role == 'tutor' %}
 <section class="card" style="margin-top:24px;">
@@ -140,61 +147,36 @@
   {% endif %}
 </section>
 
-<script>
-function toggleOverrideTimeFields() {
-  const mode = document.getElementById('override_mode');
-  const startWrap = document.getElementById('override_start_wrap');
-  const endWrap = document.getElementById('override_end_wrap');
-
-  if (!mode || !startWrap || !endWrap) return;
-
-  const showTimes = mode.value === 'block_range' || mode.value === 'custom_slots';
-  startWrap.style.display = showTimes ? 'block' : 'none';
-  endWrap.style.display = showTimes ? 'block' : 'none';
-}
-
-document.addEventListener('DOMContentLoaded', toggleOverrideTimeFields);
-</script>
-{% endif %}
-
-    {% endif %}
-
-    <div class="full-width">
-      <button class="btn btn-primary" type="submit">Save Settings</button>
-    </div>
-  </form>
-  {% if current_user.role == 'tutor' %}
-  <hr style="margin:24px 0;">
-
+<section class="card" style="margin-top:24px;">
   <h2>Weekly Availability</h2>
   <p class="muted">Add the time windows when students can request sessions from you.</p>
 
-<div style="margin-top:20px; margin-bottom:24px;">
-  <h3>Quick Setup Templates</h3>
-  <p class="muted">Apply a ready-made schedule in one click, then adjust individual days below.</p>
+  <div style="margin-top:20px; margin-bottom:24px;">
+    <h3>Quick Setup Templates</h3>
+    <p class="muted">Apply a ready-made schedule in one click, then adjust individual days below.</p>
 
-  <form method="post" action="{{ url_for('apply_availability_preset') }}" class="form-grid two-col">
-    <div>
-      <label class="small-label">Template</label>
-      <select name="preset" required>
-        <option value="">Select template</option>
-        <option value="weekdays_9_5">Weekdays · 9 AM to 5 PM</option>
-        <option value="weekends_10_8">Weekends · 10 AM to 8 PM</option>
-        <option value="allweek_9_5">All week · 9 AM to 5 PM</option>
-        <option value="allweek_6_10">All week · 6 PM to 10 PM</option>
-      </select>
-    </div>
+    <form method="post" action="{{ url_for('apply_availability_preset') }}" class="form-grid two-col">
+      <div>
+        <label class="small-label">Template</label>
+        <select name="preset" required>
+          <option value="">Select template</option>
+          <option value="weekdays_9_5">Weekdays · 9 AM to 5 PM</option>
+          <option value="weekends_10_8">Weekends · 10 AM to 8 PM</option>
+          <option value="allweek_9_5">All week · 9 AM to 5 PM</option>
+          <option value="allweek_6_10">All week · 6 PM to 10 PM</option>
+        </select>
+      </div>
 
-    <div>
-      <label class="small-label">Slot Length (minutes)</label>
-      <input type="number" name="slot_minutes" value="60" min="15" step="15">
-    </div>
+      <div>
+        <label class="small-label">Slot Length (minutes)</label>
+        <input type="number" name="slot_minutes" value="60" min="15" step="15">
+      </div>
 
-    <div class="full-width">
-      <button class="btn btn-light" type="submit">Apply Template</button>
-    </div>
-  </form>
-</div>
+      <div class="full-width">
+        <button class="btn btn-light" type="submit">Apply Template</button>
+      </div>
+    </form>
+  </div>
 
   <form method="post" action="{{ url_for('add_availability_rule') }}" class="form-grid two-col" style="margin-top:16px;">
     <div>
@@ -243,25 +225,39 @@ document.addEventListener('DOMContentLoaded', toggleOverrideTimeFields);
           <p class="muted">{{ rule.start_time }} to {{ rule.end_time }} · {{ rule.slot_minutes }} min slots</p>
         </div>
         <div class="text-right">
-
           <a href="{{ url_for('edit_availability_rule', rule_id=rule.id) }}"
-            class="btn btn-light">
+             class="btn btn-light">
             Edit
           </a>
 
           <form method="post"
                 action="{{ url_for('delete_availability_rule', rule_id=rule.id) }}"
                 style="display:inline;">
-            <button class="btn btn-light">Delete</button>
+            <button class="btn btn-light" type="submit">Delete</button>
           </form>
-
         </div>
       </div>
     {% else %}
-          <p class="muted">No availability rules added yet.</p>
-        {% endfor %}
-      </div>
-    {% endif %}
+      <p class="muted">No availability rules added yet.</p>
+    {% endfor %}
+  </div>
 </section>
+
+<script>
+function toggleOverrideTimeFields() {
+  const mode = document.getElementById('override_mode');
+  const startWrap = document.getElementById('override_start_wrap');
+  const endWrap = document.getElementById('override_end_wrap');
+
+  if (!mode || !startWrap || !endWrap) return;
+
+  const showTimes = mode.value === 'block_range' || mode.value === 'custom_slots';
+  startWrap.style.display = showTimes ? 'block' : 'none';
+  endWrap.style.display = showTimes ? 'block' : 'none';
+}
+
+document.addEventListener('DOMContentLoaded', toggleOverrideTimeFields);
+</script>
+{% endif %}
 
 {% endblock %}

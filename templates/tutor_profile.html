@@ -882,7 +882,7 @@
 
     <section class="preply-card" style="margin-top:24px;">
       <div class="tutor-top-summary">
-        <img class="tutor-mini-photo" src="{{ media_url(tutor.profile_image) }}" alt="{{ tutor.public_name }}">
+        <img class="tutor-mini-photo" src="{{ image_url(tutor.profile_image) }}" data-fallback="{{ url_for('static', filename='images/default-avatar.svg') }}" alt="{{ tutor.public_name }}">
 
         <div>
           <h1 class="tutor-name">{{ tutor.public_name }}</h1>

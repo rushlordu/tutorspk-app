@@ -577,8 +577,11 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
 print("Using DB:", app.config["SQLALCHEMY_DATABASE_URI"])
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_UPLOAD_MB", "20")) * 1024 * 1024
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_DIR)
+PROFILE_IMAGE_FALLBACK = "images/default-avatar.svg"
+MEDIA_CACHE_SECONDS = int(os.getenv("MEDIA_CACHE_SECONDS", "86400"))
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"}
 
 # Temporary site status flag
 UNDER_CONSTRUCTION = os.getenv("UNDER_CONSTRUCTION", "false").lower() == "true"
@@ -1836,28 +1839,41 @@ def media_url(path, fallback=None):
     """Return a safe public URL for uploaded/static media.
 
     Stored profile images may be saved as just "file.jpg", "/uploads/file.jpg",
-    or "uploads/file.jpg" depending on the form that created them. Normalizing
-    here avoids broken image URLs after deployment or data import.
+    "uploads/file.jpg", or a complete external URL depending on the form or import
+    that created them. Normalizing here avoids broken image URLs after deployment.
     """
-    fallback = fallback or url_for("static", filename="images/default-avatar.svg")
+    fallback = fallback or url_for("static", filename=PROFILE_IMAGE_FALLBACK)
     path = (path or "").strip()
     if not path:
         return fallback
 
-    if path.startswith(("http://", "https://", "/static/", "/demo_seed/")):
+    if path.startswith(("http://", "https://")):
         return path
 
     path = path.replace("\\", "/").lstrip("/")
+
+    if path.startswith("static/"):
+        return url_for("static", filename=path[len("static/"):])
+
+    if path.startswith("demo_seed/"):
+        return url_for("demo_seed_file", filename=path[len("demo_seed/"):])
+
     if path.startswith("uploads/"):
         path = path[len("uploads/"):]
 
-    if not path:
+    if not path or ".." in Path(path).parts:
         return fallback
 
     return url_for("uploaded_file", filename=path)
 
 
+def image_url(path, fallback=None):
+    """Template helper for profile/course images with a safe default avatar."""
+    return media_url(path, fallback=fallback)
+
+
 app.jinja_env.globals["media_url"] = media_url
+app.jinja_env.globals["image_url"] = image_url
 
 def tutor_missing_requirements_from_user(user):
     missing = []
@@ -4073,16 +4089,30 @@ def admin_live_sessions():
 
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename):
-    """Serve uploaded files with a graceful fallback for missing profile photos."""
+    """Serve uploaded files safely with a graceful fallback for missing media."""
     filename = (filename or "").replace("\\", "/").lstrip("/")
     if filename.startswith("uploads/"):
         filename = filename[len("uploads/"):]
 
-    upload_path = Path(app.config["UPLOAD_FOLDER"]) / filename
-    if filename and upload_path.is_file():
-        return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+    if not filename or ".." in Path(filename).parts:
+        return redirect(url_for("static", filename=PROFILE_IMAGE_FALLBACK))
 
-    return redirect(url_for("static", filename="images/default-avatar.svg"))
+    upload_root = Path(app.config["UPLOAD_FOLDER"]).resolve()
+    upload_path = (upload_root / filename).resolve()
+
+    try:
+        upload_path.relative_to(upload_root)
+    except ValueError:
+        return redirect(url_for("static", filename=PROFILE_IMAGE_FALLBACK))
+
+    if upload_path.is_file():
+        return send_from_directory(
+            app.config["UPLOAD_FOLDER"],
+            filename,
+            max_age=MEDIA_CACHE_SECONDS,
+        )
+
+    return redirect(url_for("static", filename=PROFILE_IMAGE_FALLBACK))
 
 @app.route("/demo_seed/<path:filename>")
 def demo_seed_file(filename):
