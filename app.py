@@ -690,6 +690,10 @@ def format_dt(value, fmt="%d %b %Y, %I:%M %p"):
         return str(value)
 
 
+@app.route("/insights")
+def insights_page():
+    return render_template("insights.html")
+
 @app.template_filter("pkr")
 def format_pkr(value):
     try:
