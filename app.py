@@ -692,7 +692,7 @@ def format_dt(value, fmt="%d %b %Y, %I:%M %p"):
 
 @app.route("/insights")
 def insights_page():
-    return render_template("insights.html")
+    return redirect("https://insight-engine-web-asia.onrender.com", code=302)
 
 @app.template_filter("pkr")
 def format_pkr(value):
