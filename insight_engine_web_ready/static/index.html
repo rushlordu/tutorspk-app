@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>INSIGHT Engine Live Dashboard</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      --bg: #0c1117;
+      --panel: #111827;
+      --panel2: #172033;
+      --border: #26313f;
+      --text: #e6edf3;
+      --muted: #93a4b7;
+      --good: #5ee787;
+      --bad: #ff7b72;
+      --warn: #f2cc60;
+      --navy: #0b1f3a;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); }
+    header {
+      padding: 16px 22px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(17, 24, 39, .96);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(8px);
+    }
+    h1 { margin: 0 0 6px; font-size: 22px; letter-spacing: .3px; line-height: 1.2; }
+    h2 { font-size: 18px; margin: 22px 0 12px; }
+    .muted { color: var(--muted); font-size: 13px; line-height: 1.35; }
+    .controls { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    button {
+      border: 1px solid #334155;
+      background: #1f2937;
+      color: #e5e7eb;
+      padding: 10px 13px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      min-height: 42px;
+    }
+    button:hover { background: #263449; }
+    main { padding: 18px 22px 28px; max-width: 1280px; margin: 0 auto; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .card { border: 1px solid var(--border); border-radius: 16px; padding: 12px; background: var(--panel); min-width: 0; }
+    .coin { font-size: 18px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; }
+    .price { font-size: 21px; margin-top: 8px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .good { color: var(--good); }
+    .bad { color: var(--bad); }
+    .warn { color: var(--warn); }
+    .table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--panel);
+    }
+    table { width: 100%; min-width: 920px; border-collapse: collapse; overflow: hidden; }
+    th, td { padding: 10px 10px; border-bottom: 1px solid var(--border); text-align: left; font-size: 13px; white-space: nowrap; }
+    th { background: var(--panel2); color: #b6c2d1; position: sticky; top: 90px; z-index: 5; }
+    td.num { font-variant-numeric: tabular-nums; }
+    .bar { font-family: Consolas, monospace; color: #dbeafe; }
+    .mobile-hint { display: none; margin: -4px 0 10px; }
+    .signals { margin-top: 10px; display: grid; gap: 10px; }
+    .signal { border: 1px solid #334155; background: #101826; border-radius: 14px; padding: 12px; }
+    .signal strong { font-size: 15px; }
+    .small { font-size: 12px; color: var(--muted); line-height: 1.35; }
+    .risk { margin-top: 14px; padding: 12px; border: 1px solid #553322; border-radius: 12px; background: #1c1412; color: #ffd6a5; font-size: 13px; line-height: 1.35; }
+    .login-screen {
+      min-height: 100vh;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 22px;
+      background: radial-gradient(circle at top, #16223a 0, #0c1117 52%);
+    }
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      border: 1px solid var(--border);
+      background: rgba(17, 24, 39, .96);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+    }
+    .login-card h1 { font-size: 24px; }
+    .login-card input {
+      width: 100%;
+      margin: 14px 0 10px;
+      border: 1px solid #334155;
+      background: #0f172a;
+      color: var(--text);
+      border-radius: 12px;
+      min-height: 46px;
+      padding: 10px 12px;
+      font-size: 16px;
+    }
+    .login-card button { width: 100%; background: var(--navy); border-color: #375985; }
+    .app { display: none; }
+
+    @media (max-width: 720px) {
+      header { padding: 13px 12px; }
+      h1 { font-size: 18px; }
+      main { padding: 12px; }
+      .controls { gap: 8px; }
+      .controls button { flex: 1 1 110px; }
+      .controls .muted { flex-basis: 100%; }
+      .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+      .card { padding: 10px; border-radius: 14px; }
+      .coin { font-size: 16px; }
+      .price { font-size: 18px; }
+      .small, .muted { font-size: 12px; }
+      .mobile-hint { display: block; }
+      th, td { font-size: 12px; padding: 8px; }
+      .hide-sm { display: none; }
+      th { top: 118px; }
+    }
+    @media (max-width: 390px) {
+      .cards { grid-template-columns: 1fr; }
+      .price { font-size: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <section id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <h1>INSIGHT Dashboard</h1>
+      <div class="muted">Enter your private access code. The first approved phone/laptop can be locked as the only device.</div>
+      <input id="accessCode" type="password" inputmode="text" placeholder="Access code" autocomplete="current-password" />
+      <button onclick="login()">Open Dashboard</button>
+      <p id="loginMsg" class="small"></p>
+    </div>
+  </section>
+
+  <div id="app" class="app">
+    <header>
+      <h1>INSIGHT Engine — Live Crypto Signal Dashboard</h1>
+      <div id="status" class="muted">Loading...</div>
+      <div class="controls">
+        <button onclick="post('/api/start')">Start</button>
+        <button onclick="post('/api/stop')">Stop</button>
+        <span class="muted">Paper/testing dashboard only. Not financial advice.</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="cards" id="cards"></section>
+
+      <div class="mobile-hint muted">Swipe the table left/right on mobile for full details.</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Coin</th><th>Price</th><th>Move</th><th>Buy</th><th>Sell</th><th>Bias</th><th>Candle</th><th>Flow</th><th>Book</th><th>Vol</th><th class="hide-sm">Candles</th><th class="hide-sm">Last</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+
+      <div class="risk">
+        Keep this link private/password-protected if you later add API execution. Do not upload real Binance keys to public GitHub or public hosting.
+      </div>
+
+      <h2>Saved live signals</h2>
+      <section class="signals" id="signals"></section>
+    </main>
+  </div>
+
+<script>
+function getDeviceId() {
+  let id = localStorage.getItem('insight_device_id');
+  if (!id) {
+    const arr = new Uint8Array(24);
+    crypto.getRandomValues(arr);
+    id = Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+    localStorage.setItem('insight_device_id', id);
+  }
+  return id;
+}
+function authHeaders() {
+  return {'Content-Type': 'application/json', 'X-Insight-Device': getDeviceId()};
+}
+function showLogin(message='') {
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  if (message) document.getElementById('loginMsg').textContent = message;
+}
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+}
+async function login() {
+  const code = document.getElementById('accessCode').value.trim();
+  const msg = document.getElementById('loginMsg');
+  msg.textContent = 'Checking...';
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({code, device_id: getDeviceId()})
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      msg.textContent = data.detail || 'Login failed';
+      return;
+    }
+    showApp();
+    await load();
+  } catch (err) {
+    msg.textContent = 'Login error: ' + err;
+  }
+}
+async function checkAuth() {
+  try {
+    const res = await fetch('/api/auth/status', {headers: authHeaders(), cache: 'no-store'});
+    const data = await res.json();
+    if (data.auth_required && !data.authorized) {
+      showLogin(data.device_locked ? 'This dashboard is device-protected. Enter the access code from the approved device.' : 'Enter the access code to continue.');
+      return false;
+    }
+    showApp();
+    return true;
+  } catch (err) {
+    showApp();
+    return true;
+  }
+}
+function fmtPrice(x) {
+  if (x === null || x === undefined) return '--';
+  const n = Number(x);
+  if (n >= 1000) return n.toFixed(2);
+  if (n >= 1) return n.toFixed(4);
+  return n.toPrecision(6);
+}
+function fmtPct(x) {
+  if (x === null || x === undefined) return '--';
+  const n = Number(x);
+  const cls = n >= 0 ? 'good' : 'bad';
+  return `<span class="${cls}">${n >= 0 ? '+' : ''}${n.toFixed(2)}%</span>`;
+}
+function fmtNum(x, d=2) {
+  if (x === null || x === undefined) return '--';
+  return Number(x).toFixed(d);
+}
+function biasClass(bias) {
+  const b = String(bias || '').toUpperCase();
+  if (b.includes('BUY') || b.includes('LONG')) return 'good';
+  if (b.includes('SELL') || b.includes('SHORT')) return 'bad';
+  if (b.includes('WATCH')) return 'warn';
+  return '';
+}
+async function post(url) {
+  const res = await fetch(url, {method: 'POST', headers: authHeaders()});
+  if (res.status === 401) { showLogin('Session expired. Enter access code again.'); return; }
+  await load();
+}
+async function load() {
+  try {
+    const res = await fetch('/api/state', {headers: authHeaders(), cache: 'no-store'});
+    if (res.status === 401) { showLogin('Enter access code to continue.'); return; }
+    const data = await res.json();
+    const s = data.settings || {};
+    document.getElementById('status').innerHTML = `${data.status} · interval ${s.interval || '--'} · alert score ${s.min_signal_score || '--'} · last update ${data.last_snapshot_at || '--'}${data.last_error ? ' · ERROR: ' + data.last_error : ''}`;
+
+    const rows = data.rows || [];
+    const cards = rows.slice(0, 8).map(r => `<div class="card"><div class="coin">${r.coin}</div><div class="price">${fmtPrice(r.price)}</div><div>${fmtPct(r.move_pct)} · <span class="${biasClass(r.bias)}">${r.bias}</span></div><div class="small">B ${r.buy} / S ${r.sell} · ${r.urgency}</div></div>`).join('');
+    document.getElementById('cards').innerHTML = cards || '<div class="muted">Waiting for market data...</div>';
+
+    document.getElementById('rows').innerHTML = rows.map(r => `<tr>
+      <td><strong>${r.coin}</strong></td>
+      <td class="num">${fmtPrice(r.price)}</td>
+      <td class="num">${fmtPct(r.move_pct)}</td>
+      <td><span class="bar">${r.buybar}</span> ${r.buy}</td>
+      <td><span class="bar">${r.sellbar}</span> ${r.sell}</td>
+      <td class="${biasClass(r.bias)}">${r.bias}</td>
+      <td>${r.urgency}</td>
+      <td class="num">${fmtNum(r.flow)}</td>
+      <td class="num">${fmtNum(r.book)}</td>
+      <td class="num">${r.vol === null || r.vol === undefined ? '--' : Number(r.vol).toFixed(2) + 'x'}</td>
+      <td class="hide-sm num">${r.candles}</td>
+      <td class="hide-sm small">${r.last}</td>
+    </tr>`).join('');
+
+    const signals = data.signals || [];
+    document.getElementById('signals').innerHTML = signals.map(sig => `<article class="signal">
+      <strong class="${sig.direction === 'LONG' ? 'good' : 'bad'}">${sig.symbol} ${sig.direction} · score ${sig.score}</strong>
+      <div class="small">${sig.time}</div>
+      <p>${sig.line}</p>
+    </article>`).join('') || '<div class="muted">No saved signals yet.</div>';
+  } catch (err) {
+    document.getElementById('status').textContent = 'Dashboard error: ' + err;
+  }
+}
+checkAuth().then(ok => { if (ok) load(); });
+setInterval(() => { if (document.getElementById('app').style.display !== 'none') load(); }, 2000);
+document.getElementById('accessCode').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+</script>
+</body>
+</html>

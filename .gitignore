@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 instance/
 uploads/
+insight_engine_web_ready/.venv/
+insight_engine_web_ready/insight_device_lock.json
+insight_engine_web_ready/__pycache__/
+insight_engine_web_ready/**/*.pyc
