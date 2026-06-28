@@ -17,6 +17,10 @@ async def fetch_json(session: aiohttp.ClientSession, url: str, params: Optional[
         return await resp.json()
 
 
+def provider(config: EngineConfig) -> str:
+    return (getattr(config, "market_provider", "binance") or "binance").lower().strip()
+
+
 def normalize_symbol(symbol: str, quote_asset: str = "USDT") -> str:
     """Accept BTC or BTCUSDT and return BTCUSDT-style uppercase symbols."""
     s = (symbol or "").upper().strip().replace("/", "").replace("-", "")
@@ -28,7 +32,12 @@ def normalize_symbol(symbol: str, quote_asset: str = "USDT") -> str:
 
 
 async def get_exchange_usdt_perp_symbols(config: EngineConfig) -> List[str]:
-    """Return active Binance USD-M USDT perpetual symbols."""
+    if provider(config) == "bybit":
+        return await _bybit_exchange_usdt_perp_symbols(config)
+    return await _binance_exchange_usdt_perp_symbols(config)
+
+
+async def _binance_exchange_usdt_perp_symbols(config: EngineConfig) -> List[str]:
     async with aiohttp.ClientSession() as session:
         data = await fetch_json(session, f"{config.rest_base}/fapi/v1/exchangeInfo")
     symbols: List[str] = []
@@ -45,17 +54,43 @@ async def get_exchange_usdt_perp_symbols(config: EngineConfig) -> List[str]:
     return symbols
 
 
+async def _bybit_exchange_usdt_perp_symbols(config: EngineConfig) -> List[str]:
+    async with aiohttp.ClientSession() as session:
+        data = await fetch_json(
+            session,
+            f"{config.bybit_rest_base}/v5/market/instruments-info",
+            {"category": "linear", "status": "Trading", "limit": 1000},
+        )
+    result = data.get("result", {}) if isinstance(data, dict) else {}
+    symbols: List[str] = []
+    for row in result.get("list", []):
+        try:
+            sym = row.get("symbol")
+            if row.get("quoteCoin") == config.quote_asset and sym:
+                symbols.append(sym)
+        except Exception:
+            continue
+    return symbols
+
+
 async def get_book_tickers(config: EngineConfig) -> Dict[str, dict]:
+    if provider(config) == "bybit":
+        async with aiohttp.ClientSession() as session:
+            data = await fetch_json(session, f"{config.bybit_rest_base}/v5/market/tickers", {"category": "linear"})
+        out = {}
+        for r in data.get("result", {}).get("list", []):
+            sym = r.get("symbol")
+            if not sym:
+                continue
+            out[sym] = {"symbol": sym, "bidPrice": r.get("bid1Price"), "askPrice": r.get("ask1Price")}
+        return out
+
     async with aiohttp.ClientSession() as session:
         data = await fetch_json(session, f"{config.rest_base}/fapi/v1/ticker/bookTicker")
     return {r.get("symbol", ""): r for r in data if r.get("symbol")}
 
 
 async def get_top_usdt_perp_symbols(config: EngineConfig, limit: int = 15) -> List[str]:
-    """Return top USDT symbols by quote volume from Binance Futures 24h ticker.
-
-    Kept for backward compatibility. v3.3 GUI uses get_core_plus_dynamic_symbols.
-    """
     selected, _reasons = await get_core_plus_dynamic_symbols(config, limit=limit, manual_symbols=[])
     return selected
 
@@ -88,15 +123,16 @@ async def get_core_plus_dynamic_symbols(
     limit: int = 15,
     manual_symbols: Optional[List[str]] = None,
 ) -> Tuple[List[str], Dict[str, str]]:
-    """Build the v3.3 watchlist: fixed high-cap core + user's typed symbols + dynamic opportunities.
+    if provider(config) == "bybit":
+        return await _bybit_core_plus_dynamic_symbols(config, limit, manual_symbols)
+    return await _binance_core_plus_dynamic_symbols(config, limit, manual_symbols)
 
-    Priority order:
-    1. Fixed high-cap core from config.core_symbols. ZEC is not in this core.
-    2. User symbols typed in the top bar are treated as pins/requests and are included if Binance supports them.
-    3. Remaining slots are filled by a dynamic tradability/opportunity score using Binance Futures public data.
 
-    Returns (symbols, reason_by_symbol).
-    """
+async def _binance_core_plus_dynamic_symbols(
+    config: EngineConfig,
+    limit: int = 15,
+    manual_symbols: Optional[List[str]] = None,
+) -> Tuple[List[str], Dict[str, str]]:
     limit = max(1, min(15, int(limit)))
     manual_symbols = manual_symbols or []
 
@@ -117,7 +153,57 @@ async def get_core_plus_dynamic_symbols(
 
     ticker_by_symbol = {r.get("symbol", ""): r for r in tickers_data if r.get("symbol") in available}
     book_by_symbol = {r.get("symbol", ""): r for r in book_data if r.get("symbol") in available}
+    return _rank_symbols(config, limit, manual_symbols, available, ticker_by_symbol, book_by_symbol, source_label="Binance")
 
+
+async def _bybit_core_plus_dynamic_symbols(
+    config: EngineConfig,
+    limit: int = 15,
+    manual_symbols: Optional[List[str]] = None,
+) -> Tuple[List[str], Dict[str, str]]:
+    limit = max(1, min(15, int(limit)))
+    manual_symbols = manual_symbols or []
+
+    async with aiohttp.ClientSession() as session:
+        tickers_task = fetch_json(session, f"{config.bybit_rest_base}/v5/market/tickers", {"category": "linear"})
+        exch_task = fetch_json(session, f"{config.bybit_rest_base}/v5/market/instruments-info", {"category": "linear", "status": "Trading", "limit": 1000})
+        tickers_data, exch_data = await asyncio.gather(tickers_task, exch_task)
+
+    available = set()
+    for row in exch_data.get("result", {}).get("list", []):
+        sym = row.get("symbol")
+        if sym and row.get("quoteCoin") == config.quote_asset:
+            available.add(sym)
+
+    ticker_by_symbol: Dict[str, dict] = {}
+    book_by_symbol: Dict[str, dict] = {}
+    for r in tickers_data.get("result", {}).get("list", []):
+        sym = r.get("symbol")
+        if not sym or sym not in available:
+            continue
+        # Normalize field names to the Binance ranking keys.
+        price_change_percent = _safe_float(r.get("price24hPcnt")) * 100.0
+        norm = {
+            "symbol": sym,
+            "quoteVolume": r.get("turnover24h"),
+            "priceChangePercent": price_change_percent,
+            "count": r.get("volume24h") or 0,
+        }
+        ticker_by_symbol[sym] = norm
+        book_by_symbol[sym] = {"bidPrice": r.get("bid1Price"), "askPrice": r.get("ask1Price")}
+
+    return _rank_symbols(config, limit, manual_symbols, available, ticker_by_symbol, book_by_symbol, source_label="Bybit")
+
+
+def _rank_symbols(
+    config: EngineConfig,
+    limit: int,
+    manual_symbols: List[str],
+    available: set[str],
+    ticker_by_symbol: Dict[str, dict],
+    book_by_symbol: Dict[str, dict],
+    source_label: str,
+) -> Tuple[List[str], Dict[str, str]]:
     core = _stable_unique([normalize_symbol(s, config.quote_asset) for s in config.core_symbols], available)
     manual = _stable_unique([normalize_symbol(s, config.quote_asset) for s in manual_symbols], available)
 
@@ -128,21 +214,19 @@ async def get_core_plus_dynamic_symbols(
         if len(selected) >= limit:
             break
         selected.append(s)
-        reasons[s] = "fixed high-cap core"
+        reasons[s] = f"fixed high-cap core | {source_label}"
 
     for s in manual:
         if len(selected) >= limit:
             break
         if s not in selected:
             selected.append(s)
-            reasons[s] = "manual top-bar symbol"
+            reasons[s] = f"manual top-bar symbol | {source_label}"
 
-    # Dynamic ranking: liquidity first, then tradable movement, tight spread, and trade activity.
     rows: List[Tuple[float, str, str]] = []
+    excluded = set(config.dynamic_exclude_symbols)
     for sym, row in ticker_by_symbol.items():
-        if sym in selected:
-            continue
-        if sym in set(config.dynamic_exclude_symbols):
+        if sym in selected or sym in excluded:
             continue
         quote_volume = _safe_float(row.get("quoteVolume"))
         if quote_volume < config.min_dynamic_quote_volume:
@@ -156,18 +240,17 @@ async def get_core_plus_dynamic_symbols(
         if bid > 0 and ask > 0 and ask >= bid:
             spread_pct = (ask - bid) / ((ask + bid) / 2) * 100
 
-        # Keep it trader-friendly: reward volume and movement, but penalize chaotic extreme moves and wide spreads.
         volume_score = min(35.0, math.log10(max(quote_volume, 1.0)) * 4.0)
         activity_score = min(20.0, math.log10(max(count, 1.0)) * 3.0)
         movement_score = min(18.0, pct * 1.8)
         if pct > 25:
-            movement_score -= min(12.0, (pct - 25) * 0.5)  # avoid pure mania picks
+            movement_score -= min(12.0, (pct - 25) * 0.5)
         spread_score = max(0.0, 18.0 - spread_pct * 300.0)
         stability_bonus = 6.0 if pct <= 12 else 0.0
         score = volume_score + activity_score + movement_score + spread_score + stability_bonus
 
         reason = (
-            f"dynamic pick | 24h vol ${quote_volume/1_000_000:.1f}M, "
+            f"dynamic pick | {source_label} | 24h vol ${quote_volume/1_000_000:.1f}M, "
             f"24h move {pct:.2f}%, spread {spread_pct:.3f}%"
         )
         rows.append((score, sym, reason))
@@ -180,23 +263,27 @@ async def get_core_plus_dynamic_symbols(
             selected.append(sym)
             reasons[sym] = reason
 
-    # Absolute fallback if filters were too strict.
     if len(selected) < limit:
         fallback = sorted(
-            (( _safe_float(r.get("quoteVolume")), sym) for sym, r in ticker_by_symbol.items() if sym not in selected),
+            ((_safe_float(r.get("quoteVolume")), sym) for sym, r in ticker_by_symbol.items() if sym not in selected),
             reverse=True,
         )
         for _qv, sym in fallback:
             if len(selected) >= limit:
                 break
             selected.append(sym)
-            reasons[sym] = "fallback high-volume filler"
+            reasons[sym] = f"fallback high-volume filler | {source_label}"
 
     return selected[:limit], reasons
 
 
 async def get_historical_klines(config: EngineConfig, symbol: str, interval: str, limit: int = 120) -> List[Candle]:
-    """Fetch recent Binance Futures candles so the dashboard has scores immediately."""
+    if provider(config) == "bybit":
+        return await _bybit_historical_klines(config, symbol, interval, limit)
+    return await _binance_historical_klines(config, symbol, interval, limit)
+
+
+async def _binance_historical_klines(config: EngineConfig, symbol: str, interval: str, limit: int = 120) -> List[Candle]:
     async with aiohttp.ClientSession() as session:
         data = await fetch_json(
             session,
@@ -206,28 +293,73 @@ async def get_historical_klines(config: EngineConfig, symbol: str, interval: str
     now_ms = int(time.time() * 1000)
     candles: List[Candle] = []
     for row in data:
-        # Binance kline REST format:
-        # [openTime, open, high, low, close, volume, closeTime, quoteVolume, ...]
         close_time_ms = int(row[6])
-        candles.append(
-            Candle(
-                symbol=symbol,
-                interval=interval,
-                open_time_ms=int(row[0]),
-                close_time_ms=close_time_ms,
-                open=float(row[1]),
-                high=float(row[2]),
-                low=float(row[3]),
-                close=float(row[4]),
-                volume=float(row[5]),
-                is_closed=close_time_ms <= now_ms,
-            )
-        )
+        candles.append(Candle(
+            symbol=symbol,
+            interval=interval,
+            open_time_ms=int(row[0]),
+            close_time_ms=close_time_ms,
+            open=float(row[1]),
+            high=float(row[2]),
+            low=float(row[3]),
+            close=float(row[4]),
+            volume=float(row[5]),
+            is_closed=close_time_ms <= now_ms,
+        ))
     return candles
 
 
+def _bybit_interval(interval: str) -> str:
+    mapping = {
+        "1m": "1", "3m": "3", "5m": "5", "15m": "15", "30m": "30",
+        "1h": "60", "2h": "120", "4h": "240", "1d": "D"
+    }
+    return mapping.get(interval, interval.replace("m", ""))
+
+
+async def _bybit_historical_klines(config: EngineConfig, symbol: str, interval: str, limit: int = 120) -> List[Candle]:
+    bybit_interval = _bybit_interval(interval)
+    async with aiohttp.ClientSession() as session:
+        data = await fetch_json(
+            session,
+            f"{config.bybit_rest_base}/v5/market/kline",
+            {"category": "linear", "symbol": symbol, "interval": bybit_interval, "limit": limit},
+        )
+    raw = data.get("result", {}).get("list", [])
+    # Bybit returns newest first; sort oldest -> newest for scoring.
+    raw = sorted(raw, key=lambda r: int(r[0]))
+    now_ms = int(time.time() * 1000)
+    interval_ms = _interval_to_ms(interval)
+    candles: List[Candle] = []
+    for row in raw:
+        open_ms = int(row[0])
+        close_ms = open_ms + interval_ms - 1
+        candles.append(Candle(
+            symbol=symbol,
+            interval=interval,
+            open_time_ms=open_ms,
+            close_time_ms=close_ms,
+            open=float(row[1]),
+            high=float(row[2]),
+            low=float(row[3]),
+            close=float(row[4]),
+            volume=float(row[5]),
+            is_closed=close_ms <= now_ms,
+        ))
+    return candles
+
+
+def _interval_to_ms(interval: str) -> int:
+    if interval.endswith("m"):
+        return int(interval[:-1]) * 60_000
+    if interval.endswith("h"):
+        return int(interval[:-1]) * 60 * 60_000
+    if interval.endswith("d"):
+        return int(interval[:-1]) * 24 * 60 * 60_000
+    return 60_000
+
+
 async def preload_historical_klines(config: EngineConfig, symbols: List[str], interval: str, limit: int = 120) -> Dict[str, List[Candle]]:
-    """Load recent candles concurrently with a small semaphore for laptop/network stability."""
     sem = asyncio.Semaphore(6)
 
     async def one(sym: str):
@@ -242,6 +374,8 @@ async def preload_historical_klines(config: EngineConfig, symbols: List[str], in
 
 
 async def get_open_interest(config: EngineConfig, symbol: str) -> Optional[float]:
+    if provider(config) == "bybit":
+        return None
     async with aiohttp.ClientSession() as session:
         data = await fetch_json(session, f"{config.rest_base}/fapi/v1/openInterest", {"symbol": symbol})
     try:
@@ -251,6 +385,8 @@ async def get_open_interest(config: EngineConfig, symbol: str) -> Optional[float
 
 
 async def get_recent_funding_rate(config: EngineConfig, symbol: str) -> Optional[float]:
+    if provider(config) == "bybit":
+        return None
     async with aiohttp.ClientSession() as session:
         data = await fetch_json(session, f"{config.rest_base}/fapi/v1/fundingRate", {"symbol": symbol, "limit": 1})
     try:
@@ -258,4 +394,3 @@ async def get_recent_funding_rate(config: EngineConfig, symbol: str) -> Optional
             return float(data[-1]["fundingRate"])
     except Exception:
         return None
-    return None

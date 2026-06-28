@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
-from .binance_ws import agg_trade_streams, kline_streams, mark_price_streams, partial_depth_streams, stream_events
+from . import binance_ws, bybit_ws
 from .config import EngineConfig
 from .engine import InsightEngine
 from .flow import latest_book_imbalance, trade_flow_delta, volume_impulse
@@ -49,6 +49,7 @@ class InsightWebService:
             interval=os.getenv("INSIGHT_INTERVAL", "1m"),
             deep_limit=_env_int("INSIGHT_DEEP_LIMIT", 15),
             min_signal_score=_env_int("INSIGHT_MIN_SCORE", 70),
+            market_provider=os.getenv("INSIGHT_PROVIDER", "binance").lower().strip(),
         )
         self.auto_symbols = _env_int("INSIGHT_AUTO_SYMBOLS", 15)
         self.manual_symbols = _env_symbols("BTCUSDT,ETHUSDT,BNBUSDT,SOLUSDT,XRPUSDT")
@@ -100,6 +101,7 @@ class InsightWebService:
                     "deep_limit": self.config.deep_limit,
                     "min_signal_score": self.config.min_signal_score,
                     "auto_symbols": self.auto_symbols,
+                    "provider": self.config.market_provider,
                 },
             }
 
@@ -131,26 +133,29 @@ class InsightWebService:
                 for candle in candles:
                     engine.update_state(candle)
 
+            provider = (self.config.market_provider or "binance").lower()
+            wsmod = bybit_ws if provider == "bybit" else binance_ws
             streams = []
-            streams += kline_streams(engine.symbols, self.config.interval)
-            streams += agg_trade_streams(engine.symbols)
-            streams += mark_price_streams(engine.symbols)
+            streams += wsmod.kline_streams(engine.symbols, self.config.interval)
+            streams += wsmod.agg_trade_streams(engine.symbols)
+            streams += wsmod.mark_price_streams(engine.symbols)
             depth_symbols = engine.symbols[: max(3, min(self.config.deep_limit, 15))]
-            streams += partial_depth_streams(depth_symbols, self.config.depth_levels, self.config.depth_speed_ms)
+            streams += wsmod.partial_depth_streams(depth_symbols, self.config.depth_levels, self.config.depth_speed_ms)
+            ws_base = self.config.bybit_ws_base if provider == "bybit" else self.config.market_ws_base
 
             async with self.lock:
                 self.engine = engine
                 self.running_symbols = engine.symbols
                 self.reasons = reasons
                 self.rows = self._snapshot_rows(engine, engine.score_all())
-                self.status = f"Live: {len(engine.symbols)} symbols, {len(streams)} streams"
+                self.status = f"Live: {len(engine.symbols)} symbols, {len(streams)} streams | provider {provider}"
                 self.last_snapshot_at = datetime.now(timezone.utc).isoformat()
 
             last_snapshot = 0.0
             last_alert_ts: Dict[str, float] = {}
             seen_signal_keys: set[str] = set()
 
-            async for event in stream_events(streams, self.config.market_ws_base, self.config.websocket_chunk_size):
+            async for event in wsmod.stream_events(streams, ws_base, self.config.websocket_chunk_size):
                 if self.stop_event.is_set():
                     break
 

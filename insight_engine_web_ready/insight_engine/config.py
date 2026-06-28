@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import List
 
@@ -13,10 +15,14 @@ class EngineConfig:
     sweep_tolerance_pct: float = 0.0005
     volume_impulse_threshold: float = 1.8
     trade_flow_window: int = 120
-    websocket_chunk_size: int = 180  # keep conservative below Binance stream limit
+    websocket_chunk_size: int = 180
+    # Set INSIGHT_PROVIDER=bybit on Render if Binance blocks cloud traffic.
+    market_provider: str = "binance"  # binance / bybit
     market_ws_base: str = "wss://fstream.binance.com/market/stream?streams="
     public_ws_base: str = "wss://fstream.binance.com/public/stream?streams="
     rest_base: str = "https://fapi.binance.com"
+    bybit_rest_base: str = "https://api.bybit.com"
+    bybit_ws_base: str = "wss://stream.bybit.com/v5/public/linear"
     include_depth_for_deep_symbols: bool = True
     depth_levels: int = 20
     depth_speed_ms: int = 500
@@ -29,7 +35,7 @@ class EngineConfig:
     ])
     # Dynamic scanner will avoid these unless the user manually types them in the top bar.
     dynamic_exclude_symbols: List[str] = field(default_factory=lambda: [
-        "USDCUSDT", "BUSDUSDT", "FDUSDUSDT", "TUSDUSDT"
+        "USDCUSDT", "BUSDUSDT", "FDUSDUSDT", "TUSDUSDT", "USDEUSDT"
     ])
     shortlist_refresh_minutes: int = 15
     min_dynamic_quote_volume: float = 50_000_000.0
