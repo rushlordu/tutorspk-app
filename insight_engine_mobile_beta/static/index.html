@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>INSIGHT Engine</title>
+  <style>
+    :root{color-scheme:dark;--bg:#080d16;--panel:#101827;--panel2:#142036;--line:#22314a;--text:#eef5ff;--muted:#9fb0c7;--good:#58e68b;--bad:#ff6b6b;--warn:#ffd166;--blue:#6ea8ff;--chip:#1a2942;font-family:Inter,Segoe UI,Arial,sans-serif}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#132442 0,#080d16 52%);color:var(--text)}button,input,select,textarea{font:inherit}button{border:1px solid #314768;background:#1b2b46;color:var(--text);border-radius:12px;padding:11px 14px;font-weight:800;cursor:pointer}button:hover{background:#263b5d}.ghost{background:transparent}.primary{background:#0e3a68;border-color:#2d78b8}.danger{background:#51202a;border-color:#7a2e40}.muted{color:var(--muted)}.small{font-size:12px;line-height:1.35}.screen{min-height:100vh}.gate{display:none;align-items:center;justify-content:center;padding:18px}.gate-card{width:100%;max-width:480px;background:rgba(16,24,39,.96);border:1px solid var(--line);border-radius:22px;box-shadow:0 20px 60px #0008;padding:18px}.brand{font-size:26px;font-weight:900;margin:0 0 6px}.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0}.tabs button.active{background:#0e3a68;border-color:#3d8bd2}.field{margin:10px 0}.field label{display:block;font-size:12px;color:var(--muted);margin:0 0 5px}.field input,.field select,.field textarea{width:100%;border:1px solid #314768;background:#0b1220;color:var(--text);border-radius:12px;padding:11px 12px;min-height:44px}.field textarea{min-height:78px;resize:vertical}.paybox{border:1px solid #284b63;background:#0d1a2b;border-radius:16px;padding:12px;margin:12px 0}.paybox code{display:block;background:#08111f;border:1px solid #314768;border-radius:8px;padding:8px;margin-top:6px;overflow-wrap:anywhere;color:#dbeafe}.plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.plan{border:1px solid var(--line);background:#0b1220;border-radius:15px;padding:10px}.plan b{display:block}.status-pill{display:inline-flex;gap:6px;align-items:center;border:1px solid #314768;background:#0b1220;border-radius:999px;padding:6px 10px;font-size:12px}.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}.dot.online{background:var(--good)}.dot.away{background:var(--warn)}.dot.offline{background:var(--bad)}#app{display:none}.top{position:sticky;top:0;z-index:10;background:rgba(10,15,25,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:12px}.top-row{display:flex;gap:10px;align-items:center;justify-content:space-between}.title{font-size:18px;font-weight:900}.sub{font-size:12px;color:var(--muted);margin-top:3px}.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}.actions button{padding:9px 10px;font-size:13px}.wrap{max-width:780px;margin:0 auto;padding:12px 12px 90px}.market{border:1px solid var(--line);background:#0d1524;border-radius:16px;padding:11px;margin-bottom:12px}.cards{display:grid;gap:12px}.card{border:1px solid var(--line);background:linear-gradient(180deg,#111c2f,#0d1524);border-radius:18px;padding:13px;box-shadow:0 8px 30px #0004}.card.hot{border-color:#416f9e}.card.buy{border-color:#246b46}.card.sell{border-color:#7a2e40}.card-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.coin{font-size:20px;font-weight:950}.take{font-size:12px;font-weight:900;border-radius:999px;padding:6px 9px;background:#1a2942;border:1px solid #314768;white-space:nowrap}.take.buy{color:var(--good);border-color:#2c8350}.take.sell{color:var(--bad);border-color:#8d3a45}.take.neutral{color:var(--warn)}.price{font-size:24px;font-weight:900;font-variant-numeric:tabular-nums;margin-top:8px}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}.metric{background:#0a111d;border:1px solid #21314a;border-radius:12px;padding:8px}.metric span{display:block;font-size:11px;color:var(--muted)}.metric b{font-size:13px}.trade{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}.trade div{background:#0a111d;border:1px solid #21314a;border-radius:12px;padding:8px}.trade span{display:block;font-size:11px;color:var(--muted)}.reason{font-size:12px;color:#c8d7ea;line-height:1.35;margin-top:10px}.empty{border:1px dashed #314768;border-radius:16px;padding:18px;text-align:center;color:var(--muted)}.risk{margin-top:14px;border:1px solid #553322;background:#1c1412;color:#ffd6a5;border-radius:16px;padding:12px;font-size:12px;line-height:1.35}.chat-fab{position:fixed;right:14px;bottom:14px;z-index:20;border-radius:999px;background:#0e3a68}.chat{display:none;position:fixed;right:12px;bottom:70px;width:min(360px,calc(100vw - 24px));background:#101827;border:1px solid var(--line);border-radius:18px;z-index:21;box-shadow:0 18px 70px #0009;overflow:hidden}.chat-head{padding:12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}.chat-body{padding:12px}.chat textarea{width:100%;min-height:80px;border:1px solid #314768;background:#0b1220;color:var(--text);border-radius:12px;padding:10px}.chat input{width:100%;border:1px solid #314768;background:#0b1220;color:var(--text);border-radius:12px;padding:10px;margin-bottom:8px}.hidden{display:none!important}@media (max-width:520px){.gate{padding:10px}.gate-card{padding:14px;border-radius:18px}.brand{font-size:23px}.plan-grid,.trade{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.metric{padding:7px}.price{font-size:22px}.coin{font-size:18px}.wrap{padding:10px 10px 90px}.top{padding:11px 10px}.title{font-size:16px}.actions button{flex:1 1 120px}.logout{flex:0 0 auto!important}.card{padding:12px;border-radius:16px}}
+  </style>
+</head>
+<body>
+<section id="gate" class="screen gate">
+  <div class="gate-card">
+    <div class="brand">INSIGHT Engine</div>
+    <div class="muted small">Mobile signal app. Paid access is approved manually after USDT payment verification.</div>
+    <div style="margin-top:10px"><span id="supportStatus" class="status-pill"><span class="dot away"></span> Admin: checking...</span></div>
+    <div class="tabs"><button id="tabIn" class="active" onclick="setTab('signin')">Sign In</button><button id="tabUp" onclick="setTab('signup')">Sign Up</button></div>
+
+    <div id="signinBox">
+      <div class="field"><label>Email</label><input id="loginEmail" type="email" autocomplete="email" placeholder="you@email.com"></div>
+      <div class="field"><label>PIN / Password</label><input id="loginPin" type="password" autocomplete="current-password" placeholder="Your PIN"></div>
+      <button class="primary" style="width:100%" onclick="login()">Open Signals</button>
+      <p id="loginMsg" class="small muted"></p>
+    </div>
+
+    <div id="signupBox" class="hidden">
+      <div class="plan-grid">
+        <div class="plan"><b>Basic — 10 USDT/month</b><span class="small muted">Top 5 active coins. Signal cards only.</span></div>
+        <div class="plan"><b>Pro — 15 USDT/month</b><span class="small muted">Top 10 active coins. More coverage.</span></div>
+      </div>
+      <div id="paymentBox" class="paybox small">Loading payment details...</div>
+      <div class="field"><label>Full name</label><input id="suName" placeholder="Full name"></div>
+      <div class="field"><label>Email</label><input id="suEmail" type="email" placeholder="you@email.com"></div>
+      <div class="field"><label>Create PIN / Password</label><input id="suPin" type="password" placeholder="At least 4 characters"></div>
+      <div class="field"><label>Plan</label><select id="suPlan"><option value="basic">Basic — 10 USDT/month</option><option value="pro">Pro — 15 USDT/month</option></select></div>
+      <div class="field"><label>USDT Network</label><select id="suNetwork"><option>TRC20</option><option>BEP20</option><option>ERC20</option></select></div>
+      <div class="field"><label>Transaction Hash</label><input id="suTx" placeholder="Paste payment TX hash"></div>
+      <div class="field"><label>Note</label><textarea id="suNote" placeholder="Optional note for admin"></textarea></div>
+      <label class="small muted"><input id="suProof" type="checkbox"> I have emailed payment screenshot/proof to the address shown above.</label>
+      <button class="primary" style="width:100%;margin-top:12px" onclick="signup()">Submit Access Request</button>
+      <p id="signupMsg" class="small muted"></p>
+    </div>
+  </div>
+</section>
+
+<div id="app">
+  <header class="top">
+    <div class="top-row"><div><div class="title">INSIGHT Signals</div><div id="userLine" class="sub">Loading...</div></div><button class="logout ghost" onclick="logout()">Logout</button></div>
+    <div id="status" class="sub">Connecting...</div>
+    <div class="actions"><button onclick="enableSound()">🔔 Enable Sound</button><button onclick="load()">Refresh</button><span id="soundMsg" class="small muted"></span></div>
+  </header>
+  <main class="wrap">
+    <section class="market"><b>Top active setups</b><div class="small muted">Entry / SL / TP appears only when score is 70+ and direction is clear.</div></section>
+    <section id="cards" class="cards"><div class="empty">Waiting for market data...</div></section>
+    <div class="risk">Educational/testing dashboard only. Crypto trading is high risk and this is not financial advice. Signals can fail. Never risk money you cannot afford to lose.</div>
+  </main>
+</div>
+
+<button class="chat-fab" onclick="toggleChat()">Support</button>
+<div id="chat" class="chat">
+  <div class="chat-head"><b>Support</b><button class="ghost" onclick="toggleChat()">×</button></div>
+  <div class="chat-body">
+    <div class="small muted" style="margin-bottom:8px">Text only. Email payment screenshots/proof separately.</div>
+    <input id="chatName" placeholder="Name, if not logged in">
+    <input id="chatEmail" placeholder="Email, if not logged in">
+    <textarea id="chatMsg" placeholder="Type your message..."></textarea>
+    <button class="primary" style="width:100%;margin-top:8px" onclick="sendChat()">Send Message</button>
+    <p id="chatNote" class="small muted"></p>
+  </div>
+</div>
+
+<script>
+let currentUser=null, soundEnabled=false, lastHotKeys=new Set(), timer=null;
+function randomHex(bytes=24){const a=new Uint8Array(bytes);crypto.getRandomValues(a);return Array.from(a,b=>b.toString(16).padStart(2,'0')).join('')}
+function getDeviceId(){let id=localStorage.getItem('insight_device_id');if(!id){id=randomHex(24);localStorage.setItem('insight_device_id',id)}return id}
+function getTabId(){let id=sessionStorage.getItem('insight_tab_id');if(!id){id=randomHex(16);sessionStorage.setItem('insight_tab_id',id)}return id}
+function headers(){return {'Content-Type':'application/json','X-Insight-Device':getDeviceId(),'X-Insight-Tab':getTabId()}}
+function esc(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function fmt(n){if(n===null||n===undefined||Number.isNaN(Number(n)))return '--';n=Number(n);if(Math.abs(n)>=1000)return n.toLocaleString(undefined,{maximumFractionDigits:2});if(Math.abs(n)>=1)return n.toFixed(4);return n.toFixed(6)}
+function pct(n){return n===null||n===undefined?'--':`${Number(n)>=0?'+':''}${Number(n).toFixed(2)}%`}
+function setTab(t){document.getElementById('tabIn').classList.toggle('active',t==='signin');document.getElementById('tabUp').classList.toggle('active',t==='signup');document.getElementById('signinBox').classList.toggle('hidden',t!=='signin');document.getElementById('signupBox').classList.toggle('hidden',t!=='signup')}
+function showGate(msg=''){document.getElementById('gate').style.display='flex';document.getElementById('app').style.display='none';if(msg)document.getElementById('loginMsg').textContent=msg;if(timer){clearInterval(timer);timer=null}}
+function showApp(){document.getElementById('gate').style.display='none';document.getElementById('app').style.display='block';if(!timer)timer=setInterval(load,2500)}
+async function publicConfig(){try{let r=await fetch('/api/public/config',{cache:'no-store'});let d=await r.json();document.getElementById('paymentBox').innerHTML=`<b>Pay USDT</b><br>Network: <b>${esc(d.payment_network)}</b><code>${esc(d.payment_wallet)}</code>Email screenshot/proof to: <b>${esc(d.payment_email)}</b><br><br>Email subject:<br><code>INSIGHT PAYMENT - your@email.com - TXHASH</code><br>${esc(d.payment_note)}`;renderAdminStatus(d.admin_status)}catch(e){}}
+function renderAdminStatus(st){let e=(st&&st.effective)||'away';document.getElementById('supportStatus').innerHTML=`<span class="dot ${e}"></span> Admin: ${e.toUpperCase()}`}
+async function refreshSupport(){try{let r=await fetch('/api/support/status',{cache:'no-store'});renderAdminStatus(await r.json())}catch(e){}}
+async function checkAuth(){await publicConfig();try{let r=await fetch('/api/auth/status',{headers:headers(),cache:'no-store'});let d=await r.json();if(d.authorized){currentUser=d.user;showApp();load()}else showGate('Sign in or request access.')}catch(e){showGate('Sign in or request access.')}}
+async function login(){let msg=document.getElementById('loginMsg');msg.textContent='Checking...';try{let r=await fetch('/api/login',{method:'POST',headers:headers(),body:JSON.stringify({email:loginEmail.value,pin:loginPin.value,device_id:getDeviceId(),tab_id:getTabId()})});let d=await r.json().catch(()=>({}));if(!r.ok){msg.textContent=d.detail||'Login failed';return}currentUser=d.user;showApp();load()}catch(e){msg.textContent='Login error: '+e}}
+async function signup(){let msg=document.getElementById('signupMsg');if(!suProof.checked){msg.textContent='Please email payment screenshot/proof first, then tick the checkbox.';return}msg.textContent='Submitting...';try{let r=await fetch('/api/signup',{method:'POST',headers:headers(),body:JSON.stringify({name:suName.value,email:suEmail.value,pin:suPin.value,plan:suPlan.value,payment_network:suNetwork.value,tx_hash:suTx.value,note:suNote.value})});let d=await r.json().catch(()=>({}));if(!r.ok){msg.textContent=d.detail||'Signup failed';return}msg.textContent='Request submitted. Wait for admin approval, then sign in with your email and PIN.';setTab('signin');loginEmail.value=suEmail.value}catch(e){msg.textContent='Signup error: '+e}}
+async function logout(){try{await fetch('/api/logout',{method:'POST',headers:headers()})}catch(e){}currentUser=null;showGate('Logged out.')}
+async function load(){try{let r=await fetch('/api/state',{headers:headers(),cache:'no-store'});if(r.status===401){showGate('Session expired or another session is active. Sign in again.');return}let d=await r.json();document.getElementById('status').textContent=`${d.status} · interval ${d.settings?.interval||'--'} · updated ${d.last_snapshot_at?new Date(d.last_snapshot_at).toLocaleTimeString():'--'}`;document.getElementById('userLine').textContent=currentUser?`${currentUser.name} · ${currentUser.plan_name} · top ${currentUser.plan_limit} coins · expires ${currentUser.expires_at?new Date(currentUser.expires_at).toLocaleDateString():'--'}`:'';renderCards(d.signal_cards||[])}catch(e){document.getElementById('status').textContent='Load error: '+e}}
+function renderCards(cards){let box=document.getElementById('cards');if(!cards.length){box.innerHTML='<div class="empty">Waiting for market data...</div>';return}let hotNow=new Set();box.innerHTML=cards.map(c=>{let side=c.direction==='long'?'buy':c.direction==='short'?'sell':'neutral';let hot=c.trade_active?'hot ':'';let key=`${c.symbol}:${c.take}:${c.score}`;if(c.trade_active){hotNow.add(key)}let t=c.targets||[];let entry=c.entry_zone?`${fmt(c.entry_zone[0])} – ${fmt(c.entry_zone[1])}`:'Only above 70 score';return `<article class="card ${hot}${side}"><div class="card-head"><div><div class="coin">${esc(c.symbol)}</div><div class="small muted">Activity rank ${fmt(c.activity_rank)}</div></div><div class="take ${side}">${esc(c.take)}</div></div><div class="price">${fmt(c.price)}</div><div class="metrics"><div class="metric"><span>Score</span><b>${c.score}</b></div><div class="metric"><span>Move</span><b>${pct(c.move_pct)}</b></div><div class="metric"><span>Buy/Sell</span><b>${c.buy}/${c.sell}</b></div></div>${c.trade_active?`<div class="trade"><div><span>Entry</span><b>${entry}</b></div><div><span>SL</span><b>${fmt(c.sl)}</b></div><div><span>TP1</span><b>${fmt(t[0])}</b></div><div><span>TP2</span><b>${fmt(t[1])}</b></div>${t[2]?`<div><span>TP3</span><b>${fmt(t[2])}</b></div>`:''}</div>`:`<div class="small muted">No clean entry/SL/TP until score is 70+ with clear direction.</div>`}<div class="reason"><b>Why:</b> ${esc(c.reason)}</div><div class="small muted" style="margin-top:7px">${esc(c.last||'')}</div></article>`}).join('');if(soundEnabled){for(const k of hotNow){if(!lastHotKeys.has(k))beep()} }lastHotKeys=hotNow}
+function enableSound(){soundEnabled=true;document.getElementById('soundMsg').textContent='Sound alerts enabled';beep()}
+function beep(){try{let ctx=new (window.AudioContext||window.webkitAudioContext)();let o=ctx.createOscillator();let g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=880;g.gain.value=.05;o.start();setTimeout(()=>{o.stop();ctx.close()},180)}catch(e){}}
+function toggleChat(){let c=document.getElementById('chat');c.style.display=c.style.display==='block'?'none':'block'}
+async function sendChat(){let note=document.getElementById('chatNote');note.textContent='Sending...';try{let r=await fetch('/api/chat',{method:'POST',headers:headers(),body:JSON.stringify({name:chatName.value,email:chatEmail.value,message:chatMsg.value})});let d=await r.json().catch(()=>({}));if(!r.ok){note.textContent=d.detail||'Message failed';return}chatMsg.value='';note.textContent=d.message||'Sent'}catch(e){note.textContent='Error: '+e}}
+setInterval(refreshSupport,30000);checkAuth();
+</script>
+</body>
+</html>
